@@ -162,16 +162,26 @@ const CustomerPage = () => {
 
     try {
       const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
+      
+      // حساب المسافة والسعر
+      const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
+      const price = calculatePrice(distance, selectedVehicle);
 
-      const { data, error } = await supabase.rpc('create_trip', {
-        p_customer_id: user?.id,
-        p_from_location: fromLocation,
-        p_to_location: toLocation,
-        p_from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
-        p_to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
-        p_vehicle_type: selectedVehicle,
-        p_scheduled_time: scheduledTime
-      });
+      const { data, error } = await supabase
+        .from('trips')
+        .insert({
+          customer_id: user?.id,
+          from_location: fromLocation,
+          to_location: toLocation,
+          from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
+          to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
+          vehicle_type: selectedVehicle,
+          distance_km: distance,
+          price: price,
+          scheduled_time: scheduledTime,
+          status: scheduledTime ? 'scheduled' : 'pending'
+        })
+        .select();
 
       if (error) throw error;
 

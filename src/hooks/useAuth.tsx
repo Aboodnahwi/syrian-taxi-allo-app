@@ -131,14 +131,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // إكمال التسجيل
         const userData = JSON.parse(pendingRegistration);
         
+        // إنشاء ID عشوائي للمستخدم الجديد
+        const newUserId = crypto.randomUUID();
+        
         const { data: profile, error: insertError } = await supabase
           .from('profiles')
-          .insert([{
+          .insert({
+            id: newUserId,
             name: userData.name,
             phone: userData.phone,
             role: userData.role,
             governorate: userData.governorate
-          }])
+          })
           .select()
           .single();
 
@@ -148,14 +152,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (userData.role === 'driver') {
           await supabase
             .from('drivers')
-            .insert([{
+            .insert({
               user_id: profile.id,
               vehicle_type: 'regular',
               license_number: 'temp-license',
               license_plate: 'temp-plate',
               vehicle_model: 'غير محدد',
               vehicle_color: 'غير محدد'
-            }]);
+            });
         }
 
         setUser(profile);
