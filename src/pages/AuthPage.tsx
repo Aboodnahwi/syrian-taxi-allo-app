@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,18 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Car, Users, Shield, Phone, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
+  const { signUp, signIn, verifyOtp } = useAuth();
   const userType = searchParams.get('type') || 'customer';
   
   const [isLogin, setIsLogin] = useState(true);
   const [verificationMode, setVerificationMode] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [currentPhone, setCurrentPhone] = useState('');
   
   // بيانات التسجيل
   const [registerData, setRegisterData] = useState({
@@ -51,69 +50,33 @@ const AuthPage = () => {
     }
   }, [userType]);
 
-  const generateVerificationCode = () => {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedCode(code);
-    return code;
-  };
-
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!registerData.name || !registerData.phone || !registerData.governorate) {
-      toast({
-        title: "خطأ في البيانات",
-        description: "يرجى ملء جميع الحقول المطلوبة",
-        variant: "destructive"
-      });
       return;
     }
 
-    // إنشاء رمز التحقق
-    const code = generateVerificationCode();
-    setVerificationMode(true);
-    
-    toast({
-      title: "تم إرسال رمز التحقق",
-      description: `رمز التحقق المرسل: ${code} (للتجربة فقط)`,
-      className: "bg-green-50 border-green-200 text-green-800"
-    });
+    const success = await signUp(registerData);
+    if (success) {
+      setCurrentPhone(registerData.phone);
+      setVerificationMode(true);
+    }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!loginPhone) {
-      toast({
-        title: "خطأ في البيانات",
-        description: "يرجى إدخال رقم الهاتف",
-        variant: "destructive"
-      });
       return;
     }
 
-    // إنشاء رمز التحقق
-    const code = generateVerificationCode();
-    setVerificationMode(true);
-    
-    toast({
-      title: "تم إرسال رمز التحقق",
-      description: `رمز التحقق المرسل: ${code} (للتجربة فقط)`,
-      className: "bg-green-50 border-green-200 text-green-800"
-    });
+    const success = await signIn(loginPhone);
+    if (success) {
+      setCurrentPhone(loginPhone);
+      setVerificationMode(true);
+    }
   };
 
-  const handleVerification = () => {
-    if (verificationCode === generatedCode) {
-      // حفظ بيانات المستخدم
-      const userData = isLogin 
-        ? { phone: loginPhone, role: userType }
-        : registerData;
-      
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في ألو تكسي",
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
+  const handleVerification = async () => {
+    const success = await verifyOtp(currentPhone, verificationCode);
+    if (success) {
       // توجيه حسب نوع المستخدم
       switch (userType) {
         case 'customer':
@@ -128,12 +91,6 @@ const AuthPage = () => {
         default:
           navigate('/customer');
       }
-    } else {
-      toast({
-        title: "رمز التحقق خاطئ",
-        description: "يرجى إدخال الرمز الصحيح",
-        variant: "destructive"
-      });
     }
   };
 
@@ -151,25 +108,16 @@ const AuthPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-blue-50/10 border border-blue-200/20 rounded-lg p-4 text-center">
-              <p className="text-blue-300 font-tajawal text-sm">
-                رمز التحقق للتجربة: <span className="font-bold text-lg">{generatedCode}</span>
-              </p>
-              <p className="text-blue-400 text-xs mt-1">
-                (سيتم إخفاؤه عند تفعيل الموقع)
-              </p>
-            </div>
-            
             <div className="space-y-2">
               <Label htmlFor="verification" className="text-white font-tajawal">رمز التحقق</Label>
               <Input
                 id="verification"
                 type="text"
-                placeholder="أدخل الرمز المكون من 4 أرقام"
+                placeholder="أدخل الرمز المكون من 6 أرقام"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 className="text-center text-2xl tracking-widest bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                maxLength={4}
+                maxLength={6}
               />
             </div>
 
@@ -177,7 +125,7 @@ const AuthPage = () => {
               <Button 
                 onClick={handleVerification}
                 className="w-full btn-taxi text-lg py-3"
-                disabled={verificationCode.length !== 4}
+                disabled={verificationCode.length !== 6}
               >
                 تحقق ودخول
               </Button>

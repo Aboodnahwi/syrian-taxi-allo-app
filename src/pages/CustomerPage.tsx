@@ -1,35 +1,30 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { MapPin, Navigation, Clock, Car, LogOut, Search, Calendar } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useVehiclePricing } from '@/hooks/useVehiclePricing';
+import { useRealTimeTrips } from '@/hooks/useRealTime';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import MapComponent from '@/components/MapComponent';
 import NotificationSystem from '@/components/NotificationSystem';
-
-// أنواع المركبات
-const vehicleTypes = [
-  { id: 'regular', name: 'سيارة عادية', price: 1000, icon: '🚗', color: 'bg-blue-500' },
-  { id: 'ac', name: 'سيارة مكيفة', price: 1500, icon: '❄️', color: 'bg-cyan-500' },
-  { id: 'public', name: 'سيارة عامة', price: 500, icon: '🚕', color: 'bg-yellow-500' },
-  { id: 'vip', name: 'سيارة VIP', price: 3000, icon: '✨', color: 'bg-purple-500' },
-  { id: 'microbus', name: 'ميكرو باص', price: 800, icon: '🚐', color: 'bg-green-500' },
-  { id: 'bike', name: 'دراجة نارية', price: 700, icon: '🏍️', color: 'bg-orange-500' }
-];
 
 const CustomerPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const { user, signOut } = useAuth();
+  const { pricing, calculatePrice } = useVehiclePricing();
+  const trips = useRealTimeTrips('customer', user?.id);
   
-  const [user, setUser] = useState<any>(null);
-  const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicleTypes[0]);
+  const [fromCoordinates, setFromCoordinates] = useState<[number, number] | null>(null);
+  const [toCoordinates, setToCoordinates] = useState<[number, number] | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState('regular');
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
@@ -39,72 +34,14 @@ const CustomerPage = () => {
   const [showToSuggestions, setShowToSuggestions] = useState(false);
   const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [routeDistance, setRouteDistance] = useState(0);
+  const [route, setRoute] = useState<Array<[number, number]>>([]);
 
   // التحقق من تسجيل الدخول
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData) {
+    if (!user || user.role !== 'customer') {
       navigate('/auth?type=customer');
-      return;
     }
-    setUser(JSON.parse(userData));
-  }, [navigate]);
-
-  // تهيئة الخريطة
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    // تهيئة الخريطة
-    const L = (window as any).L;
-    const map = L.map(mapRef.current).setView([33.5138, 36.2765], 11); // دمشق
-
-    // إضافة طبقة الخريطة
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    mapInstanceRef.current = map;
-
-    // الحصول على الموقع الحالي
-    getCurrentLocation();
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-      }
-    };
-  }, []);
-
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setCurrentLocation([lat, lng]);
-          
-          if (mapInstanceRef.current) {
-            const L = (window as any).L;
-            mapInstanceRef.current.setView([lat, lng], 15);
-            
-            // إضافة علامة للموقع الحالي
-            L.marker([lat, lng])
-              .addTo(mapInstanceRef.current)
-              .bindPopup('موقعك الحالي')
-              .openPopup();
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          toast({
-            title: "تعذر تحديد الموقع",
-            description: "يرجى السماح بالوصول للموقع أو اختيار الموقع يدوياً",
-            variant: "destructive"
-          });
-        }
-      );
-    }
-  };
+  }, [user, navigate]);
 
   // البحث عن العناوين
   const searchLocation = async (query: string, type: 'from' | 'to') => {
@@ -143,45 +80,69 @@ const CustomerPage = () => {
   const selectLocation = (suggestion: any, type: 'from' | 'to') => {
     if (type === 'from') {
       setFromLocation(suggestion.name);
+      setFromCoordinates([suggestion.lat, suggestion.lon]);
       setShowFromSuggestions(false);
     } else {
       setToLocation(suggestion.name);
+      setToCoordinates([suggestion.lat, suggestion.lon]);
       setShowToSuggestions(false);
-    }
-
-    // إضافة علامة على الخريطة
-    if (mapInstanceRef.current) {
-      const L = (window as any).L;
-      const marker = L.marker([suggestion.lat, suggestion.lon])
-        .addTo(mapInstanceRef.current)
-        .bindPopup(type === 'from' ? 'نقطة الانطلاق' : 'الوجهة');
-      
-      mapInstanceRef.current.setView([suggestion.lat, suggestion.lon], 15);
     }
   };
 
-  // استخدام الموقع الحالي
-  const useCurrentLocation = () => {
-    if (currentLocation) {
-      setFromLocation('موقعي الحالي');
-      setShowFromSuggestions(false);
-    } else {
-      getCurrentLocation();
+  // حساب المسار والمسافة
+  useEffect(() => {
+    if (fromCoordinates && toCoordinates) {
+      calculateRoute();
     }
+  }, [fromCoordinates, toCoordinates]);
+
+  const calculateRoute = async () => {
+    if (!fromCoordinates || !toCoordinates) return;
+
+    try {
+      const response = await fetch(
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e12d4b05e23f4f36be3b1b7f7c69a82a&start=${fromCoordinates[1]},${fromCoordinates[0]}&end=${toCoordinates[1]},${toCoordinates[0]}`
+      );
+      const data = await response.json();
+      
+      if (data.features && data.features[0]) {
+        const coordinates = data.features[0].geometry.coordinates;
+        const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+        setRoute(routeCoords);
+        
+        const distance = data.features[0].properties.segments[0].distance / 1000; // بالكيلومتر
+        setRouteDistance(distance);
+      }
+    } catch (error) {
+      console.error('Error calculating route:', error);
+      // حساب المسافة المباشرة كبديل
+      const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
+      setRouteDistance(distance);
+    }
+  };
+
+  const calculateDirectDistance = (from: [number, number], to: [number, number]) => {
+    const R = 6371; // نصف قطر الأرض بالكيلومتر
+    const dLat = (to[0] - from[0]) * Math.PI / 180;
+    const dLon = (to[1] - from[1]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(from[0] * Math.PI / 180) * Math.cos(to[0] * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   };
 
   // حساب السعر المتوقع
   useEffect(() => {
-    if (fromLocation && toLocation && routeDistance > 0) {
-      const basePrice = selectedVehicle.price;
-      const distancePrice = routeDistance * 100; // 100 ليرة لكل كيلومتر
-      setEstimatedPrice(basePrice + distancePrice);
+    if (routeDistance > 0) {
+      const price = calculatePrice(routeDistance, selectedVehicle);
+      setEstimatedPrice(price);
     }
-  }, [fromLocation, toLocation, selectedVehicle, routeDistance]);
+  }, [routeDistance, selectedVehicle, calculatePrice]);
 
   // طلب الرحلة
-  const requestRide = () => {
-    if (!fromLocation || !toLocation) {
+  const requestRide = async () => {
+    if (!fromLocation || !toLocation || !fromCoordinates || !toCoordinates) {
       toast({
         title: "بيانات ناقصة",
         description: "يرجى تحديد نقطة الانطلاق والوجهة",
@@ -199,38 +160,94 @@ const CustomerPage = () => {
       return;
     }
 
-    const rideData = {
-      from: fromLocation,
-      to: toLocation,
-      vehicleType: selectedVehicle,
-      estimatedPrice,
-      isScheduled,
-      scheduleDate: isScheduled ? scheduleDate : null,
-      scheduleTime: isScheduled ? scheduleTime : null,
-      timestamp: new Date().toISOString()
-    };
+    try {
+      const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
 
-    console.log('طلب رحلة:', rideData);
+      const { data, error } = await supabase.rpc('create_trip', {
+        p_customer_id: user?.id,
+        p_from_location: fromLocation,
+        p_to_location: toLocation,
+        p_from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
+        p_to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
+        p_vehicle_type: selectedVehicle,
+        p_scheduled_time: scheduledTime
+      });
 
-    toast({
-      title: "تم إرسال طلب الرحلة",
-      description: "سيتم إشعارك عند العثور على سائق مناسب",
-      className: "bg-green-50 border-green-200 text-green-800"
-    });
+      if (error) throw error;
+
+      toast({
+        title: "تم إرسال طلب الرحلة",
+        description: "سيتم إشعارك عند العثور على سائق مناسب",
+        className: "bg-green-50 border-green-200 text-green-800"
+      });
+
+      // إعادة تعيين النموذج
+      setFromLocation('');
+      setToLocation('');
+      setFromCoordinates(null);
+      setToCoordinates(null);
+      setRoute([]);
+    } catch (error: any) {
+      toast({
+        title: "خطأ في إرسال الطلب",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  // تسجيل الخروج
-  const logout = () => {
-    localStorage.removeItem('user');
-    navigate('/');
+  // تحديد الموقع الحالي
+  const useCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setFromCoordinates([lat, lng]);
+          setFromLocation('موقعي الحالي');
+          setShowFromSuggestions(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast({
+            title: "تعذر تحديد الموقع",
+            description: "يرجى السماح بالوصول للموقع",
+            variant: "destructive"
+          });
+        }
+      );
+    }
   };
 
   if (!user) return null;
 
+  const vehicleTypes = pricing.map(p => ({
+    id: p.vehicle_type,
+    name: getVehicleName(p.vehicle_type),
+    price: p.base_price,
+    icon: getVehicleIcon(p.vehicle_type),
+    color: getVehicleColor(p.vehicle_type)
+  }));
+
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
       {/* الخريطة */}
-      <div ref={mapRef} className="absolute inset-0 z-10"></div>
+      <MapComponent
+        className="absolute inset-0 z-10"
+        markers={[
+          ...(fromCoordinates ? [{
+            id: 'from',
+            position: fromCoordinates,
+            popup: 'نقطة الانطلاق'
+          }] : []),
+          ...(toCoordinates ? [{
+            id: 'to',
+            position: toCoordinates,
+            popup: 'الوجهة'
+          }] : [])
+        ]}
+        route={route}
+      />
 
       {/* شريط علوي */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-blue-900/95 backdrop-blur-sm p-4">
@@ -241,13 +258,13 @@ const CustomerPage = () => {
             </div>
             <div>
               <h1 className="text-white font-bold font-cairo">ألو تكسي</h1>
-              <p className="text-slate-300 text-sm font-tajawal">مرحباً، {user.name || 'زبون'}</p>
+              <p className="text-slate-300 text-sm font-tajawal">مرحباً، {user.name}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <NotificationSystem userType="customer" />
-            <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/10">
+            <Button variant="ghost" onClick={signOut} className="text-white hover:bg-white/10">
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
@@ -343,9 +360,9 @@ const CustomerPage = () => {
               {vehicleTypes.map((vehicle) => (
                 <div
                   key={vehicle.id}
-                  onClick={() => setSelectedVehicle(vehicle)}
+                  onClick={() => setSelectedVehicle(vehicle.id)}
                   className={`min-w-[120px] p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedVehicle.id === vehicle.id
+                    selectedVehicle === vehicle.id
                       ? 'border-taxi-500 bg-taxi-50'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
@@ -362,15 +379,15 @@ const CustomerPage = () => {
             </div>
 
             {/* تفاصيل الرحلة */}
-            {fromLocation && toLocation && (
+            {fromLocation && toLocation && routeDistance > 0 && (
               <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 font-tajawal">المسافة:</span>
+                  <span className="font-semibold text-slate-800">{routeDistance.toFixed(1)} كم</span>
+                </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600 font-tajawal">السعر المتوقع:</span>
                   <span className="text-lg font-bold text-emerald-600">{estimatedPrice.toLocaleString()} ل.س</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600 font-tajawal">نوع المركبة:</span>
-                  <span className="font-semibold text-slate-800">{selectedVehicle.name}</span>
                 </div>
               </div>
             )}
@@ -426,5 +443,42 @@ const CustomerPage = () => {
     </div>
   );
 };
+
+// دوال مساعدة
+function getVehicleName(type: string): string {
+  const names: Record<string, string> = {
+    regular: 'سيارة عادية',
+    ac: 'سيارة مكيفة',
+    public: 'سيارة عامة',
+    vip: 'سيارة VIP',
+    microbus: 'ميكرو باص',
+    bike: 'دراجة نارية'
+  };
+  return names[type] || type;
+}
+
+function getVehicleIcon(type: string): string {
+  const icons: Record<string, string> = {
+    regular: '🚗',
+    ac: '❄️',
+    public: '🚕',
+    vip: '✨',
+    microbus: '🚐',
+    bike: '🏍️'
+  };
+  return icons[type] || '🚗';
+}
+
+function getVehicleColor(type: string): string {
+  const colors: Record<string, string> = {
+    regular: 'bg-blue-500',
+    ac: 'bg-cyan-500',
+    public: 'bg-yellow-500',
+    vip: 'bg-purple-500',
+    microbus: 'bg-green-500',
+    bike: 'bg-orange-500'
+  };
+  return colors[type] || 'bg-blue-500';
+}
 
 export default CustomerPage;
