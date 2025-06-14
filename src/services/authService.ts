@@ -108,10 +108,14 @@ export const authService = {
 
       // إذا كان هناك تسجيل معلق (مستخدم جديد)
       if (userData) {
+        // إنشاء معرف فريد للمستخدم
+        const userId = crypto.randomUUID();
+        
         // إنشاء الملف الشخصي مباشرة
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
+            id: userId,
             name: userData.name,
             phone: userData.phone,
             role: userData.role,
