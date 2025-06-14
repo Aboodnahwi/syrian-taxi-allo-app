@@ -8,7 +8,6 @@ import { useVehiclePricing } from '@/hooks/useVehiclePricing';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import Map from '@/components/map/Map';
 import NotificationSystem from '@/components/NotificationSystem';
 import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
@@ -16,6 +15,12 @@ import React from "react";
 import { useAutoCenterOnUser } from "@/hooks/useAutoCenterOnUser";
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 import { useDraggablePinState } from "@/hooks/useDraggablePinState";
+import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
+import {
+  getVehicleName,
+  getVehicleIcon,
+  getVehicleColor,
+} from '@/utils/vehicleUtils';
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {
@@ -407,7 +412,7 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // Helper: تكوين markers من الإحداثيات
+  // إعداد الدبابيس للرسم (بدون تغيير كل الخواص)
   const markers = [
     ...(fromCoordinates ? [{
       id: "from",
@@ -442,21 +447,18 @@ const CustomerPage = () => {
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
       {/* الخريطة */}
-      <div className="fixed inset-0 z-0">
-        <Map
-          className="w-full h-full min-h-screen"
-          center={mapCenter}
-          zoom={mapZoom}
-          markers={markers}
-          route={route}
-          toast={toast}
-          onLocationSelect={handleMapClick}
-          onMarkerDrag={handleMarkerDrag}
-          mapZoomToFromRef={mapZoomToFromRef}
-          mapZoomToToRef={mapZoomToToRef}
-          mapZoomToRouteRef={mapZoomToRouteRef}
-        />
-      </div>
+      <CustomerMapPanel
+        mapCenter={mapCenter}
+        mapZoom={mapZoom}
+        markers={markers}
+        route={route}
+        toast={toast}
+        onLocationSelect={handleMapClick}
+        onMarkerDrag={handleMarkerDrag}
+        mapZoomToFromRef={mapZoomToFromRef}
+        mapZoomToToRef={mapZoomToToRef}
+        mapZoomToRouteRef={mapZoomToRouteRef}
+      />
       {/* Head & notification */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-blue-900/95 backdrop-blur-sm p-4">
         <div className="flex justify-between items-center">
