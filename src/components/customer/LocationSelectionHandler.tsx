@@ -48,25 +48,24 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     mapCenter
   });
 
+  // تخزين المرجع للدالة التي ترسم المسار الجديد
+  const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
+
   const handleManualFromPin = React.useCallback(() => {
-    console.log("[LocationSelectionHandler] handleManualFromPin called");
     _handleManualFromPinBase();
   }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
-    console.log("[LocationSelectionHandler] handleManualToPin called");
     _handleManualToPinBase();
   }, [_handleManualToPinBase]);
 
-  // Simplified marker drag handler
+  // جعل الدبابيس تتفاعل مع حدث السحب بشكل تفاعلي، مع تحديث المسار مباشرة
   const handleMarkerDrag = React.useCallback(async (
     type: 'from' | 'to',
     lat: number,
     lng: number,
     address: string
   ) => {
-    console.log("[LocationSelectionHandler] handleMarkerDrag:", type, lat, lng, address);
-    
     if (type === 'from') {
       locationHook.setFromCoordinates([lat, lng]);
       locationHook.setFromLocation(address);
@@ -84,10 +83,15 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
     }
-  }, [locationHook, toast]);
+    // إعادة رسم المسار بعد سحب الدبوس مباشرة
+    if (calculateRoute) {
+      setTimeout(() => {
+        calculateRoute();
+      }, 100); // تأخير صغير ليتم تحديث الإحداثيات أولًا
+    }
+  }, [locationHook, toast, calculateRoute]);
 
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
-    console.log("[LocationSelectionHandler] selectLocation:", suggestion.name, type);
     if (type === 'from') {
       locationHook.setFromLocation(suggestion.name);
       locationHook.setFromCoordinates([suggestion.lat, suggestion.lon]);
