@@ -55,6 +55,9 @@ const CustomerPage = () => {
   const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
   const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
 
+  // تم تعديلها (يتم تشييك عليها بعد التحديد الأولي)
+  const [fromInitialized, setFromInitialized] = useState(false);
+
   // استخدم الهوك الجديد للوضع القابل للسحب
   const {
     fromDraggable,
@@ -80,20 +83,29 @@ const CustomerPage = () => {
     // إذا تم تحديد إحداثيات نقطة الانطلاق، لا ترجّع الكاميرا للمحافظة
   }, [user, navigate, userLocated, fromCoordinates]);
 
-  // عند أول تحميل: قرّب على موقع المستخدم وضع الزووم للأقرب
-  useAutoCenterOnUser({
-    setMapCenter: (coords) => {
-      setMapCenter(coords);
-      setMapZoom(17); // زووم قريب جدًا على موقع المستخدم
-      setUserLocated(true); // تم تحديد الموقع
-      setFromCoordinates(coords);  // يعيّن الدبوس
-      setFromLocation("موقعي الحالي");
-    },
-    setFromCoordinates,
-    setFromLocation,
-    toast,
-    setZoomLevel: (z) => setMapZoom(z)
-  });
+  // عند أول تحميل: قرّب على موقع المستخدم وضع الزووم للأقرب. 
+  // لا تعدل الانطلاق إلا إذا لم يتم ضبطه سابقًا 
+  useEffect(() => {
+    if (!fromInitialized && !fromCoordinates && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setFromCoordinates([lat, lng]);
+          setFromLocation("موقعي الحالي");
+          setMapCenter([lat, lng]);
+          setMapZoom(17);
+          setUserLocated(true);
+          setFromInitialized(true);
+        },
+        (error) => {
+          // fallback: use default center for البلد (دمشق مثلًا)
+          setFromInitialized(true);
+        }
+      );
+    }
+    // eslint-disable-next-line
+  }, [fromInitialized, fromCoordinates]);
 
   // Callbacks refs to allow triggering zooms from parent
   const mapZoomToFromRef = useRef<() => void>();
@@ -380,7 +392,6 @@ const CustomerPage = () => {
           setUserLocated(true);
         },
         (error) => {
-          console.error('Error getting location:', error);
           toast({
             title: "تعذر تحديد الموقع",
             description: "يرجى السماح بالوصول للموقع",
@@ -408,7 +419,7 @@ const CustomerPage = () => {
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: fromDraggable,
+          draggable: manualPinMode === "from",
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
@@ -430,6 +441,107 @@ const CustomerPage = () => {
         }]
       : [])
   ];
+
+  // --- منطق زر "استخدم موقعي الحالي" ---
+  const useCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setFromCoordinates([lat, lng]);
+          setFromLocation('موقعي الحالي');
+          setShowFromSuggestions(false);
+          setMapCenter([lat, lng]);
+          setMapZoom(17);
+          setUserLocated(true);
+        },
+        (error) => {
+          toast({
+            title: "تعذر تحديد الموقع",
+            description: "يرجى السماح بالوصول للموقع",
+            variant: "destructive"
+          });
+        }
+      );
+    }
+  };
+
+  // --- تحديد نقطة الانطلاق يدويا (الدبوس الأزرق) ---
+  const handleManualFromPin = () => {
+    setManualPinMode("from");
+    toast({
+      title: "تعيين نقطة الانطلاق يدويًا",
+      description: "حرك الدبوس الأزرق لتحديد نقطة الانطلاق، أو اضغط على الخريطة",
+      className: "bg-blue-50 border-blue-200 text-blue-800"
+    });
+    if (!fromCoordinates && mapCenter) {
+      setFromCoordinates([mapCenter[0], mapCenter[1]]);
+      setFromLocation("نقطة من اختيارك");
+    }
+    setMapZoom(17);
+  };
+
+  // --- تحديد الوجهة يدويا (الدبوس البرتقالي) ---
+  const handleManualToPin = () => {
+    setManualPinMode("to");
+    toast({
+      title: "تعيين الوجهة يدويًا",
+      description: "حرك الدبوس البرتقالي لتحديد الوجهة، أو اضغط على الخريطة",
+      className: "bg-orange-50 border-orange-200 text-orange-800"
+    });
+    if (!toCoordinates && mapCenter) {
+      setToCoordinates([mapCenter[0], mapCenter[1]]);
+      setToLocation("وجهة من اختيارك");
+    }
+    setMapZoom(17);
+  };
+
+  // --- عند الضغط على الخريطة أو تحريك الدبوس (يدويا) ---
+  const handleMapClick = (lat: number, lng: number, address: string) => {
+    if (manualPinMode === "from") {
+      setFromCoordinates([lat, lng]);
+      setFromLocation(address);
+      setManualPinMode("none");
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setUserLocated(true);
+      toast({
+        title: "تم تعيين نقطة الانطلاق",
+        description: address.slice(0, 40) + "...",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+      return;
+    }
+    if (manualPinMode === "to") {
+      setToCoordinates([lat, lng]);
+      setToLocation(address);
+      setManualPinMode("none");
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      toast({
+        title: "تم تعيين الوجهة",
+        description: address.slice(0, 40) + "...",
+        className: "bg-orange-50 border-orange-200 text-orange-800"
+      });
+      return;
+    }
+    // الوضع الافتراضي: يحدد نقطة الانطلاق إذا لم توجد غيرها
+    if (!fromCoordinates) {
+      setFromCoordinates([lat, lng]);
+      setFromLocation(address);
+      setShowFromSuggestions(false);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setUserLocated(true);
+      toast({
+        title: "تم تحديد نقطة الانطلاق",
+        description: address.substring(0, 50) + "...",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+      setFromInitialized(true);
+    }
+  };
 
   // أدع handleManualFromPin, handleManualToPin كـ props
   return (
