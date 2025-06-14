@@ -88,12 +88,14 @@ export const authService = {
       let finalUser: User | null = null;
 
       if (userData) {
-        // التحقق من البيانات المرجعة قبل القراءة منها
         const { data, error } = await supabase.rpc('verify_otp_and_create_user', {
           p_phone: userData.phone,
           p_code: code,
           p_user_data: userData
         });
+
+        // لوج للاختبار
+        console.log('verify_otp_and_create_user result:', data, error);
 
         if (error) {
           toast({
@@ -104,33 +106,50 @@ export const authService = {
           return { success: false, user: null };
         }
 
-        // يجب التأكد أن البيانات المرجعة كائن يحوي success و user_id
         if (
           typeof data === "object" &&
           data !== null &&
-          "success" in data &&
-          (data as any).success
+          "success" in data
         ) {
-          // تم انشاء المستخدم - جلب البيانات
-          const userId = (data as any).user_id;
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+          if ((data as any).success) {
+            // تم انشاء المستخدم - جلب البيانات
+            const userId = (data as any).user_id;
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .single();
 
-          if (profileError || !profile) {
-            toast({
-              title: "تعذر جلب الحساب",
-              description: "تم إنشاء المستخدم ولكن حدث خطأ بجلب البيانات",
-              variant: "destructive"
-            });
+            if (profileError || !profile) {
+              toast({
+                title: "تعذر جلب الحساب",
+                description: "تم إنشاء المستخدم ولكن حدث خطأ بجلب البيانات",
+                variant: "destructive"
+              });
+              return { success: false, user: null };
+            }
+            finalUser = profile;
+            localStorage.removeItem('pendingRegistration');
+          } else {
+            // لو كان الخطأ "هذا الرقم مستخدم مسبقًا"
+            if ("error" in data && (data as any).error && (data as any).error.includes("مستخدم مسبقًا")) {
+              toast({
+                title: "الرقم مستخدم من قبل",
+                description: "هذا الرقم مسجّل مسبقًا. الرجاء استخدام تسجيل الدخول.",
+                variant: "destructive"
+              });
+              // إزالة بيانات التسجيل المعلقة حتى لا يعيد المحاولة بنفس الخطأ
+              localStorage.removeItem('pendingRegistration');
+            } else {
+              toast({
+                title: "فشل التحقق",
+                description: (data as any).error || "حدث خطأ أثناء إنشاء الحساب",
+                variant: "destructive"
+              });
+            }
             return { success: false, user: null };
           }
-          finalUser = profile;
-          localStorage.removeItem('pendingRegistration');
         } else {
-          // فشل التحقق أو سبب آخر
           toast({
             title: "فشل التحقق",
             description: typeof data === "object" && data !== null && "error" in data ? (data as any).error : "حدث خطأ أثناء إنشاء الحساب",
