@@ -122,7 +122,7 @@ const CustomerPage = () => {
   const {
     handleManualFromPin,
     handleManualToPin,
-    handleMapClickManual
+    handleMapClickManual // Make sure this is present!
   } = useManualPinMode({
     setManualPinMode,
     setFromCoordinates,
