@@ -65,15 +65,19 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
   // عند تأكيد الموقع (الدبوس في مركز الخريطة)
   const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
-    console.log("[LocationSelectionHandler] Confirm button clicked", { lat, lng, mode: manualPinMode });
+    console.log("[LocationSelectionHandler] MANUAL PIN CONFIRM - Mode:", manualPinMode, "Coords:", lat, lng);
     
     if (manualPinMode === "from") {
-      console.log("[LocationSelectionHandler] Setting FROM coordinates:", [lat, lng]);
+      console.log("[LocationSelectionHandler] Setting FROM coordinates immediately");
       
-      // حفظ الإحداثيات فوراً
+      // حفظ الإحداثيات والموقع فوراً بدون تأخير
       const newCoords: [number, number] = [lat, lng];
+      
+      // تحديث جميع الحالات مرة واحدة
       locationHook.setFromCoordinates(newCoords);
-      locationHook.setFromLocation("");
+      locationHook.setFromLocation(""); // مسح النص
+      
+      console.log("[LocationSelectionHandler] FROM coordinates set to:", newCoords);
       
       // تحديث الخريطة
       setMapCenter(newCoords);
@@ -82,24 +86,30 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       
       toast({
         title: "تم تحديد نقطة الانطلاق",
-        description: "تم تحديد الموقع يدويًا.",
+        description: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      // حساب المسار مباشرة بالإحداثيات الجديدة
+      // التأكد من حساب المسار إذا كانت الوجهة موجودة
       if (calculateRoute && locationHook.toCoordinates) {
-        console.log("[LocationSelectionHandler] Recalculating route immediately - FROM:", newCoords, "TO:", locationHook.toCoordinates);
-        // استدعاء فوري للمسار
-        setTimeout(() => calculateRoute(), 100);
+        console.log("[LocationSelectionHandler] Calculating route with FROM:", newCoords, "TO:", locationHook.toCoordinates);
+        // استدعاء مع تأخير قصير للتأكد من تحديث الحالة
+        setTimeout(() => {
+          calculateRoute();
+        }, 150);
       }
 
     } else if (manualPinMode === "to") {
-      console.log("[LocationSelectionHandler] Setting TO coordinates:", [lat, lng]);
+      console.log("[LocationSelectionHandler] Setting TO coordinates immediately");
       
-      // حفظ الإحداثيات فوراً
+      // حفظ الإحداثيات والموقع فوراً بدون تأخير
       const newCoords: [number, number] = [lat, lng];
+      
+      // تحديث جميع الحالات مرة واحدة
       locationHook.setToCoordinates(newCoords);
-      locationHook.setToLocation("");
+      locationHook.setToLocation(""); // مسح النص
+      
+      console.log("[LocationSelectionHandler] TO coordinates set to:", newCoords);
       
       // تحديث الخريطة
       setMapCenter(newCoords);
@@ -108,15 +118,17 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       
       toast({
         title: "تم تحديد الوجهة",
-        description: "تم تحديد الموقع يدويًا.",
+        description: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
 
-      // حساب المسار مباشرة بالإحداثيات الجديدة
+      // التأكد من حساب المسار إذا كانت نقطة الانطلاق موجودة
       if (calculateRoute && locationHook.fromCoordinates) {
-        console.log("[LocationSelectionHandler] Recalculating route immediately - FROM:", locationHook.fromCoordinates, "TO:", newCoords);
-        // استدعاء فوري للمسار
-        setTimeout(() => calculateRoute(), 100);
+        console.log("[LocationSelectionHandler] Calculating route with FROM:", locationHook.fromCoordinates, "TO:", newCoords);
+        // استدعاء مع تأخير قصير للتأكد من تحديث الحالة
+        setTimeout(() => {
+          calculateRoute();
+        }, 150);
       }
     }
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
