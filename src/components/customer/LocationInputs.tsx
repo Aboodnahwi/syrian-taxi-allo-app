@@ -1,7 +1,8 @@
+
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Search } from "lucide-react";
+import { MapPin, Navigation, Search, MousePointerSquareDashed } from "lucide-react";
 
 interface LocationInputsProps {
   fromLocation: string;
@@ -58,8 +59,18 @@ const LocationInputs = ({
           <Button
             onClick={useCurrentLocation}
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-3"
+            title="موقعي الحالي"
           >
             <Navigation className="w-4 h-4" />
+          </Button>
+          <Button
+            type="button"
+            onClick={onManualFromPin}
+            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 border"
+            title="تعيين مكان الانطلاق يدويًا"
+          >
+            <MousePointerSquareDashed className="w-4 h-4" />
+            <span className="ml-1 hidden sm:inline">تعيين يدوي</span>
           </Button>
         </div>
         {showFromSuggestions && fromSuggestions.length > 0 && (
@@ -93,6 +104,15 @@ const LocationInputs = ({
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
         </div>
+        <Button
+          type="button"
+          onClick={onManualToPin}
+          className="bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 border"
+          title="تعيين الوجهة يدويًا"
+        >
+          <MousePointerSquareDashed className="w-4 h-4" />
+          <span className="ml-1 hidden sm:inline">تعيين يدوي</span>
+        </Button>
       </div>
       {showToSuggestions && toSuggestions.length > 0 && (
         <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto z-40">
