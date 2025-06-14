@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -267,28 +266,30 @@ const CustomerPage = () => {
   }));
 
   return (
-    <div className="h-screen bg-slate-900 relative overflow-hidden">
-      {/* الخريطة */}
-      <Map
-        className="absolute inset-0 z-10"
-        markers={[
-          ...(fromCoordinates ? [{
-            id: 'from',
-            position: fromCoordinates,
-            popup: 'نقطة الانطلاق'
-          }] : []),
-          ...(toCoordinates ? [{
-            id: 'to',
-            position: toCoordinates,
-            popup: 'الوجهة'
-          }] : [])
-        ]}
-        route={route}
-        toast={toast}
-        onLocationSelect={handleMapClick}
-      />
+    <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
+      {/* الخريطة - كخلفية تمتد لكل الشاشة */}
+      <div className="fixed inset-0 z-0">
+        <Map
+          className="w-full h-full min-h-screen"
+          markers={[
+            ...(fromCoordinates ? [{
+              id: 'from',
+              position: fromCoordinates,
+              popup: 'نقطة الانطلاق'
+            }] : []),
+            ...(toCoordinates ? [{
+              id: 'to',
+              position: toCoordinates,
+              popup: 'الوجهة'
+            }] : [])
+          ]}
+          route={route}
+          toast={toast}
+          onLocationSelect={handleMapClick}
+        />
+      </div>
 
-      {/* شريط علوي */}
+      {/* الشريط العلوي */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-blue-900/95 backdrop-blur-sm p-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
