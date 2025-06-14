@@ -67,43 +67,52 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     if (manualPinMode === "from") {
       const newCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
+
       locationHook.setFromCoordinates(newCoords);
       locationHook.setFromLocation(addressText);
       setMapCenter(newCoords);
       setMapZoom(17);
-      setManualPinMode("none");
+
+      if (calculateRoute && locationHook.toCoordinates) {
+        await calculateRoute(newCoords, locationHook.toCoordinates);
+      }
+
       toast({
-        title: "تم تحديد نقطة الانطلاق",
+        title: "تم تحديد نقطة الانطلاق يدويًا",
         description: addressText,
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      if (calculateRoute && locationHook.toCoordinates) {
-        setTimeout(() => {
-          calculateRoute(newCoords, locationHook.toCoordinates);
-        }, 150);
-      }
+      setManualPinMode("none");
     } else if (manualPinMode === "to") {
       const newCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
+
       locationHook.setToCoordinates(newCoords);
       locationHook.setToLocation(addressText);
       setMapCenter(newCoords);
       setMapZoom(17);
-      setManualPinMode("none");
+
+      if (calculateRoute && locationHook.fromCoordinates) {
+        await calculateRoute(locationHook.fromCoordinates, newCoords);
+      }
+
       toast({
-        title: "تم تحديد الوجهة",
+        title: "تم تحديد الوجهة يدويًا",
         description: addressText,
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
 
-      if (calculateRoute && locationHook.fromCoordinates) {
-        setTimeout(() => {
-          calculateRoute(locationHook.fromCoordinates, newCoords);
-        }, 150);
-      }
+      setManualPinMode("none");
     }
-  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
+  }, [
+    manualPinMode,
+    locationHook,
+    setMapCenter,
+    setMapZoom,
+    toast,
+    calculateRoute
+  ]);
 
   const handleMarkerDrag = React.useCallback(() => {}, []);
 
