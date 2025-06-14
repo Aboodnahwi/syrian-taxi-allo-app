@@ -1,4 +1,3 @@
-
 import { useCallback, useState } from "react";
 
 interface UseDraggablePinStateArgs {
@@ -20,14 +19,15 @@ export function useDraggablePinState({
     setFromDraggable(true);
   }, [setManualPinMode]);
 
-  // يعيد الدبوس إلى الثبات بعد ضبط الموقع
+  // يعيد الدبوس إلى الثبات بعد ضبط الموقع أو أي manual pin انتهى
   const disableDraggable = useCallback(() => {
     setFromDraggable(false);
     setManualPinMode("none");
   }, [setManualPinMode]);
 
-  // مراقبة manualPinMode في حالة الخروج من الوضع اليدوي ممكن إعادة الضبط في بعض السيناريوهات (الشفافية فقط)
-  // لكن طالما نضبط عبر enable/disable فلن نضع useEffect هنا.
+  // عند الخروج من وضع "from" يجب ترك الدبوس غير قابل للسحب
+  // إذا manualPinMode خرج من "from" ==> أوقف السحب
+  // NOTE: hook logic is handled in parent, but can auto-reset here as well
 
   return {
     fromDraggable,

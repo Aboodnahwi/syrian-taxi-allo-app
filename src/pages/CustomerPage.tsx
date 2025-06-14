@@ -68,6 +68,7 @@ const CustomerPage = () => {
     fromDraggable,
     enableDraggable,
     disableDraggable,
+    setFromDraggable
   } = useDraggablePinState({
     manualPinMode,
     setManualPinMode
@@ -124,19 +125,23 @@ const CustomerPage = () => {
     lng: number,
     address: string
   ) => {
-    // عندما يُسحب أي دبوس نحدث إحداثياته ونرسم المسار مباشرة
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
       setMapCenter([lat, lng]);
       setMapZoom(17);
+      // بعد السحب اليدوي يرجع الدبوس غير قابل للسحب
+      if (manualPinMode === "from") {
+        setTimeout(() => {
+          disableDraggable();
+        }, 100);
+      }
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
       setMapCenter([lat, lng]);
       setMapZoom(17);
     }
-    // سيتم استدعاء effect الخاص بحساب المسار عند تحديث from/toCoordinates تلقائيًا
   };
 
   // قسمنا هذا الجزء من المنطق في hook منفصلة
@@ -169,17 +174,38 @@ const CustomerPage = () => {
     _handleManualToPinBase();
   };
 
-  // عدّلنا هنا فقط لكي تستدعي الدالة من الـ hook
+  // النقرة على الخريطة تحدد النقطة بحسب حالة manualPinMode
   const handleMapClick = (lat: number, lng: number, address: string) => {
     if (manualPinMode === "from") {
-      handleMapClickManual(lat, lng, address, "from");
+      setFromCoordinates([lat, lng]);
+      setFromLocation(address);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      disableDraggable(); // أوقف السحب بعد تحديد الموقع
+      setManualPinMode("none");
+      toast({
+        title: "تم تحديد نقطة الانطلاق يدويًا",
+        description: address.substring(0, 50) + "...",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+      setTimeout(() => mapZoomToFromRef.current?.(), 400);
       return;
     }
     if (manualPinMode === "to") {
-      handleMapClickManual(lat, lng, address, "to");
+      setToCoordinates([lat, lng]);
+      setToLocation(address);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setManualPinMode("none");
+      toast({
+        title: "تم تحديد الوجهة يدويًا",
+        description: address.substring(0, 50) + "...",
+        className: "bg-orange-50 border-orange-200 text-orange-800"
+      });
+      setTimeout(() => mapZoomToToRef.current?.(), 400);
       return;
     }
-    // تصرف الوضع العادي القديم (تعيين نقطة انطلاق عند النقر على الخريطة)
+    // التصرف التقليدي (النقر بدون manualPinMode: يحدد من فقط)
     setFromCoordinates([lat, lng]);
     setFromLocation(address);
     setShowFromSuggestions(false);
@@ -412,13 +438,13 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // إعداد الدبابيس للرسم (بدون تغيير كل الخواص)
+  // الدبابيس يتم تحديدها حسب إحداثيات النقاط وتحديث draggable لنقطة الانطلاق إذا لزم
   const markers = [
     ...(fromCoordinates ? [{
       id: "from",
       position: fromCoordinates,
       popup: fromLocation || "نقطة الانطلاق",
-      draggable: true,
+      draggable: fromDraggable, // فقط في حالة manual pin
       icon: {
         html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
         iconSize: [26, 36] as [number, number],
@@ -429,7 +455,7 @@ const CustomerPage = () => {
       id: "to",
       position: toCoordinates,
       popup: toLocation || "الوجهة",
-      draggable: true,
+      draggable: false,
       icon: {
         html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
         iconSize: [26, 36] as [number, number],
