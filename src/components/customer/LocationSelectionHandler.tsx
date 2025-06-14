@@ -49,10 +49,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     mapCenter
   });
 
-  // لاحظ: نعدل حساب المسار كي نعطيه الإحداثيات الجديدة مباشرة
   const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
+  const getManualAddress = (lat: number, lng: number) =>
+    `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-  // استدعاء تفعيل وضع التثبيت اليدوي
   const handleManualFromPin = React.useCallback(() => {
     _handleManualFromPinBase();
     setManualPinMode("from");
@@ -63,11 +63,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  // عند تأكيد الموقع (الدبوس في مركز الخريطة)
-  const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
+  const onManualPinConfirm = React.useCallback(async (lat: number, lng: number) => {
     if (manualPinMode === "from") {
       const newCoords: [number, number] = [lat, lng];
-      const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const addressText = getManualAddress(lat, lng);
       locationHook.setFromCoordinates(newCoords);
       locationHook.setFromLocation(addressText);
       setMapCenter(newCoords);
@@ -79,7 +78,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      // حساب المسار فورًا مع الإحداثيات الجديدة
       if (calculateRoute && locationHook.toCoordinates) {
         setTimeout(() => {
           calculateRoute(newCoords, locationHook.toCoordinates);
@@ -87,7 +85,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       }
     } else if (manualPinMode === "to") {
       const newCoords: [number, number] = [lat, lng];
-      const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const addressText = getManualAddress(lat, lng);
       locationHook.setToCoordinates(newCoords);
       locationHook.setToLocation(addressText);
       setMapCenter(newCoords);
@@ -107,12 +105,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
 
-  // الآن الدبابيس العادية غير قابلة للسحب نهائيًا
   const handleMarkerDrag = React.useCallback(() => {}, []);
 
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
     console.log("[LocationSelectionHandler] Selecting location:", suggestion.name, "for", type);
-    
     if (type === 'from') {
       locationHook.setFromLocation(suggestion.name);
       locationHook.setFromCoordinates([suggestion.lat, suggestion.lon]);
