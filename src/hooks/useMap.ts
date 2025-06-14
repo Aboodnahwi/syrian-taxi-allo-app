@@ -125,17 +125,18 @@ export const useMap = ({
           loadCss(MAP_CSS_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
           loadScript(MAP_SCRIPT_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
         ]);
-        if (isCancelled || !mapRef.current || !(window as any).L || mapInstanceRef.current) {
+        // استخدام متغير محلي L مع الحماية من عدم وجوده على window
+        const L = (window as any).L;
+        if (isCancelled || !mapRef.current || !L || mapInstanceRef.current) {
           if (!mapRef.current) {
             console.error("[map] mapRef.current is missing!");
           }
-          if (!(window as any).L) {
+          if (!L) {
             console.error("[map] window.L is not available after script load!");
           }
           return;
         }
         console.log("[map] Initializing Leaflet map...");
-        const L = (window as any).L;
         const map = L.map(mapRef.current).setView(center, zoom);
         mapInstanceRef.current = map;
 
