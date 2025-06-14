@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
@@ -43,98 +42,6 @@ const MapComponent = ({
   const routeLayerRef = useRef<any>(null);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
 
-  // تهيئة الخريطة
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    const initializeWithRetry = () => {
-      if ((window as any).L) {
-        initializeMap();
-      } else {
-        console.error("Leaflet not loaded, retrying...");
-        setTimeout(initializeWithRetry, 200);
-      }
-    };
-
-    if (!document.getElementById(MAP_SCRIPT_ID)) {
-      const script = document.createElement('script');
-      script.id = MAP_SCRIPT_ID;
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.async = true;
-      script.onload = () => {
-        if (!document.getElementById(MAP_CSS_ID)) {
-          const link = document.createElement('link');
-          link.id = MAP_CSS_ID;
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          link.onload = initializeMap;
-          link.onerror = () => {
-            console.error("Failed to load Leaflet CSS.");
-            initializeMap(); // Try to initialize anyway
-          };
-          document.head.appendChild(link);
-        } else {
-          initializeMap();
-        }
-      };
-      document.head.appendChild(script);
-    } else {
-      initializeWithRetry();
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
-  const initializeMap = () => {
-    if (!mapRef.current || mapInstanceRef.current || !(window as any).L) return;
-
-    const L = (window as any).L;
-
-    try {
-      const map = L.map(mapRef.current).setView(center, zoom);
-
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      if (onLocationSelect) {
-        map.on('click', async (e: any) => {
-          const { lat, lng } = e.latlng;
-          try {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
-            );
-            const data = await response.json();
-            const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-            onLocationSelect(lat, lng, address);
-          } catch (error) {
-            console.error('Error getting address:', error);
-            onLocationSelect(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-          }
-        });
-      }
-
-      mapInstanceRef.current = map;
-      map.invalidateSize(); // Ensure map size is correct
-      getCurrentLocation();
-
-    } catch (error) {
-        console.error("Error initializing map:", error);
-        if (toast) {
-            toast({
-                title: "خطأ فني في الخريطة",
-                description: "حدث خطأ أثناء تهيئة الخريطة. يرجى إعادة تحميل الصفحة.",
-                variant: "destructive"
-            });
-        }
-    }
-  };
-
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -171,6 +78,101 @@ const MapComponent = ({
       );
     }
   };
+
+  // تهيئة الخريطة
+  useEffect(() => {
+    if (!mapRef.current) return;
+    let isCancelled = false;
+
+    const loadScript = (id: string, src: string) => new Promise<void>((resolve, reject) => {
+      if (document.getElementById(id)) return resolve();
+      const script = document.createElement('script');
+      script.id = id;
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`فشل تحميل السكربت: ${src}`));
+      document.head.appendChild(script);
+    });
+
+    const loadCss = (id: string, href: string) => new Promise<void>((resolve, reject) => {
+      if (document.getElementById(id)) return resolve();
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.onload = () => resolve();
+      link.onerror = () => reject(new Error(`فشل تحميل ملف الأنماط: ${href}`));
+      document.head.appendChild(link);
+    });
+
+    const initializeMap = async () => {
+      try {
+        await Promise.all([
+          loadCss(MAP_CSS_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
+          loadScript(MAP_SCRIPT_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
+        ]);
+
+        if (isCancelled || !mapRef.current || !(window as any).L) return;
+        
+        const L = (window as any).L;
+
+        if (mapInstanceRef.current) return; // Prevent re-initialization
+
+        const map = L.map(mapRef.current).setView(center, zoom);
+        mapInstanceRef.current = map;
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        if (onLocationSelect) {
+          map.on('click', async (e: any) => {
+            const { lat, lng } = e.latlng;
+            try {
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+              );
+              const data = await response.json();
+              const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+              onLocationSelect(lat, lng, address);
+            } catch (error) {
+              console.error('Error getting address:', error);
+              onLocationSelect(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+            }
+          });
+        }
+        
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 150);
+
+        getCurrentLocation();
+
+      } catch (error) {
+        console.error("Error initializing map:", error);
+        if (toast) {
+            toast({
+                title: "خطأ فني في الخريطة",
+                description: (error as Error).message || "حدث خطأ أثناء تهيئة الخريطة. يرجى إعادة تحميل الصفحة.",
+                variant: "destructive"
+            });
+        }
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      isCancelled = true;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []); // Run only once on mount
 
   // تحديث العلامات
   useEffect(() => {
