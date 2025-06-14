@@ -53,6 +53,7 @@ const CustomerPage = () => {
   const [mapZoom, setMapZoom] = useState<number>(11); // default zoom
   const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
   const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
+  const [fromDraggable, setFromDraggable] = useState(false); // جديد: هل دبوس الانطلاق قابل للسحب
 
   // اجلب ملف المستخدم لتحديد المحافظة
   useEffect(() => {
@@ -97,6 +98,8 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
+      setFromDraggable(false); // بعد السحب، لا يصبح قابل للسحب إلا عند اختيار التحديد اليدوي من جديد
+      setManualPinMode("none"); // الخروج من الوضع اليدوي
       setTimeout(() => {
         mapZoomToFromRef.current?.();
       }, 350);
@@ -122,9 +125,16 @@ const CustomerPage = () => {
   const {
     handleManualFromPin,
     handleManualToPin,
-    handleMapClickManual // Make sure this is present!
+    handleMapClickManual
   } = useManualPinMode({
-    setManualPinMode,
+    setManualPinMode: (m) => {
+      setManualPinMode(m);
+      if (m === "from") {
+        setFromDraggable(true);
+      } else {
+        setFromDraggable(false);
+      }
+    },
     setFromCoordinates,
     setToCoordinates,
     setFromLocation,
@@ -388,7 +398,7 @@ const CustomerPage = () => {
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: true,
+          draggable: fromDraggable, // اجعل الدبوس قابل للسحب فقط في وضع اليدوي
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
@@ -401,7 +411,7 @@ const CustomerPage = () => {
           id: "to",
           position: toCoordinates,
           popup: toLocation || "الوجهة",
-          draggable: true,
+          draggable: manualPinMode === "to", // يمكن جعل دبوس الوجهة أيضًا قابل للسحب في وضع اليدوي
           icon: {
             html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
             iconSize: [26, 36] as [number, number],
