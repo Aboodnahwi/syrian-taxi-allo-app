@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -50,87 +49,60 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     mapCenter
   });
 
+  // لاحظ: نعدل حساب المسار كي نعطيه الإحداثيات الجديدة مباشرة
   const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
 
   // استدعاء تفعيل وضع التثبيت اليدوي
   const handleManualFromPin = React.useCallback(() => {
-    console.log("[LocationSelectionHandler] Starting manual FROM pin mode");
     _handleManualFromPinBase();
     setManualPinMode("from");
   }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
-    console.log("[LocationSelectionHandler] Starting manual TO pin mode");
     _handleManualToPinBase();
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
   // عند تأكيد الموقع (الدبوس في مركز الخريطة)
   const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
-    console.log("[LocationSelectionHandler] MANUAL PIN CONFIRM - Mode:", manualPinMode, "Coords:", lat, lng);
-    
     if (manualPinMode === "from") {
-      console.log("[LocationSelectionHandler] Confirming FROM coordinates:", lat, lng);
-      
       const newCoords: [number, number] = [lat, lng];
       const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      
-      // حفظ فوري للإحداثيات والموقع
       locationHook.setFromCoordinates(newCoords);
       locationHook.setFromLocation(addressText);
-      
-      console.log("[LocationSelectionHandler] FROM coordinates saved:", newCoords);
-      console.log("[LocationSelectionHandler] FROM location saved:", addressText);
-      
-      // تحديث الخريطة والوضع
       setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
-      
       toast({
         title: "تم تحديد نقطة الانطلاق",
         description: addressText,
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      // حساب المسار إذا كانت الوجهة موجودة
+      // حساب المسار فورًا مع الإحداثيات الجديدة
       if (calculateRoute && locationHook.toCoordinates) {
-        console.log("[LocationSelectionHandler] Triggering route calculation with FROM:", newCoords, "TO:", locationHook.toCoordinates);
         setTimeout(() => {
-          calculateRoute();
-        }, 300);
+          calculateRoute(newCoords, locationHook.toCoordinates);
+        }, 150);
       }
-
     } else if (manualPinMode === "to") {
-      console.log("[LocationSelectionHandler] Confirming TO coordinates:", lat, lng);
-      
       const newCoords: [number, number] = [lat, lng];
       const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      
-      // حفظ فوري للإحداثيات والموقع
       locationHook.setToCoordinates(newCoords);
       locationHook.setToLocation(addressText);
-      
-      console.log("[LocationSelectionHandler] TO coordinates saved:", newCoords);
-      console.log("[LocationSelectionHandler] TO location saved:", addressText);
-      
-      // تحديث الخريطة والوضع
       setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
-      
       toast({
         title: "تم تحديد الوجهة",
         description: addressText,
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
 
-      // حساب المسار إذا كانت نقطة الانطلاق موجودة
       if (calculateRoute && locationHook.fromCoordinates) {
-        console.log("[LocationSelectionHandler] Triggering route calculation with FROM:", locationHook.fromCoordinates, "TO:", newCoords);
         setTimeout(() => {
-          calculateRoute();
-        }, 300);
+          calculateRoute(locationHook.fromCoordinates, newCoords);
+        }, 150);
       }
     }
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
@@ -168,7 +140,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
   }, [locationHook, setMapCenter, setMapZoom, mapZoomToFromRef, mapZoomToToRef, toast]);
 
-  // Provide handlers to parent component
   React.useEffect(() => {
     onLocationHandlersReady({
       handleManualFromPin,
