@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -69,12 +70,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (phone: string): Promise<boolean> => {
     try {
-      // التأكد من وجود الملف الشخصي
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .maybeSingle();
+      // التأكد من وجود الملف الشخصي، مع إعادة المحاولة عند الفشل (delayed retry)
+      const fetchProfile = async () => {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+        return { profile, profileError };
+      };
+
+      let { profile, profileError } = await fetchProfile();
+      if (profileError || !profile) {
+        // إذا لم نجد، ننتظر ثانية ثم نعيد المحاولة (مرة واحدة فقط)
+        await new Promise((res) => setTimeout(res, 1200));
+        const retryResult = await fetchProfile();
+        profile = retryResult.profile;
+        profileError = retryResult.profileError;
+      }
 
       if (profileError || !profile) {
         toast({
