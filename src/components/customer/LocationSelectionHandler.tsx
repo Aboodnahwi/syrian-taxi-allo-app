@@ -31,8 +31,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   onLocationHandlersReady
 }) => {
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
-  // re-render workaround: step
-  const [, forceRerender] = React.useReducer((s) => s + 1, 0);
 
   const {
     handleManualFromPin: _handleManualFromPinBase,
@@ -68,14 +66,17 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   // عند تأكيد الموقع (الدبوس في مركز الخريطة)
   const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
     console.log("[LocationSelectionHandler] Confirm button clicked", { lat, lng, mode: manualPinMode });
+    
     if (manualPinMode === "from") {
       console.log("[LocationSelectionHandler] Setting FROM coordinates:", [lat, lng]);
       
-      // حديث الإحداثيات أولاً
-      locationHook.setFromCoordinates([lat, lng]);
-      // إخفاء النص من مربع البحث
+      // حفظ الإحداثيات فوراً
+      const newCoords: [number, number] = [lat, lng];
+      locationHook.setFromCoordinates(newCoords);
       locationHook.setFromLocation("");
-      setMapCenter([lat, lng]);
+      
+      // تحديث الخريطة
+      setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
       
@@ -85,26 +86,23 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      // أجبِر إعادة التصيير أولاً
-      forceRerender();
-      
-      // انتظر قليلاً ثم احسب المسار بالإحداثيات الجديدة
-      setTimeout(() => {
-        console.log("[LocationSelectionHandler] Recalculating route with NEW coordinates");
-        console.log("FROM:", [lat, lng], "TO:", locationHook.toCoordinates);
-        if (calculateRoute) {
-          calculateRoute();
-        }
-      }, 200);
+      // حساب المسار مباشرة بالإحداثيات الجديدة
+      if (calculateRoute && locationHook.toCoordinates) {
+        console.log("[LocationSelectionHandler] Recalculating route immediately - FROM:", newCoords, "TO:", locationHook.toCoordinates);
+        // استدعاء فوري للمسار
+        setTimeout(() => calculateRoute(), 100);
+      }
 
     } else if (manualPinMode === "to") {
       console.log("[LocationSelectionHandler] Setting TO coordinates:", [lat, lng]);
       
-      // تحديث الإحداثيات أولاً
-      locationHook.setToCoordinates([lat, lng]);
-      // إخفاء النص من مربع البحث
+      // حفظ الإحداثيات فوراً
+      const newCoords: [number, number] = [lat, lng];
+      locationHook.setToCoordinates(newCoords);
       locationHook.setToLocation("");
-      setMapCenter([lat, lng]);
+      
+      // تحديث الخريطة
+      setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
       
@@ -114,19 +112,14 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
 
-      // أجبِر إعادة التصيير أولاً
-      forceRerender();
-      
-      // انتظر قليلاً ثم احسب المسار بالإحداثيات الجديدة
-      setTimeout(() => {
-        console.log("[LocationSelectionHandler] Recalculating route with NEW coordinates");
-        console.log("FROM:", locationHook.fromCoordinates, "TO:", [lat, lng]);
-        if (calculateRoute) {
-          calculateRoute();
-        }
-      }, 200);
+      // حساب المسار مباشرة بالإحداثيات الجديدة
+      if (calculateRoute && locationHook.fromCoordinates) {
+        console.log("[LocationSelectionHandler] Recalculating route immediately - FROM:", locationHook.fromCoordinates, "TO:", newCoords);
+        // استدعاء فوري للمسار
+        setTimeout(() => calculateRoute(), 100);
+      }
     }
-  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute, forceRerender]);
+  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
 
   // الآن الدبابيس العادية غير قابلة للسحب نهائيًا
   const handleMarkerDrag = React.useCallback(() => {}, []);

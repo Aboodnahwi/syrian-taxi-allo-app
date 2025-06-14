@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 
 interface UseCustomerRoutingProps {
@@ -45,7 +44,7 @@ export const useCustomerRouting = ({
     });
     
     if (!fromCoordinates || !toCoordinates) {
-      console.log("[useCustomerRouting] calculateRoute: missing coordinates");
+      console.log("[useCustomerRouting] calculateRoute: missing coordinates, NOT clearing route");
       return;
     }
     
@@ -93,21 +92,19 @@ export const useCustomerRouting = ({
     }
   }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
-  // Draw route when both coordinates are available
+  // Draw route when both coordinates are available - but keep existing route if coordinates don't change
   useEffect(() => {
     console.log("[useCustomerRouting] useEffect triggered - coordinates changed:", {
       from: fromCoordinates,
-      to: toCoordinates
+      to: toCoordinates,
+      currentRouteLength: route.length
     });
     
     if (fromCoordinates && toCoordinates) {
-      console.log("[useCustomerRouting] Both coordinates available, calculating route with close zoom");
+      console.log("[useCustomerRouting] Both coordinates available, calculating route");
       calculateRoute();
-    } else {
-      console.log("[useCustomerRouting] No coordinates for route - clearing route");
-      setRoute([]);
-      setRouteDistance(0);
     }
+    // لا نمحو المسار إذا لم تكن هناك إحداثيات - نتركه كما هو
   }, [fromCoordinates, toCoordinates, calculateRoute]);
 
   return {
