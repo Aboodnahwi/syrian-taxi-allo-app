@@ -125,6 +125,8 @@ const CustomerPage = () => {
     lng: number,
     address: string
   ) => {
+    console.log("[CustomerPage] handleMarkerDrag:", type, lat, lng, address);
+    
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
@@ -165,17 +167,21 @@ const CustomerPage = () => {
 
   // عند اختيار "تعيين الانطلاق يدويًا" نفعّل قابلية السحب مباشرة
   const handleManualFromPin = () => {
+    console.log("[CustomerPage] handleManualFromPin called");
     _handleManualFromPinBase();
     enableDraggable();
   };
 
   // يدويًا للوجهة
   const handleManualToPin = () => {
+    console.log("[CustomerPage] handleManualToPin called");
     _handleManualToPinBase();
   };
 
   // النقرة على الخريطة تحدد النقطة بحسب حالة manualPinMode
   const handleMapClick = (lat: number, lng: number, address: string) => {
+    console.log("[CustomerPage] handleMapClick:", lat, lng, address, "mode:", manualPinMode);
+    
     if (manualPinMode === "from") {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
@@ -248,9 +254,13 @@ const CustomerPage = () => {
   useEffect(() => {
     const drawRouteAndFit = async () => {
       if (fromCoordinates && toCoordinates) {
+        console.log("[CustomerPage] Drawing route between:", fromCoordinates, toCoordinates);
         await calculateRoute();
         // بعد التأكد من رسم الطريق، قرّب لتشمل الطريق بالكامل مع الدبوسين
         setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+      } else {
+        console.log("[CustomerPage] No coordinates for route - clearing route");
+        setRoute([]);
       }
     };
     drawRouteAndFit();
@@ -295,7 +305,13 @@ const CustomerPage = () => {
   }, [fromCoordinates, toCoordinates]);
 
   const calculateRoute = async () => {
-    if (!fromCoordinates || !toCoordinates) return;
+    if (!fromCoordinates || !toCoordinates) {
+      console.log("[CustomerPage] calculateRoute: missing coordinates");
+      return;
+    }
+    
+    console.log("[CustomerPage] calculateRoute: calculating from", fromCoordinates, "to", toCoordinates);
+    
     try {
       const response = await fetch(
         `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e12d4b05e23f4f36be3b1b7f7c69a82a&start=${fromCoordinates[1]},${fromCoordinates[0]}&end=${toCoordinates[1]},${toCoordinates[0]}`
@@ -308,6 +324,7 @@ const CustomerPage = () => {
       if (data.features && data.features[0]) {
         const coordinates = data.features[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+        console.log("[CustomerPage] Route calculated successfully:", routeCoords.length, "points");
         setRoute(routeCoords);
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
@@ -466,8 +483,8 @@ const CustomerPage = () => {
 
   // إضافة قنصولات للفحص عند التغيير
   React.useEffect(() => {
-    console.log("[CustomerPage] markers sent to Map:", markers);
-    console.log("[CustomerPage] route array:", route);
+    console.log("[CustomerPage] markers updated:", markers.length, markers);
+    console.log("[CustomerPage] route updated:", route.length, route);
   }, [markers, route]);
 
   return (

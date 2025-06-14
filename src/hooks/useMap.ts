@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapProps } from '@/components/map/types';
 import { getLeaflet } from './leafletUtils';
@@ -191,51 +192,66 @@ export const useMap = ({
     };
   }, [center, zoom, onLocationSelect, toast, getCurrentLocation]);
 
+  // تحديث الدبابيس
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current) {
+      console.log("[useMap] Map instance not ready yet");
+      return;
+    }
 
     let L;
     try {
       L = getLeaflet();
-    } catch { return; }
+    } catch { 
+      console.log("[useMap] Leaflet not available yet");
+      return; 
+    }
 
-    // Debug: طباعة ما يصله hook
-    console.log("[useMap] rendering markers:", markers);
+    console.log("[useMap] Processing markers:", markers.length, markers);
 
-    // Remove old markers
-    Object.values(markersRef.current).forEach(marker => mapInstanceRef.current.removeLayer(marker));
+    // إزالة الدبابيس القديمة
+    Object.values(markersRef.current).forEach(marker => {
+      if (mapInstanceRef.current && marker) {
+        mapInstanceRef.current.removeLayer(marker);
+      }
+    });
     markersRef.current = {};
 
+    // إضافة الدبابيس الجديدة
     markers.forEach((markerData) => {
+      console.log("[useMap] Adding marker:", markerData.id, markerData.position);
+      
       let markerOptions: any = {
-        draggable: markerData.draggable
+        draggable: markerData.draggable || false
       };
+
       if (markerData.icon) {
         markerOptions.icon = L.divIcon({
           html: markerData.icon.html,
           className: markerData.icon.className || '',
-          iconSize: markerData.icon.iconSize,
-          iconAnchor: markerData.icon.iconAnchor,
+          iconSize: markerData.icon.iconSize || [26, 36],
+          iconAnchor: markerData.icon.iconAnchor || [13, 34],
         });
       }
-      const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
-      if (markerData.popup) marker.bindPopup(markerData.popup);
 
-      // السماح بالسحب دومًا إذا كان draggable
-      if (markerData.draggable && markerData.id) {
+      const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
+      
+      if (markerData.popup) {
+        marker.bindPopup(markerData.popup);
+      }
+
+      // إضافة وظيفة السحب إذا كان الدبوس قابل للسحب
+      if (markerData.draggable && markerData.id && onMarkerDrag) {
         marker.on('dragend', async (e:any) => {
           const latlng = e.target.getLatLng();
           const address = await fetchAddress(latlng.lat, latlng.lng);
-          if (onMarkerDrag) {
-            onMarkerDrag(
-              markerData.id as 'from' | 'to',
-              latlng.lat,
-              latlng.lng,
-              address
-            );
-          }
-          marker.setPopupContent(markerData.popup || address);
-          marker.openPopup();
+          onMarkerDrag(
+            markerData.id as 'from' | 'to',
+            latlng.lat,
+            latlng.lng,
+            address
+          );
+          marker.setPopupContent(address);
           if (toast) {
             toast({
               title: markerData.id === 'from' ? "تم تحديث نقطة الانطلاق" : "تم تحديث الوجهة",
@@ -243,29 +259,58 @@ export const useMap = ({
               className: "bg-blue-50 border-blue-200 text-blue-800"
             });
           }
-          zoomToLatLng(latlng.lat, latlng.lng, 17);
         });
       }
+
       markersRef.current[markerData.id] = marker;
+      console.log("[useMap] Marker added successfully:", markerData.id);
     });
 
-    // طباعة موقع marker فعلي على الخريطة بعد الإضافة
-    console.log("[useMap] actual markers after adding:", Object.keys(markersRef.current));
-    if (window && (window as any).L && mapInstanceRef.current) {
-      if (markers.length > 0)
-        console.log("Markers added to map:", markers);
-    }
+    console.log("[useMap] Total markers on map:", Object.keys(markersRef.current).length);
   }, [markers, onMarkerDrag, toast]);
   
+  // تحديث خط المسار
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current) {
+      console.log("[useMap] Map instance not ready for route");
+      return;
+    }
+    
     let L;
-    try { L = getLeaflet(); } catch { return; }
-    if (routeLayerRef.current) mapInstanceRef.current.removeLayer(routeLayerRef.current);
+    try { 
+      L = getLeaflet(); 
+    } catch { 
+      console.log("[useMap] Leaflet not available for route");
+      return; 
+    }
+
+    // إزالة خط المسار القديم
+    if (routeLayerRef.current) {
+      mapInstanceRef.current.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    console.log("[useMap] Processing route:", route?.length, route);
 
     if (route && route.length > 1) {
-      routeLayerRef.current = L.polyline(route, { color: '#ef4444', weight: 4, opacity: 0.8 }).addTo(mapInstanceRef.current);
-      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60,60] });
+      console.log("[useMap] Drawing route with", route.length, "points");
+      routeLayerRef.current = L.polyline(route, { 
+        color: '#ef4444', 
+        weight: 4, 
+        opacity: 0.8 
+      }).addTo(mapInstanceRef.current);
+      
+      console.log("[useMap] Route drawn successfully");
+      
+      // تكبير لإظهار المسار كاملاً
+      try {
+        mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { 
+          animate: true, 
+          padding: [60, 60] 
+        });
+      } catch (error) {
+        console.error("[useMap] Error fitting bounds:", error);
+      }
     }
   }, [route]);
 
