@@ -96,7 +96,8 @@ const CustomerPage = () => {
       setFromLocation(address);
       // بعد سحب الدبوس الأول: زووم ثم انتقل للوجهة (إن وُجدت)
       setTimeout(() => mapZoomToFromRef.current?.(), 400);
-      if (toCoordinates) setTimeout(() => mapZoomToToRef.current?.(), 850);
+      if (toCoordinates)
+        setTimeout(() => mapZoomToRouteRef.current?.(), 850); // fit to both points
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
@@ -113,7 +114,7 @@ const CustomerPage = () => {
     setShowFromSuggestions(false);
     setMapCenter([lat, lng]);
     setMapZoom(17);
-    setUserLocated(true); // تم التحديد
+    setUserLocated(true);
     toast({
       title: "تم تحديد نقطة الانطلاق",
       description: address.substring(0, 50) + "...",
@@ -122,14 +123,47 @@ const CustomerPage = () => {
     setTimeout(() => mapZoomToFromRef.current?.(), 400);
   };
 
-  // عند تحديد موقع الوجهة - zoom عند تحديد
+  // تحسين selectLocation: زووم على "from" أو "to"، ولو حُددت النقطتين اعمل fitBounds
+  const selectLocation = (suggestion: any, type: 'from' | 'to') => {
+    if (type === 'from') {
+      setFromLocation(suggestion.name);
+      setFromCoordinates([suggestion.lat, suggestion.lon]);
+      setShowFromSuggestions(false);
+      setMapCenter([suggestion.lat, suggestion.lon]);
+      setMapZoom(17);
+      setUserLocated(true);
+      setTimeout(() => {
+        mapZoomToFromRef.current?.();
+        // إذا وُجدت أيضًا الوجهة، اعمل فورًا fitBounds
+        if (toCoordinates) {
+          setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+        }
+      }, 400);
+    } else {
+      setToLocation(suggestion.name);
+      setToCoordinates([suggestion.lat, suggestion.lon]);
+      setShowToSuggestions(false);
+      setMapCenter([suggestion.lat, suggestion.lon]);
+      setMapZoom(17);
+      setTimeout(() => {
+        mapZoomToToRef.current?.();
+        // إذا تم اختيار الوجهة وأيضًا نقطة الانطلاق موجودة، fitBounds
+        if (fromCoordinates || fromLocation) {
+          setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+        }
+      }, 400);
+    }
+  };
+
+  // عند اكتمال النقطتين: fitBounds عليهم والمسار
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
-      setTimeout(() => mapZoomToToRef.current?.(), 350);
-      setTimeout(() => mapZoomToRouteRef.current?.(), 750);
+      setTimeout(() => {
+        mapZoomToRouteRef.current?.();
+      }, 400);
     }
   }, [toCoordinates, fromCoordinates]);
-  
+
   const searchLocation = async (query: string, type: 'from' | 'to') => {
     if (query.length < 3) {
       if (type === 'from') setFromSuggestions([]);
@@ -156,25 +190,6 @@ const CustomerPage = () => {
       }
     } catch (error) {
       console.error('Error searching location:', error);
-    }
-  };
-
-  // تحديث selectLocation ليقرّب الخريطة عند اختيار عنوان بحث
-  const selectLocation = (suggestion: any, type: 'from' | 'to') => {
-    if (type === 'from') {
-      setFromLocation(suggestion.name);
-      setFromCoordinates([suggestion.lat, suggestion.lon]);
-      setShowFromSuggestions(false);
-      setMapCenter([suggestion.lat, suggestion.lon]);
-      setMapZoom(17);
-      setUserLocated(true);
-    } else {
-      setToLocation(suggestion.name);
-      setToCoordinates([suggestion.lat, suggestion.lon]);
-      setShowToSuggestions(false);
-      setMapCenter([suggestion.lat, suggestion.lon]);
-      setMapZoom(17);
-      // لا تغيّر userLocated هنا
     }
   };
 
