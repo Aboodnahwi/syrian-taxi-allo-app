@@ -95,29 +95,15 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      // زوم مباشرةً لنقطة الانطلاق الجديدة دائمًا
       setTimeout(() => {
         mapZoomToFromRef.current?.();
       }, 350);
-      // إذا وجد دبوس الوجهة أيضًا: بعد فترة قصيرة fitBounds للطريق
-      if (toCoordinates) {
-        setTimeout(() => {
-          mapZoomToRouteRef.current?.();
-        }, 900);
-      }
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
-      // زوم للوجهة بعد التحريك
       setTimeout(() => {
         mapZoomToToRef.current?.();
       }, 350);
-      // إذا وجد دبوس الانطلاق أيضًا: fitBounds للطريق
-      if (fromCoordinates) {
-        setTimeout(() => {
-          mapZoomToRouteRef.current?.();
-        }, 900);
-      }
     }
   };
 
@@ -148,11 +134,7 @@ const CustomerPage = () => {
       setUserLocated(true);
       setTimeout(() => {
         mapZoomToFromRef.current?.();
-        // عند وجود الوجهة: fitBounds للطريق (يتم بعد زووم الانطلاق)
-        if (toCoordinates) {
-          setTimeout(() => mapZoomToRouteRef.current?.(), 600);
-        }
-      }, 400);
+      }, 250);
     } else {
       setToLocation(suggestion.name);
       setToCoordinates([suggestion.lat, suggestion.lon]);
@@ -161,21 +143,21 @@ const CustomerPage = () => {
       setMapZoom(17);
       setTimeout(() => {
         mapZoomToToRef.current?.();
-        // عند وجود الانطلاق: fitBounds للطريق (يتم بعد زووم الوجهة)
-        if (fromCoordinates) {
-          setTimeout(() => mapZoomToRouteRef.current?.(), 600);
-        }
-      }, 400);
+      }, 250);
     }
   };
 
-  // عند اكتمال النقطتين: اعمل fitBounds للطريق ليظهرا معاً بدقة
+  // رسم الطريق وتقريب الكاميرا عند توفر النقطتين
   useEffect(() => {
-    if (fromCoordinates && toCoordinates) {
-      setTimeout(() => {
-        mapZoomToRouteRef.current?.();
-      }, 400);
-    }
+    const drawRouteAndFit = async () => {
+      if (fromCoordinates && toCoordinates) {
+        await calculateRoute();
+        // بعد التأكد من رسم الطريق، قرّب لتشمل الطريق بالكامل مع الدبوسين
+        setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+      }
+    };
+    drawRouteAndFit();
+    // eslint-disable-next-line
   }, [fromCoordinates, toCoordinates]);
 
   // تحسين selectLocation: زووم على "from" أو "to"، ولو حُددت النقطتين اعمل fitBounds
