@@ -1,4 +1,3 @@
-// تم إزالة الاستيراد المكرر لـ useRef
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -49,7 +48,9 @@ const CustomerPage = () => {
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [orderOpen, setOrderOpen] = useState(false);
 
-  const [mapCenter, setMapCenter] = useState<[number, number]>([33.5138, 36.2765]); // Default center
+  const [mapCenter, setMapCenter] = useState<[number, number]>([33.5138, 36.2765]); // Default: دمشق
+  const [mapZoom, setMapZoom] = useState<number>(11); // default zoom
+  const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
 
   // اجلب ملف المستخدم لتحديد المحافظة
   useEffect(() => {
@@ -57,18 +58,25 @@ const CustomerPage = () => {
       navigate('/auth?type=customer');
       return;
     }
-    // ركز الخريطة على محافظة المستخدم
-    const gov = (user as any).governorate; // يجب جلبه من الملف التعريفي إذا لم يكن موجودًا في user مباشرة
-    if (gov && GOVERNORATE_CENTERS[gov]) setMapCenter(GOVERNORATE_CENTERS[gov]);
-  }, [user, navigate]);
+    const gov = (user as any).governorate;
+    // فقط ركز على المحافظة إذا لم يتم تعيين موقع المستخدم بعد
+    if (gov && GOVERNORATE_CENTERS[gov] && !userLocated) {
+      setMapCenter(GOVERNORATE_CENTERS[gov]);
+      setMapZoom(11);
+    }
+  }, [user, navigate, userLocated]); // ملاحظة التبعيات
 
-  // دمج hook مباشرة لتحديد الموقع عند أول تحميل:
+  // عند أول تحميل: قرّب على موقع المستخدم وضع الزووم للأقرب
   useAutoCenterOnUser({
-    setMapCenter,
+    setMapCenter: (coords) => {
+      setMapCenter(coords);
+      setMapZoom(17); // زووم قريب جدًا على موقع المستخدم
+      setUserLocated(true); // تم تحديد الموقع
+    },
     setFromCoordinates,
     setFromLocation,
-    toast
-    // يمكن تمرير setZoomLevel إذا أردت
+    toast,
+    setZoomLevel: (z) => setMapZoom(z)
   });
 
   // Callbacks refs to allow triggering zooms from parent
@@ -98,10 +106,14 @@ const CustomerPage = () => {
     }
   };
 
+  // تحديث handleMapClick ليضبط الزووم عند تحديد الموقع
   const handleMapClick = (lat: number, lng: number, address: string) => {
     setFromCoordinates([lat, lng]);
     setFromLocation(address);
     setShowFromSuggestions(false);
+    setMapCenter([lat, lng]);
+    setMapZoom(17);
+    setUserLocated(true); // تم التحديد
     toast({
       title: "تم تحديد نقطة الانطلاق",
       description: address.substring(0, 50) + "...",
@@ -147,15 +159,22 @@ const CustomerPage = () => {
     }
   };
 
+  // تحديث selectLocation ليقرّب الخريطة عند اختيار عنوان بحث
   const selectLocation = (suggestion: any, type: 'from' | 'to') => {
     if (type === 'from') {
       setFromLocation(suggestion.name);
       setFromCoordinates([suggestion.lat, suggestion.lon]);
       setShowFromSuggestions(false);
+      setMapCenter([suggestion.lat, suggestion.lon]);
+      setMapZoom(17);
+      setUserLocated(true);
     } else {
       setToLocation(suggestion.name);
       setToCoordinates([suggestion.lat, suggestion.lon]);
       setShowToSuggestions(false);
+      setMapCenter([suggestion.lat, suggestion.lon]);
+      setMapZoom(17);
+      // لا تغيّر userLocated هنا
     }
   };
 
@@ -275,7 +294,7 @@ const CustomerPage = () => {
     }
   };
 
-  // تحديد الموقع الحالي
+  // تحديث useCurrentLocation ليضبط الزووم والمركز
   const useCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -285,8 +304,9 @@ const CustomerPage = () => {
           setFromCoordinates([lat, lng]);
           setFromLocation('موقعي الحالي');
           setShowFromSuggestions(false);
-          // ركز الخريطة عند تفعيل الموقع لأول مرة
           setMapCenter([lat, lng]);
+          setMapZoom(17);
+          setUserLocated(true);
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -347,6 +367,7 @@ const CustomerPage = () => {
         <Map
           className="w-full h-full min-h-screen"
           center={mapCenter}
+          zoom={mapZoom}
           markers={markers}
           route={route}
           toast={toast}

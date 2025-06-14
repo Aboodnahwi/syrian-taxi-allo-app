@@ -18,7 +18,6 @@ export function useAutoCenterOnUser({
   setFromCoordinates,
   setFromLocation,
   toast,
-  zoomLevel,
   setZoomLevel
 }: UseAutoCenterOnUserParams) {
   useEffect(() => {
@@ -37,7 +36,7 @@ export function useAutoCenterOnUser({
         setMapCenter([lat, lng]);
         setFromCoordinates([lat, lng]);
         setFromLocation("موقعي الحالي");
-        if (setZoomLevel) setZoomLevel(17); // اختياري، لو استخدمت
+        if (setZoomLevel) setZoomLevel(17);
       },
       (error) => {
         toast?.({
