@@ -72,6 +72,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       locationHook.setFromLocation("نقطة من اختيارك");
       setMapCenter([lat, lng]);
       setMapZoom(17);
+
+      // احسب المسار مباشرة بعد تحديث الإحداثيات
+      if (calculateRoute) calculateRoute();
+
       setManualPinMode("none");
       toast({
         title: "تم تحديد نقطة الانطلاق",
@@ -83,6 +87,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       locationHook.setToLocation("وجهة من اختيارك");
       setMapCenter([lat, lng]);
       setMapZoom(17);
+
+      // احسب المسار مباشرة بعد تحديث الإحداثيات
+      if (calculateRoute) calculateRoute();
+
       setManualPinMode("none");
       toast({
         title: "تم تحديد الوجهة",
@@ -92,9 +100,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
     // أجبِر إعادة التصيير للتأكد من ظهور التحديث
     forceRerender();
-    setTimeout(() => {
-      if (calculateRoute) calculateRoute();
-    }, 400);
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
 
   // الآن الدبابيس العادية غير قابلة للسحب نهائيًا
