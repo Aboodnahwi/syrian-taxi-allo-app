@@ -16,6 +16,8 @@ export const useCustomerRouting = ({
 }: UseCustomerRoutingProps) => {
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [routeDistance, setRouteDistance] = useState(0);
+  const [lastCalculatedFrom, setLastCalculatedFrom] = useState<[number, number] | null>(null);
+  const [lastCalculatedTo, setLastCalculatedTo] = useState<[number, number] | null>(null);
 
   const calculateDirectDistance = useCallback((from: [number, number], to: [number, number]) => {
     const R = 6371;
@@ -31,7 +33,6 @@ export const useCustomerRouting = ({
   const zoomToBothPoints = useCallback(() => {
     if (mapZoomToRouteRef?.current && fromCoordinates && toCoordinates) {
       console.log("[useCustomerRouting] Calling zoom to route with close zoom");
-      // Add a small delay to ensure route is processed
       setTimeout(() => {
         mapZoomToRouteRef.current?.();
       }, 200);
@@ -45,11 +46,30 @@ export const useCustomerRouting = ({
     });
     
     if (!fromCoordinates || !toCoordinates) {
-      console.log("[useCustomerRouting] calculateRoute: missing coordinates, keeping existing route");
+      console.log("[useCustomerRouting] Missing coordinates - FROM:", fromCoordinates, "TO:", toCoordinates);
+      // لا نمحو المسار هنا، نحتفظ به
       return;
     }
     
-    console.log("[useCustomerRouting] calculateRoute: calculating from", fromCoordinates, "to", toCoordinates);
+    // تحقق من أن الإحداثيات تغيرت فعلاً
+    const fromChanged = !lastCalculatedFrom || 
+      lastCalculatedFrom[0] !== fromCoordinates[0] || 
+      lastCalculatedFrom[1] !== fromCoordinates[1];
+    
+    const toChanged = !lastCalculatedTo || 
+      lastCalculatedTo[0] !== toCoordinates[0] || 
+      lastCalculatedTo[1] !== toCoordinates[1];
+
+    if (!fromChanged && !toChanged) {
+      console.log("[useCustomerRouting] Coordinates haven't changed, skipping route calculation");
+      return;
+    }
+    
+    console.log("[useCustomerRouting] Calculating route from", fromCoordinates, "to", toCoordinates);
+    
+    // حفظ الإحداثيات المحسوبة
+    setLastCalculatedFrom([...fromCoordinates]);
+    setLastCalculatedTo([...toCoordinates]);
     
     try {
       const response = await fetch(
@@ -63,7 +83,7 @@ export const useCustomerRouting = ({
       if (data.features && data.features[0]) {
         const coordinates = data.features[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
-        console.log("[useCustomerRouting] NEW Route calculated successfully:", routeCoords.length, "points");
+        console.log("[useCustomerRouting] Route calculated successfully:", routeCoords.length, "points");
         setRoute(routeCoords);
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
@@ -91,7 +111,7 @@ export const useCustomerRouting = ({
         zoomToBothPoints();
       }, 300);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, lastCalculatedFrom, lastCalculatedTo]);
 
   // Draw route when both coordinates are available
   useEffect(() => {
@@ -105,7 +125,7 @@ export const useCustomerRouting = ({
       console.log("[useCustomerRouting] Both coordinates available, calculating route");
       calculateRoute();
     }
-    // لا نمحو المسار أبداً - نتركه كما هو حتى لو لم تكن هناك إحداثيات
+    // المهم: لا نمحو المسار أبداً هنا
   }, [fromCoordinates, toCoordinates, calculateRoute]);
 
   return {

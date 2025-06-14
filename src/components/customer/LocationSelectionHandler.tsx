@@ -54,11 +54,13 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
   // استدعاء تفعيل وضع التثبيت اليدوي
   const handleManualFromPin = React.useCallback(() => {
+    console.log("[LocationSelectionHandler] Starting manual FROM pin mode");
     _handleManualFromPinBase();
     setManualPinMode("from");
   }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
+    console.log("[LocationSelectionHandler] Starting manual TO pin mode");
     _handleManualToPinBase();
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
@@ -68,67 +70,67 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     console.log("[LocationSelectionHandler] MANUAL PIN CONFIRM - Mode:", manualPinMode, "Coords:", lat, lng);
     
     if (manualPinMode === "from") {
-      console.log("[LocationSelectionHandler] Setting FROM coordinates immediately");
+      console.log("[LocationSelectionHandler] Confirming FROM coordinates:", lat, lng);
       
-      // حفظ الإحداثيات والموقع فوراً بدون تأخير
       const newCoords: [number, number] = [lat, lng];
+      const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       
-      // تحديث جميع الحالات مرة واحدة
+      // حفظ فوري للإحداثيات والموقع
       locationHook.setFromCoordinates(newCoords);
-      locationHook.setFromLocation(""); // مسح النص
+      locationHook.setFromLocation(addressText);
       
-      console.log("[LocationSelectionHandler] FROM coordinates set to:", newCoords);
+      console.log("[LocationSelectionHandler] FROM coordinates saved:", newCoords);
+      console.log("[LocationSelectionHandler] FROM location saved:", addressText);
       
-      // تحديث الخريطة
+      // تحديث الخريطة والوضع
       setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
       
       toast({
         title: "تم تحديد نقطة الانطلاق",
-        description: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        description: addressText,
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
 
-      // التأكد من حساب المسار إذا كانت الوجهة موجودة
+      // حساب المسار إذا كانت الوجهة موجودة
       if (calculateRoute && locationHook.toCoordinates) {
-        console.log("[LocationSelectionHandler] Calculating route with FROM:", newCoords, "TO:", locationHook.toCoordinates);
-        // استدعاء مع تأخير قصير للتأكد من تحديث الحالة
+        console.log("[LocationSelectionHandler] Triggering route calculation with FROM:", newCoords, "TO:", locationHook.toCoordinates);
         setTimeout(() => {
           calculateRoute();
-        }, 150);
+        }, 300);
       }
 
     } else if (manualPinMode === "to") {
-      console.log("[LocationSelectionHandler] Setting TO coordinates immediately");
+      console.log("[LocationSelectionHandler] Confirming TO coordinates:", lat, lng);
       
-      // حفظ الإحداثيات والموقع فوراً بدون تأخير
       const newCoords: [number, number] = [lat, lng];
+      const addressText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       
-      // تحديث جميع الحالات مرة واحدة
+      // حفظ فوري للإحداثيات والموقع
       locationHook.setToCoordinates(newCoords);
-      locationHook.setToLocation(""); // مسح النص
+      locationHook.setToLocation(addressText);
       
-      console.log("[LocationSelectionHandler] TO coordinates set to:", newCoords);
+      console.log("[LocationSelectionHandler] TO coordinates saved:", newCoords);
+      console.log("[LocationSelectionHandler] TO location saved:", addressText);
       
-      // تحديث الخريطة
+      // تحديث الخريطة والوضع
       setMapCenter(newCoords);
       setMapZoom(17);
       setManualPinMode("none");
       
       toast({
         title: "تم تحديد الوجهة",
-        description: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        description: addressText,
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
 
-      // التأكد من حساب المسار إذا كانت نقطة الانطلاق موجودة
+      // حساب المسار إذا كانت نقطة الانطلاق موجودة
       if (calculateRoute && locationHook.fromCoordinates) {
-        console.log("[LocationSelectionHandler] Calculating route with FROM:", locationHook.fromCoordinates, "TO:", newCoords);
-        // استدعاء مع تأخير قصير للتأكد من تحديث الحالة
+        console.log("[LocationSelectionHandler] Triggering route calculation with FROM:", locationHook.fromCoordinates, "TO:", newCoords);
         setTimeout(() => {
           calculateRoute();
-        }, 150);
+        }, 300);
       }
     }
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
@@ -137,6 +139,8 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const handleMarkerDrag = React.useCallback(() => {}, []);
 
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
+    console.log("[LocationSelectionHandler] Selecting location:", suggestion.name, "for", type);
+    
     if (type === 'from') {
       locationHook.setFromLocation(suggestion.name);
       locationHook.setFromCoordinates([suggestion.lat, suggestion.lon]);
