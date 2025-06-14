@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
-import { useDraggablePinState } from "@/hooks/useDraggablePinState";
 
 interface LocationSelectionHandlerProps {
   locationHook: any;
@@ -32,15 +31,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
 
   const {
-    fromDraggable,
-    enableDraggable,
-    disableDraggable
-  } = useDraggablePinState({
-    manualPinMode,
-    setManualPinMode
-  });
-
-  const {
     handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin: _handleManualToPinBase,
     handleMapClickManual
@@ -61,14 +51,14 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const handleManualFromPin = React.useCallback(() => {
     console.log("[LocationSelectionHandler] handleManualFromPin called");
     _handleManualFromPinBase();
-    enableDraggable();
-  }, [_handleManualFromPinBase, enableDraggable]);
+  }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
     console.log("[LocationSelectionHandler] handleManualToPin called");
     _handleManualToPinBase();
   }, [_handleManualToPinBase]);
 
+  // Simplified marker drag handler
   const handleMarkerDrag = React.useCallback(async (
     type: 'from' | 'to',
     lat: number,
@@ -80,16 +70,21 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     if (type === 'from') {
       locationHook.setFromCoordinates([lat, lng]);
       locationHook.setFromLocation(address);
-      if (manualPinMode === "from") {
-        setTimeout(() => {
-          disableDraggable();
-        }, 100);
-      }
+      toast({
+        title: "تم تحديث نقطة الانطلاق",
+        description: address.substring(0, 50) + "...",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
     } else {
       locationHook.setToCoordinates([lat, lng]);
       locationHook.setToLocation(address);
+      toast({
+        title: "تم تحديث الوجهة",
+        description: address.substring(0, 50) + "...",
+        className: "bg-orange-50 border-orange-200 text-orange-800"
+      });
     }
-  }, [locationHook, manualPinMode, disableDraggable]);
+  }, [locationHook, toast]);
 
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
     console.log("[LocationSelectionHandler] selectLocation:", suggestion.name, type);
