@@ -407,35 +407,37 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // تحديد الدبابيس الظاهرة بناءً على وجود الإحداثيات
+  // Helper: تكوين markers من الإحداثيات
   const markers = [
-    ...(fromCoordinates
-      ? [{
-          id: "from",
-          position: fromCoordinates,
-          popup: fromLocation || "نقطة الانطلاق",
-          draggable: true, // السماح بالسحب دائمًا
-          icon: {
-            html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
-            iconSize: [26, 36] as [number, number],
-            iconAnchor: [13, 34] as [number, number]
-          }
-        }]
-      : []),
-    ...(toCoordinates
-      ? [{
-          id: "to",
-          position: toCoordinates,
-          popup: toLocation || "الوجهة",
-          draggable: true, // السماح بالسحب دائمًا
-          icon: {
-            html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
-            iconSize: [26, 36] as [number, number],
-            iconAnchor: [13, 34] as [number, number]
-          }
-        }]
-      : [])
+    ...(fromCoordinates ? [{
+      id: "from",
+      position: fromCoordinates,
+      popup: fromLocation || "نقطة الانطلاق",
+      draggable: true,
+      icon: {
+        html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
+        iconSize: [26, 36] as [number, number],
+        iconAnchor: [13, 34] as [number, number]
+      }
+    }] : []),
+    ...(toCoordinates ? [{
+      id: "to",
+      position: toCoordinates,
+      popup: toLocation || "الوجهة",
+      draggable: true,
+      icon: {
+        html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
+        iconSize: [26, 36] as [number, number],
+        iconAnchor: [13, 34] as [number, number]
+      }
+    }] : []),
   ];
+
+  // إضافة قنصولات للفحص عند التغيير
+  React.useEffect(() => {
+    console.log("[CustomerPage] markers sent to Map:", markers);
+    console.log("[CustomerPage] route array:", route);
+  }, [markers, route]);
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">

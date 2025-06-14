@@ -199,6 +199,9 @@ export const useMap = ({
       L = getLeaflet();
     } catch { return; }
 
+    // Debug: طباعة ما يصله hook
+    console.log("[useMap] rendering markers:", markers);
+
     // Remove old markers
     Object.values(markersRef.current).forEach(marker => mapInstanceRef.current.removeLayer(marker));
     markersRef.current = {};
@@ -218,7 +221,7 @@ export const useMap = ({
       const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
       if (markerData.popup) marker.bindPopup(markerData.popup);
 
-      // الدعم للسحب
+      // السماح بالسحب دومًا إذا كان draggable
       if (markerData.draggable && markerData.id) {
         marker.on('dragend', async (e:any) => {
           const latlng = e.target.getLatLng();
@@ -245,13 +248,15 @@ export const useMap = ({
       }
       markersRef.current[markerData.id] = marker;
     });
+
+    // طباعة موقع marker فعلي على الخريطة بعد الإضافة
+    console.log("[useMap] actual markers after adding:", Object.keys(markersRef.current));
     if (window && (window as any).L && mapInstanceRef.current) {
-      console.log("Leaflet instance and map loaded.");
       if (markers.length > 0)
-        console.log("Markers added:", markers);
+        console.log("Markers added to map:", markers);
     }
   }, [markers, onMarkerDrag, toast]);
-
+  
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     let L;
