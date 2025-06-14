@@ -73,6 +73,19 @@ const MapComponent = ({
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const L = (window as any).L;
+
+    if (!L) {
+      console.error("Leaflet is not loaded");
+      if(toast) {
+          toast({
+              title: "خطأ في تحميل الخريطة",
+              description: "لم يتم تحميل مكتبة الخرائط بنجاح. يرجى المحاولة مرة أخرى.",
+              variant: "destructive"
+          });
+      }
+      return;
+    }
+
     const map = L.map(mapRef.current).setView(center, zoom);
 
     // إضافة طبقة OpenStreetMap

@@ -28,7 +28,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (phone: string): Promise<boolean> => {
-    return await authService.signIn(phone, toast);
+    const result = await authService.signIn(phone, toast);
+    if (result.success && result.user) {
+      setUser(result.user);
+      localStorage.setItem('user', JSON.stringify(result.user));
+      toast({
+        title: "تم تسجيل الدخول بنجاح",
+        description: `مرحباً بك مجدداً, ${result.user.name}`,
+        className: "bg-green-50 border-green-200 text-green-800"
+      });
+    }
+    return result.success;
   };
 
   const verifyOtp = async (phone: string, code: string): Promise<boolean> => {

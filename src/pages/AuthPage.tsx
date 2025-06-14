@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -69,8 +70,20 @@ const AuthPage = () => {
 
     const success = await signIn(loginPhone);
     if (success) {
-      setCurrentPhone(loginPhone);
-      setVerificationMode(true);
+      // توجيه حسب نوع المستخدم بعد تسجيل الدخول الناجح
+      switch (userType) {
+        case 'customer':
+          navigate('/customer');
+          break;
+        case 'driver':
+          navigate('/driver');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/customer');
+      }
     }
   };
 

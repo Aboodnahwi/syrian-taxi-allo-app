@@ -27,7 +27,7 @@ export const authService = {
     }
   },
 
-  async signIn(phone: string, toast: any): Promise<boolean> {
+  async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> {
     try {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -42,7 +42,7 @@ export const authService = {
           description: "حدث خطأ أثناء التحقق من البيانات",
           variant: "destructive"
         });
-        return false;
+        return { success: false, user: null };
       }
 
       if (!profile) {
@@ -51,28 +51,17 @@ export const authService = {
           description: "يرجى التسجيل أولاً",
           variant: "destructive"
         });
-        return false;
+        return { success: false, user: null };
       }
 
-      const { data: otpData, error: otpError } = await supabase
-        .rpc('generate_otp', { p_phone: phone });
-
-      if (otpError) throw otpError;
-
-      toast({
-        title: "تم إرسال رمز التحقق",
-        description: `رمز التحقق: ${otpData} (للتجربة فقط)`,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
-      return true;
+      return { success: true, user: profile };
     } catch (error: any) {
       toast({
         title: "خطأ في تسجيل الدخول",
         description: error.message,
         variant: "destructive"
       });
-      return false;
+      return { success: false, user: null };
     }
   },
 
