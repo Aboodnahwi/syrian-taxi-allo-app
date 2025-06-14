@@ -33,35 +33,24 @@ export const authService = {
 
   async signIn(phone: string, toast: any): Promise<boolean> {
     try {
-      // التأكد من وجود الملف الشخصي، مع إعادة المحاولة عند الفشل
-      const fetchProfile = async () => {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('phone', phone)
-          .maybeSingle();
-        return { profile, profileError };
-      };
+      // التحقق من وجود الملف الشخصي
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
 
-      let { profile, profileError } = await fetchProfile();
-      
-      // إعادة المحاولة مع انتظار أطول للمستخدمين الجدد
-      if (profileError || !profile) {
-        await new Promise((res) => setTimeout(res, 2000));
-        const retryResult = await fetchProfile();
-        profile = retryResult.profile;
-        profileError = retryResult.profileError;
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        toast({
+          title: "خطأ في النظام",
+          description: "حدث خطأ أثناء التحقق من البيانات",
+          variant: "destructive"
+        });
+        return false;
       }
 
-      // محاولة ثالثة للتأكد
-      if (profileError || !profile) {
-        await new Promise((res) => setTimeout(res, 1000));
-        const finalRetry = await fetchProfile();
-        profile = finalRetry.profile;
-        profileError = finalRetry.profileError;
-      }
-
-      if (profileError || !profile) {
+      if (!profile) {
         toast({
           title: "المستخدم غير موجود",
           description: "يرجى التسجيل أولاً",
@@ -102,27 +91,14 @@ export const authService = {
         userData = JSON.parse(pendingRegistration);
       }
 
-      const { data: result, error: verifyError } = await supabase
-        .rpc('verify_otp_and_create_user', {
-          p_phone: phone,
-          p_code: code,
-          p_user_data: userData ? JSON.stringify(userData) : null
-        });
+      // التحقق من رمز OTP أولاً
+      const { data: isValidOtp, error: otpError } = await supabase
+        .rpc('verify_otp', { p_phone: phone, p_code: code });
 
-      // تأكد أن النتيجة كائن وليست نص أو نوع آخر
-      const isValidObject = result !== null && typeof result === "object" && !Array.isArray(result);
-
-      if (
-        verifyError ||
-        !isValidObject ||
-        (Object.prototype.hasOwnProperty.call(result, 'success') && (result as any).success !== true)
-      ) {
+      if (otpError || !isValidOtp) {
         toast({
           title: "رمز التحقق خاطئ",
-          description:
-            (verifyError && verifyError.message) ||
-            (isValidObject && (result as any).error) ||
-            "يرجى إدخال الرمز الصحيح",
+          description: "يرجى إدخال الرمز الصحيح",
           variant: "destructive"
         });
         return { success: false, user: null };
@@ -130,33 +106,44 @@ export const authService = {
 
       let finalUser: User | null = null;
 
-      // جلب بيانات الملف الشخصي بعد التأكيد مع محاولات متعددة
-      if (isValidObject && (result as any).user_id) {
-        const userId = (result as any).user_id;
-        
-        const fetchUserProfile = async () => {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .maybeSingle();
-          return { profile, profileError };
-        };
+      // إذا كان هناك تسجيل معلق (مستخدم جديد)
+      if (userData) {
+        // إنشاء الملف الشخصي مباشرة
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            name: userData.name,
+            phone: userData.phone,
+            role: userData.role,
+            governorate: userData.governorate
+          })
+          .select()
+          .single();
 
-        let { profile, profileError } = await fetchUserProfile();
-        
-        // إعادة المحاولة للمستخدمين الجدد
-        if (profileError || !profile) {
-          await new Promise((res) => setTimeout(res, 2000));
-          const retryResult = await fetchUserProfile();
-          profile = retryResult.profile;
-          profileError = retryResult.profileError;
+        if (createError) {
+          console.error('Profile creation error:', createError);
+          toast({
+            title: "خطأ في إنشاء الحساب",
+            description: "حدث خطأ أثناء إنشاء الملف الشخصي",
+            variant: "destructive"
+          });
+          return { success: false, user: null };
         }
+
+        finalUser = newProfile;
+        localStorage.removeItem('pendingRegistration');
+      } else {
+        // مستخدم موجود - جلب الملف الشخصي
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('phone', phone)
+          .single();
 
         if (profileError || !profile) {
           toast({
             title: "خطأ أثناء جلب الملف الشخصي",
-            description: profileError?.message || "تعذر جلب بيانات الحساب",
+            description: "تعذر جلب بيانات الحساب",
             variant: "destructive"
           });
           return { success: false, user: null };
@@ -164,8 +151,6 @@ export const authService = {
 
         finalUser = profile;
       }
-
-      localStorage.removeItem('pendingRegistration');
 
       toast({
         title: "تم تسجيل الدخول بنجاح",
