@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -72,35 +73,46 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       locationHook.setFromLocation("نقطة من اختيارك");
       setMapCenter([lat, lng]);
       setMapZoom(17);
-
-      // احسب المسار مباشرة بعد تحديث الإحداثيات
-      if (calculateRoute) calculateRoute();
-
       setManualPinMode("none");
+      
       toast({
         title: "تم تحديد نقطة الانطلاق",
         description: "تم تحديد الموقع يدويًا.",
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
+
+      // أجبِر إعادة التصيير أولاً
+      forceRerender();
+      
+      // احسب المسار بعد تأخير قصير للتأكد من تحديث الـ state
+      setTimeout(() => {
+        console.log("[LocationSelectionHandler] Calculating route after FROM pin confirmation");
+        if (calculateRoute) calculateRoute();
+      }, 100);
+
     } else if (manualPinMode === "to") {
       locationHook.setToCoordinates([lat, lng]);
       locationHook.setToLocation("وجهة من اختيارك");
       setMapCenter([lat, lng]);
       setMapZoom(17);
-
-      // احسب المسار مباشرة بعد تحديث الإحداثيات
-      if (calculateRoute) calculateRoute();
-
       setManualPinMode("none");
+      
       toast({
         title: "تم تحديد الوجهة",
         description: "تم تحديد الموقع يدويًا.",
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
+
+      // أجبِر إعادة التصيير أولاً
+      forceRerender();
+      
+      // احسب المسار بعد تأخير قصير للتأكد من تحديث الـ state
+      setTimeout(() => {
+        console.log("[LocationSelectionHandler] Calculating route after TO pin confirmation");
+        if (calculateRoute) calculateRoute();
+      }, 100);
     }
-    // أجبِر إعادة التصيير للتأكد من ظهور التحديث
-    forceRerender();
-  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
+  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute, forceRerender]);
 
   // الآن الدبابيس العادية غير قابلة للسحب نهائيًا
   const handleMarkerDrag = React.useCallback(() => {}, []);
