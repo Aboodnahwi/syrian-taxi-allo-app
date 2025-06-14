@@ -208,7 +208,7 @@ export const useMap = ({
       const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
       if (markerData.popup) marker.bindPopup(markerData.popup);
 
-      // دعم السحب
+      // الدعم للسحب
       if (markerData.draggable && markerData.id) {
         marker.on('dragend', async (e:any) => {
           const latlng = e.target.getLatLng();
@@ -230,12 +230,19 @@ export const useMap = ({
               className: "bg-blue-50 border-blue-200 text-blue-800"
             });
           }
-          // بعد سحب أي دبوس اعمل zoom عليه
+          // بعد سحب أي دبوس اعمل zoom عليه مباشرة (تم التأكد ـ مكرر من الأعلى)
           zoomToLatLng(latlng.lat, latlng.lng, 17);
         });
       }
       markersRef.current[markerData.id] = marker;
     });
+
+    // debug: تأكد من أن Marker وTiles تعمل
+    if (window && window.L && mapInstanceRef.current) {
+      console.log("Leaflet instance and map loaded.");
+      if (markers.length > 0)
+        console.log("Markers added:", markers);
+    }
   }, [markers, onMarkerDrag, toast]);
 
   useEffect(() => {

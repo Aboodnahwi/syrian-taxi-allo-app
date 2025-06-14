@@ -12,7 +12,7 @@ import Map from '@/components/map/Map';
 import NotificationSystem from '@/components/NotificationSystem';
 import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
-import React from "react";
+import React, { useRef } from "react";
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {
@@ -61,9 +61,9 @@ const CustomerPage = () => {
   }, [user, navigate]);
 
   // Callbacks refs to allow triggering zooms from parent
-  const mapZoomToFrom = useRef<() => void>();
-  const mapZoomToTo = useRef<() => void>();
-  const mapZoomToRoute = useRef<() => void>();
+  const mapZoomToFromRef = useRef<() => void>();
+  const mapZoomToToRef = useRef<() => void>();
+  const mapZoomToRouteRef = useRef<() => void>();
 
   // تحديث إحداثيات وحقل عنوان عند سحب الدبابيس
   const handleMarkerDrag = async (
@@ -75,12 +75,15 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      setTimeout(() => mapZoomToFrom.current?.(), 400); // zoom للانطلاق
+      // بعد سحب الدبوس الأول: زووم ثم انتقل للوجهة (إن وُجدت)
+      setTimeout(() => mapZoomToFromRef.current?.(), 400);
+      if (toCoordinates) setTimeout(() => mapZoomToToRef.current?.(), 850);
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
-      setTimeout(() => mapZoomToTo.current?.(), 400); // zoom للوجهة
-      setTimeout(() => mapZoomToRoute.current?.(), 900); // zoom للمسار بعد قليل
+      // بعد سحب الوجهة: زووم عليها، ثم زووم على المسار
+      setTimeout(() => mapZoomToToRef.current?.(), 350);
+      setTimeout(() => mapZoomToRouteRef.current?.(), 900);
     }
   };
 
@@ -93,17 +96,17 @@ const CustomerPage = () => {
       description: address.substring(0, 50) + "...",
       className: "bg-blue-50 border-blue-200 text-blue-800"
     });
-    setTimeout(() => mapZoomToFrom.current?.(), 400); // zoom للانطلاق بعد تحديدها أول مرة
+    setTimeout(() => mapZoomToFromRef.current?.(), 400);
   };
 
   // عند تحديد موقع الوجهة - zoom عند تحديد
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
-      setTimeout(() => mapZoomToTo.current?.(), 350);
-      setTimeout(() => mapZoomToRoute.current?.(), 750);
+      setTimeout(() => mapZoomToToRef.current?.(), 350);
+      setTimeout(() => mapZoomToRouteRef.current?.(), 750);
     }
-  }, [toCoordinates]);
-
+  }, [toCoordinates, fromCoordinates]);
+  
   const searchLocation = async (query: string, type: 'from' | 'to') => {
     if (query.length < 3) {
       if (type === 'from') setFromSuggestions([]);
@@ -338,10 +341,9 @@ const CustomerPage = () => {
           toast={toast}
           onLocationSelect={handleMapClick}
           onMarkerDrag={handleMarkerDrag}
-          // Callbacks refs to allow triggering zooms from parent
-          onZoomToFrom={(cb) => { mapZoomToFrom.current = cb; }}
-          onZoomToTo={(cb) => { mapZoomToTo.current = cb; }}
-          onZoomToRoute={(cb) => { mapZoomToRoute.current = cb; }}
+          mapZoomToFromRef={mapZoomToFromRef}
+          mapZoomToToRef={mapZoomToToRef}
+          mapZoomToRouteRef={mapZoomToRouteRef}
         />
       </div>
       {/* Head & notification */}

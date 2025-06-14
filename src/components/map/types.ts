@@ -9,7 +9,7 @@ export interface MapMarker {
     iconSize?: [number, number];
     iconAnchor?: [number, number];
   };
-  draggable?: boolean; // الجديد
+  draggable?: boolean;
 }
 
 export interface MapProps {
@@ -21,8 +21,8 @@ export interface MapProps {
   className?: string;
   toast?: (options: any) => void;
   onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
-  // callbacks لزوم جديد
-  onZoomToFrom?: (cb: () => void) => void;
-  onZoomToTo?: (cb: () => void) => void;
-  onZoomToRoute?: (cb: () => void) => void;
+  // Optional refs for controlling zoom externally
+  mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
 }

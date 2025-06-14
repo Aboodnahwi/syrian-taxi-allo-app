@@ -3,29 +3,33 @@ import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
+import React, { useEffect } from 'react';
 
 const Map = (props: MapProps & {
-  onZoomToFrom?: () => void;
-  onZoomToTo?: () => void;
-  onZoomToRoute?: () => void;
+  mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
 }) => {
   const { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap(props);
-  // expose methods to parent if needed
-  if (props.onZoomToFrom) props.onZoomToFrom(() => {
-    if (props.markers?.find(m => m.id === "from")) {
-      const from = props.markers?.find(m => m.id === "from");
-      if (from) zoomToLatLng(from.position[0], from.position[1], 17);
-    }
-  });
-  if (props.onZoomToTo) props.onZoomToTo(() => {
-    if (props.markers?.find(m => m.id === "to")) {
-      const to = props.markers?.find(m => m.id === "to");
-      if (to) zoomToLatLng(to.position[0], to.position[1], 17);
-    }
-  });
-  if (props.onZoomToRoute) props.onZoomToRoute(() => {
-    zoomToRoute();
-  });
+
+  // Hooks for parent to control zoom of from/to/route
+  useEffect(() => {
+    if (props.mapZoomToFromRef)
+      props.mapZoomToFromRef.current = () => {
+        const from = props.markers?.find(m => m.id === "from");
+        if (from) zoomToLatLng(from.position[0], from.position[1], 17);
+      };
+    if (props.mapZoomToToRef)
+      props.mapZoomToToRef.current = () => {
+        const to = props.markers?.find(m => m.id === "to");
+        if (to) zoomToLatLng(to.position[0], to.position[1], 17);
+      };
+    if (props.mapZoomToRouteRef)
+      props.mapZoomToRouteRef.current = () => {
+        zoomToRoute();
+      };
+  }, [props.mapZoomToFromRef, props.mapZoomToToRef, props.mapZoomToRouteRef, props.markers, zoomToLatLng, zoomToRoute]);
+
 
   return (
     <div className={`relative ${props.className || 'w-full h-96'}`}>
