@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -57,14 +56,6 @@ const LocationInputs = ({
             <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
           <Button
-            onClick={onManualFromPin}
-            title="تعيين الانطلاق يدويًا بالخريطة"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-3"
-            type="button"
-          >
-            <MapPin className="w-4 h-4" />
-          </Button>
-          <Button
             onClick={useCurrentLocation}
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-3"
           >
@@ -102,14 +93,6 @@ const LocationInputs = ({
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
         </div>
-        <Button
-          onClick={onManualToPin}
-          title="تعيين الوجهة يدويًا بالخريطة"
-          className="bg-blue-500 hover:bg-blue-600 text-white px-3"
-          type="button"
-        >
-          <MapPin className="w-4 h-4" />
-        </Button>
       </div>
       {showToSuggestions && toSuggestions.length > 0 && (
         <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto z-40">

@@ -122,7 +122,6 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      disableDraggable(); // بعد السحب، يتوقف السحب ويخرج من النظام اليدوي مباشرة.
       setTimeout(() => {
         mapZoomToFromRef.current?.();
       }, 350);
@@ -133,7 +132,7 @@ const CustomerPage = () => {
         mapZoomToToRef.current?.();
       }, 350);
     }
-    // في كلا الحالات، عند سحب أي دبوس وفي وجود الدبوس الآخر، يتم رسم الطريق وعمل fitBounds
+    // عند توفر النقطتين، رسم المسار والتقريب
     if (
       (type === "from" && toCoordinates) ||
       (type === "to" && fromCoordinates)
@@ -424,7 +423,7 @@ const CustomerPage = () => {
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: manualPinMode === "from",
+          draggable: true, // السماح بالسحب دائمًا
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
@@ -437,7 +436,7 @@ const CustomerPage = () => {
           id: "to",
           position: toCoordinates,
           popup: toLocation || "الوجهة",
-          draggable: manualPinMode === "to", // يمكن جعل دبوس الوجهة أيضًا قابل للسحب في وضع اليدوي
+          draggable: true, // السماح بالسحب دائمًا
           icon: {
             html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
             iconSize: [26, 36] as [number, number],
