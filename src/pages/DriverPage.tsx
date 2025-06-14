@@ -1,12 +1,13 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, Clock, Phone, LogOut, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import NotificationSystem from '@/components/NotificationSystem';
 import MapComponent from '@/components/MapComponent';
+import DriverHeader from '@/components/driver/DriverHeader';
+import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
+import ActiveRideCard from '@/components/driver/ActiveRideCard';
+import RideRequestList from '@/components/driver/RideRequestList';
+import DriverPageMessages from '@/components/driver/DriverPageMessages';
 
 // طلبات الرحلات التجريبية
 const mockRideRequests = [
@@ -191,7 +192,6 @@ const DriverPage = () => {
 
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
-      {/* الخريطة */}
       <MapComponent
         className="absolute inset-0 z-10"
         markers={mapMarkers}
@@ -200,220 +200,35 @@ const DriverPage = () => {
         toast={toast}
       />
 
-      {/* شريط علوي */}
-      <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-emerald-900/95 backdrop-blur-sm p-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-emerald-500 to-taxi-500 p-2 rounded-lg">
-              <Navigation className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold font-cairo">سائق ألو تكسي</h1>
-              <p className="text-slate-300 text-sm font-tajawal">مرحباً، {user.name || 'سائق'}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={toggleOnlineStatus}
-              className={`${
-                isOnline 
-                  ? 'bg-emerald-500 hover:bg-emerald-600' 
-                  : 'bg-slate-500 hover:bg-slate-600'
-              } text-white px-4 py-2`}
-            >
-              {isOnline ? 'متصل' : 'غير متصل'}
-            </Button>
-            
-            <NotificationSystem userType="driver" />
-            
-            <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/10">
-              <LogOut className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <DriverHeader 
+        user={user}
+        isOnline={isOnline}
+        toggleOnlineStatus={toggleOnlineStatus}
+        logout={logout}
+      />
 
-      {/* حالة السائق */}
-      <div className="absolute top-20 right-4 z-30">
-        <Badge 
-          className={`${
-            isOnline ? 'bg-emerald-500' : 'bg-slate-500'
-          } text-white px-3 py-2 text-sm font-tajawal`}
-        >
-          {isOnline ? '🟢 متاح للعمل' : '🔴 غير متاح'}
-        </Badge>
-      </div>
+      <DriverStatusBadge isOnline={isOnline} />
 
-      {/* الرحلة النشطة */}
-      {activeRide && (
-        <div className="absolute top-20 left-4 right-4 z-30">
-          <Card className="bg-white/95 backdrop-blur-sm border-emerald-200 border-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-emerald-800 font-cairo text-lg flex items-center gap-2">
-                <CheckCircle className="w-5 h-5" />
-                رحلة نشطة
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-slate-600 font-tajawal">الزبون:</span>
-                  <p className="font-semibold text-slate-800">{activeRide.customerName}</p>
-                </div>
-                <div>
-                  <span className="text-slate-600 font-tajawal">السعر:</span>
-                  <p className="font-semibold text-emerald-600">{activeRide.price.toLocaleString()} ل.س</p>
-                </div>
-                <div>
-                  <span className="text-slate-600 font-tajawal">من:</span>
-                  <p className="font-semibold text-slate-800">{activeRide.from}</p>
-                </div>
-                <div>
-                  <span className="text-slate-600 font-tajawal">إلى:</span>
-                  <p className="font-semibold text-slate-800">{activeRide.to}</p>
-                </div>
-              </div>
+      <ActiveRideCard 
+        activeRide={activeRide}
+        rideStatus={rideStatus}
+        updateRideStatus={updateRideStatus}
+      />
 
-              <div className="flex gap-2">
-                {rideStatus === 'accepted' && (
-                  <Button 
-                    onClick={() => updateRideStatus('arrived')}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    وصلت للزبون
-                  </Button>
-                )}
-                {rideStatus === 'arrived' && (
-                  <Button 
-                    onClick={() => updateRideStatus('started')}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                  >
-                    بدء الرحلة
-                  </Button>
-                )}
-                {rideStatus === 'started' && (
-                  <Button 
-                    onClick={() => updateRideStatus('completed')}
-                    className="flex-1 bg-violet-500 hover:bg-violet-600 text-white"
-                  >
-                    انتهاء الرحلة
-                  </Button>
-                )}
-                <Button 
-                  variant="outline"
-                  className="px-3 border-slate-300 hover:bg-slate-50"
-                >
-                  <Phone className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* طلبات الرحلات */}
       {!activeRide && isOnline && rideRequests.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 max-h-[50vh] overflow-y-auto">
-          <div className="p-4 space-y-3">
-            <h3 className="text-white font-bold font-cairo text-lg bg-slate-900/80 backdrop-blur-sm rounded-lg p-2 text-center">
-              طلبات الرحلات ({rideRequests.length})
-            </h3>
-            
-            {rideRequests.map((request) => (
-              <Card key={request.id} className="bg-white/95 backdrop-blur-sm">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2">
-                      <User className="w-5 h-5 text-slate-600" />
-                      <span className="font-semibold text-slate-800">{request.customerName}</span>
-                      {request.urgent && (
-                        <Badge className="bg-red-500 text-white text-xs">عاجل</Badge>
-                      )}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-lg font-bold text-emerald-600">{request.price.toLocaleString()} ل.س</p>
-                      <p className="text-xs text-slate-500">{request.distance}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-blue-500" />
-                      <span className="text-slate-600">من:</span>
-                      <span className="font-semibold">{request.from}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-red-500" />
-                      <span className="text-slate-600">إلى:</span>
-                      <span className="font-semibold">{request.to}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-slate-500" />
-                      <span className="text-slate-600">وقت التوصيل المتوقع:</span>
-                      <span className="font-semibold">{request.estimatedTime}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={() => acceptRide(request)}
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                    >
-                      قبول الرحلة
-                    </Button>
-                    <Button 
-                      onClick={() => rejectRide(request.id)}
-                      variant="outline"
-                      className="px-4 border-red-200 text-red-600 hover:bg-red-50"
-                    >
-                      رفض
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        <RideRequestList 
+          rideRequests={rideRequests}
+          acceptRide={acceptRide}
+          rejectRide={rejectRide}
+        />
       )}
-
-      {/* رسالة عدم وجود طلبات */}
-      {!activeRide && isOnline && rideRequests.length === 0 && (
-        <div className="absolute bottom-20 left-4 right-4 z-30">
-          <Card className="bg-white/90 backdrop-blur-sm border-0">
-            <CardContent className="p-6 text-center">
-              <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-slate-800 font-semibold font-cairo mb-2">لا توجد طلبات حالياً</h3>
-              <p className="text-slate-600 font-tajawal text-sm">
-                ستظهر الطلبات الجديدة هنا عندما يطلبها الزبائن
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* رسالة عدم الاتصال */}
-      {!isOnline && (
-        <div className="absolute bottom-20 left-4 right-4 z-30">
-          <Card className="bg-slate-800/90 backdrop-blur-sm border-slate-600">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-slate-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                <AlertCircle className="w-6 h-6 text-slate-300" />
-              </div>
-              <h3 className="text-white font-semibold font-cairo mb-2">غير متصل</h3>
-              <p className="text-slate-300 font-tajawal text-sm mb-4">
-                اضغط على "متصل" في الأعلى لبدء استقبال الطلبات
-              </p>
-              <Button 
-                onClick={toggleOnlineStatus}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white"
-              >
-                بدء العمل
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      
+      <DriverPageMessages 
+        activeRide={activeRide}
+        isOnline={isOnline}
+        rideRequestsCount={rideRequests.length}
+        toggleOnlineStatus={toggleOnlineStatus}
+      />
     </div>
   );
 };
