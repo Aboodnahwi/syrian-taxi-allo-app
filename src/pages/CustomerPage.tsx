@@ -384,9 +384,56 @@ const CustomerPage = () => {
   );
 };
 
-// Helper functions (unchanged, keep as before)
-function getVehicleName(type: string): string { /* ... keep existing code ... */ }
-function getVehicleIcon(type: string): string { /* ... keep existing code ... */ }
-function getVehicleColor(type: string): string { /* ... keep existing code ... */ }
+// Helper functions (FIX: add default return)
+function getVehicleName(type: string): string {
+  switch (type) {
+    case "regular":
+      return "تكسي عادي";
+    case "luxury":
+      return "تكسي فخم";
+    case "pickup":
+      return "بيك أب";
+    case "van":
+      return "فان";
+    case "motorcycle":
+      return "دراجة نارية";
+    default:
+      return "مركبة";
+  }
+}
+
+function getVehicleIcon(type: string): string {
+  switch (type) {
+    case "regular":
+      return "🚕";
+    case "luxury":
+      return "🚘";
+    case "pickup":
+      return "🛻";
+    case "van":
+      return "🚐";
+    case "motorcycle":
+      return "🏍️";
+    default:
+      return "🚗";
+  }
+}
+
+function getVehicleColor(type: string): string {
+  switch (type) {
+    case "regular":
+      return "bg-taxi-500";
+    case "luxury":
+      return "bg-yellow-600";
+    case "pickup":
+      return "bg-blue-600";
+    case "van":
+      return "bg-violet-600";
+    case "motorcycle":
+      return "bg-gray-600";
+    default:
+      return "bg-gray-400";
+  }
+}
 
 export default CustomerPage;
