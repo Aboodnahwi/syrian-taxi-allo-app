@@ -1,26 +1,9 @@
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-
-interface User {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  governorate: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  signUp: (userData: any) => Promise<boolean>;
-  signIn: (phone: string) => Promise<boolean>;
-  verifyOtp: (phone: string, code: string) => Promise<boolean>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { User, AuthContextType } from '@/types/auth';
+import { authService } from '@/services/authService';
+import { AuthContext } from '@/contexts/AuthContext';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -41,163 +24,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signUp = async (userData: any): Promise<boolean> => {
-    try {
-      // إرسال رمز OTP مع بيانات المستخدم
-      const { data: otpData, error: otpError } = await supabase
-        .rpc('generate_otp', { p_phone: userData.phone });
-
-      if (otpError) throw otpError;
-
-      // حفظ بيانات التسجيل مؤقتاً
-      localStorage.setItem('pendingRegistration', JSON.stringify(userData));
-      
-      toast({
-        title: "تم إرسال رمز التحقق",
-        description: `رمز التحقق: ${otpData} (للتجربة فقط)`,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "خطأ في التسجيل",
-        description: error.message,
-        variant: "destructive"
-      });
-      return false;
-    }
+    return await authService.signUp(userData, toast);
   };
 
   const signIn = async (phone: string): Promise<boolean> => {
-    try {
-      // التأكد من وجود الملف الشخصي، مع إعادة المحاولة عند الفشل (delayed retry)
-      const fetchProfile = async () => {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('phone', phone)
-          .maybeSingle();
-        return { profile, profileError };
-      };
-
-      let { profile, profileError } = await fetchProfile();
-      if (profileError || !profile) {
-        // إذا لم نجد، ننتظر ثانية ثم نعيد المحاولة (مرة واحدة فقط)
-        await new Promise((res) => setTimeout(res, 1200));
-        const retryResult = await fetchProfile();
-        profile = retryResult.profile;
-        profileError = retryResult.profileError;
-      }
-
-      if (profileError || !profile) {
-        toast({
-          title: "المستخدم غير موجود",
-          description: "يرجى التسجيل أولاً",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      // إرسال رمز OTP
-      const { data: otpData, error: otpError } = await supabase
-        .rpc('generate_otp', { p_phone: phone });
-
-      if (otpError) throw otpError;
-
-      toast({
-        title: "تم إرسال رمز التحقق",
-        description: `رمز التحقق: ${otpData} (للتجربة فقط)`,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "خطأ في تسجيل الدخول",
-        description: error.message,
-        variant: "destructive"
-      });
-      return false;
-    }
+    return await authService.signIn(phone, toast);
   };
 
   const verifyOtp = async (phone: string, code: string): Promise<boolean> => {
-    try {
-      // التحقق من وجود تسجيل معلق (للتسجيل)
-      const pendingRegistration = localStorage.getItem('pendingRegistration');
-      let userData = null;
-      if (pendingRegistration) {
-        userData = JSON.parse(pendingRegistration);
-      }
-
-      const { data: result, error: verifyError } = await supabase
-        .rpc('verify_otp_and_create_user', {
-          p_phone: phone,
-          p_code: code,
-          p_user_data: userData ? JSON.stringify(userData) : null
-        });
-
-      // تأكد أن النتيجة كائن وليست نص أو نوع آخر
-      const isValidObject = result !== null && typeof result === "object" && !Array.isArray(result);
-
-      if (
-        verifyError ||
-        !isValidObject ||
-        (Object.prototype.hasOwnProperty.call(result, 'success') && (result as any).success !== true)
-      ) {
-        toast({
-          title: "رمز التحقق خاطئ",
-          description:
-            (verifyError && verifyError.message) ||
-            (isValidObject && (result as any).error) ||
-            "يرجى إدخال الرمز الصحيح",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      let finalUser: User | null = null;
-
-      // جلب بيانات الملف الشخصي بعد التأكيد
-      if (isValidObject && (result as any).user_id) {
-        const userId = (result as any).user_id;
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (profileError || !profile) {
-          toast({
-            title: "خطأ أثناء جلب الملف الشخصي",
-            description: profileError?.message || "تعذر جلب بيانات الحساب",
-            variant: "destructive"
-          });
-          return false;
-        }
-
-        finalUser = profile;
-      }
-
-      setUser(finalUser);
-      localStorage.setItem('user', JSON.stringify(finalUser));
-      localStorage.removeItem('pendingRegistration');
-
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في ألو تكسي",
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "خطأ في التحقق",
-        description: error.message,
-        variant: "destructive"
-      });
-      return false;
+    const result = await authService.verifyOtp(phone, code, toast);
+    if (result.success && result.user) {
+      setUser(result.user);
+      localStorage.setItem('user', JSON.stringify(result.user));
     }
+    return result.success;
   };
 
   const signOut = async () => {
@@ -206,24 +46,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem('pendingRegistration');
   };
 
+  const contextValue: AuthContextType = {
+    user,
+    loading,
+    signUp,
+    signIn,
+    verifyOtp,
+    signOut
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      signUp,
-      signIn,
-      verifyOtp,
-      signOut
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export { useAuth } from '@/contexts/AuthContext';
