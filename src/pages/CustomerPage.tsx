@@ -14,6 +14,7 @@ import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import React from "react";
 import { useAutoCenterOnUser } from "@/hooks/useAutoCenterOnUser";
+import { useManualPinMode } from "@/hooks/useManualPinMode";
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {
@@ -117,25 +118,48 @@ const CustomerPage = () => {
     }
   };
 
-  // عند الضغط على الخريطة تضبط نقطة الانطلاق وتقرب إليها دائماً
+  // قسمنا هذا الجزء من المنطق في hook منفصلة
+  const {
+    handleManualFromPin,
+    handleManualToPin,
+    handleMapClickManual
+  } = useManualPinMode({
+    setManualPinMode,
+    setFromCoordinates,
+    setToCoordinates,
+    setFromLocation,
+    setToLocation,
+    setMapCenter,
+    setMapZoom,
+    showToast: toast,
+    fromCoordinates,
+    toCoordinates,
+    mapCenter
+  });
+
+  // عدّلنا هنا فقط لكي تستدعي الدالة من الـ hook
   const handleMapClick = (lat: number, lng: number, address: string) => {
-    if (manualPinMode !== "none") {
-      handleMapClickManual(lat, lng, address);
-    } else {
-      // تصرف الوضع العادي القديم (تعيين نقطة انطلاق عند النقر على الخريطة)
-      setFromCoordinates([lat, lng]);
-      setFromLocation(address);
-      setShowFromSuggestions(false);
-      setMapCenter([lat, lng]);
-      setMapZoom(17);
-      setUserLocated(true);
-      toast({
-        title: "تم تحديد نقطة الانطلاق",
-        description: address.substring(0, 50) + "...",
-        className: "bg-blue-50 border-blue-200 text-blue-800"
-      });
-      setTimeout(() => mapZoomToFromRef.current?.(), 400);
+    if (manualPinMode === "from") {
+      handleMapClickManual(lat, lng, address, "from");
+      return;
     }
+    if (manualPinMode === "to") {
+      handleMapClickManual(lat, lng, address, "to");
+      return;
+    }
+    // تصرف الوضع العادي القديم (تعيين نقطة انطلاق عند النقر على الخريطة)
+    setFromCoordinates([lat, lng]);
+    setFromLocation(address);
+    setShowFromSuggestions(false);
+    setMapCenter([lat, lng]);
+    setMapZoom(17);
+    setUserLocated(true);
+    toast({
+      title: "تم تحديد نقطة الانطلاق",
+      description: address.substring(0, 50) + "...",
+      className: "bg-blue-50 border-blue-200 text-blue-800"
+    });
+    setTimeout(() => mapZoomToFromRef.current?.(), 400);
   };
 
   // عند اختيار عنوان نقطة الانطلاق/الوجهة من الاقتراحات أو البحث
@@ -387,37 +411,7 @@ const CustomerPage = () => {
       : [])
   ];
 
-  // عند الضغط على زر "تعيين الانطلاق يدويًا"
-  const handleManualFromPin = () => {
-    setManualPinMode("from");
-    toast({
-      title: "تعيين نقطة الانطلاق يدويًا",
-      description: "اختر موقع نقطة الانطلاق على الخريطة بسحب الدبوس الأزرق.",
-      className: "bg-blue-50 border-blue-200 text-blue-800"
-    });
-    // ضع دبوس مؤقت إذا لم يكن موجودًا
-    if (!fromCoordinates && mapCenter) {
-      setFromCoordinates([mapCenter[0], mapCenter[1]]);
-      setFromLocation("نقطة من اختيارك");
-    }
-    setMapZoom(17);
-  };
-
-  // عند الضغط على زر "تعيين الوجهة يدويًا"
-  const handleManualToPin = () => {
-    setManualPinMode("to");
-    toast({
-      title: "تعيين الوجهة يدويًا",
-      description: "اختر موقع الوجهة على الخريطة بسحب الدبوس البرتقالي.",
-      className: "bg-orange-50 border-orange-200 text-orange-800"
-    });
-    if (!toCoordinates && mapCenter) {
-      setToCoordinates([mapCenter[0], mapCenter[1]]);
-      setToLocation("وجهة من اختيارك");
-    }
-    setMapZoom(17);
-  };
-
+  // أدع handleManualFromPin, handleManualToPin كـ props
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
       {/* الخريطة */}
