@@ -329,6 +329,10 @@ export type Database = {
         Args: { p_phone: string; p_code: string }
         Returns: boolean
       }
+      verify_otp_and_create_user: {
+        Args: { p_phone: string; p_code: string; p_user_data?: Json }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

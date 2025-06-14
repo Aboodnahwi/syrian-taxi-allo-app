@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUp = async (userData: any): Promise<boolean> => {
     try {
-      // إنشاء رمز OTP
+      // إرسال رمز OTP مع بيانات المستخدم
       const { data: otpData, error: otpError } = await supabase
         .rpc('generate_otp', { p_phone: userData.phone });
 
@@ -70,12 +70,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (phone: string): Promise<boolean> => {
     try {
-      // التحقق من وجود المستخدم
+      // التأكد من وجود الملف الشخصي
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('phone', phone)
-        .single();
+        .maybeSingle();
 
       if (profileError || !profile) {
         toast({
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return false;
       }
 
-      // إنشاء رمز OTP
+      // إرسال رمز OTP
       const { data: otpData, error: otpError } = await supabase
         .rpc('generate_otp', { p_phone: phone });
 
@@ -111,73 +111,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const verifyOtp = async (phone: string, code: string): Promise<boolean> => {
     try {
-      // التحقق من رمز OTP
-      const { data: isValid, error: verifyError } = await supabase
-        .rpc('verify_otp', { p_phone: phone, p_code: code });
+      // التحقق من وجود تسجيل معلق (للتسجيل)
+      const pendingRegistration = localStorage.getItem('pendingRegistration');
+      let userData = null;
+      if (pendingRegistration) {
+        userData = JSON.parse(pendingRegistration);
+      }
 
-      if (verifyError || !isValid) {
+      const { data: result, error: verifyError } = await supabase
+        .rpc('verify_otp_and_create_user', {
+          p_phone: phone,
+          p_code: code,
+          p_user_data: userData ? JSON.stringify(userData) : null
+        });
+
+      if (verifyError || !result || !result.success) {
         toast({
           title: "رمز التحقق خاطئ",
-          description: "يرجى إدخال الرمز الصحيح",
+          description: (verifyError && verifyError.message) || (result && result.error) || "يرجى إدخال الرمز الصحيح",
           variant: "destructive"
         });
         return false;
       }
 
-      // التحقق من وجود تسجيل معلق
-      const pendingRegistration = localStorage.getItem('pendingRegistration');
-      
-      if (pendingRegistration) {
-        // إكمال التسجيل
-        const userData = JSON.parse(pendingRegistration);
-        
-        // إنشاء ID عشوائي للمستخدم الجديد
-        const newUserId = crypto.randomUUID();
-        
-        const { data: profile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: newUserId,
-            name: userData.name,
-            phone: userData.phone,
-            role: userData.role,
-            governorate: userData.governorate
-          })
-          .select()
-          .single();
+      let finalUser: User | null = null;
 
-        if (insertError) throw insertError;
-
-        // إنشاء سجل سائق إذا كان المستخدم سائقاً
-        if (userData.role === 'driver') {
-          await supabase
-            .from('drivers')
-            .insert({
-              user_id: profile.id,
-              vehicle_type: 'regular',
-              license_number: 'temp-license',
-              license_plate: 'temp-plate',
-              vehicle_model: 'غير محدد',
-              vehicle_color: 'غير محدد'
-            });
-        }
-
-        setUser(profile);
-        localStorage.setItem('user', JSON.stringify(profile));
-        localStorage.removeItem('pendingRegistration');
-      } else {
-        // تسجيل دخول عادي
+      // جلب بيانات الملف الشخصي بعد التأكيد
+      if (result.user_id) {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('phone', phone)
-          .single();
+          .eq('id', result.user_id)
+          .maybeSingle();
 
-        if (profileError) throw profileError;
+        if (profileError || !profile) {
+          toast({
+            title: "خطأ أثناء جلب الملف الشخصي",
+            description: profileError?.message || "تعذر جلب بيانات الحساب",
+            variant: "destructive"
+          });
+          return false;
+        }
 
-        setUser(profile);
-        localStorage.setItem('user', JSON.stringify(profile));
+        finalUser = profile;
       }
+
+      setUser(finalUser);
+      localStorage.setItem('user', JSON.stringify(finalUser));
+      localStorage.removeItem('pendingRegistration');
 
       toast({
         title: "تم تسجيل الدخول بنجاح",
@@ -223,3 +204,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+// ... end of file
