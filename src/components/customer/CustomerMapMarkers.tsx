@@ -8,6 +8,7 @@ interface CustomerMapMarkersProps {
   toLocation: string;
 }
 
+// جميع الدبابيس غير قابلة للسحب في هذا الوضع
 export const useCustomerMapMarkers = ({
   fromCoordinates,
   toCoordinates,
@@ -19,7 +20,7 @@ export const useCustomerMapMarkers = ({
       id: "from" as const,
       position: fromCoordinates,
       popup: fromLocation || "نقطة الانطلاق",
-      draggable: true, // Always draggable
+      draggable: false,
       icon: {
         html: '<div style="background:#0ea5e9;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">📍</div>',
         iconSize: [32, 42] as [number, number],
@@ -30,7 +31,7 @@ export const useCustomerMapMarkers = ({
       id: "to" as const,
       position: toCoordinates,
       popup: toLocation || "الوجهة",
-      draggable: true, // Always draggable
+      draggable: false,
       icon: {
         html: '<div style="background:#f59e42;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">🎯</div>',
         iconSize: [32, 42] as [number, number],
@@ -43,3 +44,4 @@ export const useCustomerMapMarkers = ({
 };
 
 export default useCustomerMapMarkers;
+

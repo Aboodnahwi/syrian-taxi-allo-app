@@ -41,6 +41,8 @@ const CustomerPage = () => {
     handleManualToPin: () => void;
     handleMarkerDrag: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
     selectLocation: (suggestion: any, type: 'from' | 'to') => void;
+    manualPinMode?: "none"|"from"|"to";
+    onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
   const markers = useCustomerMapMarkers({
@@ -89,6 +91,9 @@ const CustomerPage = () => {
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
+        // جديد:
+        manualPinMode={locationHandlers?.manualPinMode}
+        onManualPinConfirm={locationHandlers?.onManualPinConfirm}
       />
       
       {/* Head & notification */}

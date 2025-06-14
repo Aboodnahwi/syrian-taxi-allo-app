@@ -15,6 +15,8 @@ interface LocationSelectionHandlerProps {
     handleManualToPin: () => void;
     handleMarkerDrag: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
     selectLocation: (suggestion: any, type: 'from' | 'to') => void;
+    manualPinMode: "none"|"from"|"to";
+    onManualPinConfirm: (lat: number, lng: number) => void;
   }) => void;
 }
 
@@ -48,48 +50,51 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     mapCenter
   });
 
-  // تخزين المرجع للدالة التي ترسم المسار الجديد
   const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
 
+  // استدعاء تفعيل وضع التثبيت اليدوي
   const handleManualFromPin = React.useCallback(() => {
     _handleManualFromPinBase();
+    setManualPinMode("from");
   }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
     _handleManualToPinBase();
+    setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  // جعل الدبابيس تتفاعل مع حدث السحب بشكل تفاعلي، مع تحديث المسار مباشرة
-  const handleMarkerDrag = React.useCallback(async (
-    type: 'from' | 'to',
-    lat: number,
-    lng: number,
-    address: string
-  ) => {
-    if (type === 'from') {
+  // عند تأكيد الموقع (الدبوس في مركز الخريطة)
+  const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
+    if (manualPinMode === "from") {
       locationHook.setFromCoordinates([lat, lng]);
-      locationHook.setFromLocation(address);
+      locationHook.setFromLocation("نقطة من اختيارك");
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setManualPinMode("none");
       toast({
-        title: "تم تحديث نقطة الانطلاق",
-        description: address.substring(0, 50) + "...",
+        title: "تم تحديد نقطة الانطلاق",
+        description: "تم تحديد الموقع يدويًا.",
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
-    } else {
+    } else if (manualPinMode === "to") {
       locationHook.setToCoordinates([lat, lng]);
-      locationHook.setToLocation(address);
+      locationHook.setToLocation("وجهة من اختيارك");
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setManualPinMode("none");
       toast({
-        title: "تم تحديث الوجهة",
-        description: address.substring(0, 50) + "...",
+        title: "تم تحديد الوجهة",
+        description: "تم تحديد الموقع يدويًا.",
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
     }
-    // إعادة رسم المسار بعد سحب الدبوس مباشرة
-    if (calculateRoute) {
-      setTimeout(() => {
-        calculateRoute();
-      }, 100); // تأخير صغير ليتم تحديث الإحداثيات أولًا
-    }
-  }, [locationHook, toast, calculateRoute]);
+    setTimeout(() => {
+      if (calculateRoute) calculateRoute();
+    }, 400);
+  }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute]);
+
+  // الآن الدبابيس العادية غير قابلة للسحب نهائيًا
+  const handleMarkerDrag = React.useCallback(() => {}, []);
 
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
     if (type === 'from') {
@@ -111,7 +116,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setTimeout(() => {
         mapZoomToToRef.current?.();
       }, 250);
-      
       toast({
         title: "تم تحديد الوجهة",
         description: suggestion.name.substring(0, 50) + "...",
@@ -126,11 +130,22 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       handleManualFromPin,
       handleManualToPin,
       handleMarkerDrag,
-      selectLocation
+      selectLocation,
+      manualPinMode,
+      onManualPinConfirm
     });
-  }, [handleManualFromPin, handleManualToPin, handleMarkerDrag, selectLocation, onLocationHandlersReady]);
+  }, [
+    handleManualFromPin,
+    handleManualToPin,
+    handleMarkerDrag,
+    selectLocation,
+    manualPinMode,
+    onManualPinConfirm,
+    onLocationHandlersReady
+  ]);
 
-  return null; // This is a logic-only component
+  return null;
 };
 
 export default LocationSelectionHandler;
+
