@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,18 @@ const CustomerPage = () => {
       navigate('/auth?type=customer');
     }
   }, [user, navigate]);
+
+  const handleMapClick = (lat: number, lng: number, address: string) => {
+    // حالياً، سيتم تحديد نقطة الانطلاق فقط. يمكن تطويرها لاحقاً لاختيار بين نقطة الانطلاق والوجهة
+    setFromCoordinates([lat, lng]);
+    setFromLocation(address);
+    setShowFromSuggestions(false); // إخفاء أي اقتراحات عناوين مفتوحة
+    toast({
+      title: "تم تحديد نقطة الانطلاق",
+      description: address.substring(0, 50) + "...",
+      className: "bg-blue-50 border-blue-200 text-blue-800"
+    });
+  };
 
   // البحث عن العناوين
   const searchLocation = async (query: string, type: 'from' | 'to') => {
@@ -272,6 +285,7 @@ const CustomerPage = () => {
         ]}
         route={route}
         toast={toast}
+        onLocationSelect={handleMapClick}
       />
 
       {/* شريط علوي */}
