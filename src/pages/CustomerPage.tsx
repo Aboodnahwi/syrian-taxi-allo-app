@@ -9,7 +9,7 @@ import { useVehiclePricing } from '@/hooks/useVehiclePricing';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import MapComponent from '@/components/MapComponent';
+import Map from '@/components/map/Map';
 import NotificationSystem from '@/components/NotificationSystem';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronUp, ChevronDown } from "lucide-react";
@@ -256,7 +256,7 @@ const CustomerPage = () => {
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
       {/* الخريطة */}
-      <MapComponent
+      <Map
         className="absolute inset-0 z-10"
         markers={[
           ...(fromCoordinates ? [{
