@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -125,10 +124,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           p_user_data: userData ? JSON.stringify(userData) : null
         });
 
-      if (verifyError || !result || !result.success) {
+      // تأكد أن النتيجة كائن وليست نص أو نوع آخر
+      const isValidObject = result !== null && typeof result === "object" && !Array.isArray(result);
+
+      if (
+        verifyError ||
+        !isValidObject ||
+        (Object.prototype.hasOwnProperty.call(result, 'success') && (result as any).success !== true)
+      ) {
         toast({
           title: "رمز التحقق خاطئ",
-          description: (verifyError && verifyError.message) || (result && result.error) || "يرجى إدخال الرمز الصحيح",
+          description:
+            (verifyError && verifyError.message) ||
+            (isValidObject && (result as any).error) ||
+            "يرجى إدخال الرمز الصحيح",
           variant: "destructive"
         });
         return false;
@@ -137,11 +146,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let finalUser: User | null = null;
 
       // جلب بيانات الملف الشخصي بعد التأكيد
-      if (result.user_id) {
+      if (isValidObject && (result as any).user_id) {
+        const userId = (result as any).user_id;
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', result.user_id)
+          .eq('id', userId)
           .maybeSingle();
 
         if (profileError || !profile) {
@@ -204,5 +214,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-// ... end of file
