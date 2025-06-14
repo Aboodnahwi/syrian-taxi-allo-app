@@ -51,6 +51,7 @@ const CustomerPage = () => {
   const [mapCenter, setMapCenter] = useState<[number, number]>([33.5138, 36.2765]); // Default: دمشق
   const [mapZoom, setMapZoom] = useState<number>(11); // default zoom
   const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
+  const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
 
   // اجلب ملف المستخدم لتحديد المحافظة
   useEffect(() => {
@@ -105,22 +106,36 @@ const CustomerPage = () => {
         mapZoomToToRef.current?.();
       }, 350);
     }
+    // في كلا الحالات، عند سحب أي دبوس وفي وجود الدبوس الآخر، يتم رسم الطريق وعمل fitBounds
+    if (
+      (type === "from" && toCoordinates) ||
+      (type === "to" && fromCoordinates)
+    ) {
+      setTimeout(() => {
+        mapZoomToRouteRef.current?.();
+      }, 800);
+    }
   };
 
   // عند الضغط على الخريطة تضبط نقطة الانطلاق وتقرب إليها دائماً
   const handleMapClick = (lat: number, lng: number, address: string) => {
-    setFromCoordinates([lat, lng]);
-    setFromLocation(address);
-    setShowFromSuggestions(false);
-    setMapCenter([lat, lng]);
-    setMapZoom(17);
-    setUserLocated(true);
-    toast({
-      title: "تم تحديد نقطة الانطلاق",
-      description: address.substring(0, 50) + "...",
-      className: "bg-blue-50 border-blue-200 text-blue-800"
-    });
-    setTimeout(() => mapZoomToFromRef.current?.(), 400);
+    if (manualPinMode !== "none") {
+      handleMapClickManual(lat, lng, address);
+    } else {
+      // تصرف الوضع العادي القديم (تعيين نقطة انطلاق عند النقر على الخريطة)
+      setFromCoordinates([lat, lng]);
+      setFromLocation(address);
+      setShowFromSuggestions(false);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
+      setUserLocated(true);
+      toast({
+        title: "تم تحديد نقطة الانطلاق",
+        description: address.substring(0, 50) + "...",
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+      setTimeout(() => mapZoomToFromRef.current?.(), 400);
+    }
   };
 
   // عند اختيار عنوان نقطة الانطلاق/الوجهة من الاقتراحات أو البحث
@@ -372,6 +387,37 @@ const CustomerPage = () => {
       : [])
   ];
 
+  // عند الضغط على زر "تعيين الانطلاق يدويًا"
+  const handleManualFromPin = () => {
+    setManualPinMode("from");
+    toast({
+      title: "تعيين نقطة الانطلاق يدويًا",
+      description: "اختر موقع نقطة الانطلاق على الخريطة بسحب الدبوس الأزرق.",
+      className: "bg-blue-50 border-blue-200 text-blue-800"
+    });
+    // ضع دبوس مؤقت إذا لم يكن موجودًا
+    if (!fromCoordinates && mapCenter) {
+      setFromCoordinates([mapCenter[0], mapCenter[1]]);
+      setFromLocation("نقطة من اختيارك");
+    }
+    setMapZoom(17);
+  };
+
+  // عند الضغط على زر "تعيين الوجهة يدويًا"
+  const handleManualToPin = () => {
+    setManualPinMode("to");
+    toast({
+      title: "تعيين الوجهة يدويًا",
+      description: "اختر موقع الوجهة على الخريطة بسحب الدبوس البرتقالي.",
+      className: "bg-orange-50 border-orange-200 text-orange-800"
+    });
+    if (!toCoordinates && mapCenter) {
+      setToCoordinates([mapCenter[0], mapCenter[1]]);
+      setToLocation("وجهة من اختيارك");
+    }
+    setMapZoom(17);
+  };
+
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
       {/* الخريطة */}
@@ -426,6 +472,8 @@ const CustomerPage = () => {
           useCurrentLocation={useCurrentLocation}
           setShowFromSuggestions={setShowFromSuggestions}
           setShowToSuggestions={setShowToSuggestions}
+          onManualFromPin={handleManualFromPin}
+          onManualToPin={handleManualToPin}
         />
       </div>
       {/* لوحة الطلب */}

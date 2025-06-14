@@ -18,6 +18,8 @@ interface LocationInputsProps {
   useCurrentLocation: () => void;
   setShowFromSuggestions: (v: boolean) => void;
   setShowToSuggestions: (v: boolean) => void;
+  onManualFromPin: () => void; // جديد: زر تعيين مكان الانطلاق يدويًا
+  onManualToPin: () => void;   // جديد: زر تعيين مكان الوجهة يدويًا
 }
 
 const LocationInputs = ({
@@ -33,7 +35,9 @@ const LocationInputs = ({
   showToSuggestions,
   useCurrentLocation,
   setShowFromSuggestions,
-  setShowToSuggestions
+  setShowToSuggestions,
+  onManualFromPin,
+  onManualToPin
 }: LocationInputsProps) => {
   return (
     <div className="space-y-3">
@@ -52,6 +56,14 @@ const LocationInputs = ({
             />
             <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
+          <Button
+            onClick={onManualFromPin}
+            title="تعيين الانطلاق يدويًا بالخريطة"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-3"
+            type="button"
+          >
+            <MapPin className="w-4 h-4" />
+          </Button>
           <Button
             onClick={useCurrentLocation}
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-3"
@@ -77,34 +89,44 @@ const LocationInputs = ({
         )}
       </div>
       {/* البحث عن الوجهة */}
-      <div className="relative">
-        <Input
-          placeholder="إلى أين تريد أن تذهب؟"
-          value={toLocation}
-          onChange={(e) => {
-            setToLocation(e.target.value);
-            onSearchLocation(e.target.value, "to");
-          }}
-          className="bg-white/95 backdrop-blur-sm border-0 text-slate-800 placeholder:text-slate-500 font-tajawal pl-10"
-        />
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
-        {showToSuggestions && toSuggestions.length > 0 && (
-          <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto z-40">
-            {toSuggestions.map((suggestion) => (
-              <div
-                key={suggestion.id}
-                onClick={() => onSelectLocation(suggestion, "to")}
-                className="p-3 hover:bg-slate-50 cursor-pointer border-b last:border-b-0 font-tajawal"
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-slate-500" />
-                  <span className="text-sm text-slate-800">{suggestion.name}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <Input
+            placeholder="إلى أين تريد أن تذهب؟"
+            value={toLocation}
+            onChange={(e) => {
+              setToLocation(e.target.value);
+              onSearchLocation(e.target.value, "to");
+            }}
+            className="bg-white/95 backdrop-blur-sm border-0 text-slate-800 placeholder:text-slate-500 font-tajawal pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
+        </div>
+        <Button
+          onClick={onManualToPin}
+          title="تعيين الوجهة يدويًا بالخريطة"
+          className="bg-blue-500 hover:bg-blue-600 text-white px-3"
+          type="button"
+        >
+          <MapPin className="w-4 h-4" />
+        </Button>
       </div>
+      {showToSuggestions && toSuggestions.length > 0 && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto z-40">
+          {toSuggestions.map((suggestion) => (
+            <div
+              key={suggestion.id}
+              onClick={() => onSelectLocation(suggestion, "to")}
+              className="p-3 hover:bg-slate-50 cursor-pointer border-b last:border-b-0 font-tajawal"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-800">{suggestion.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
