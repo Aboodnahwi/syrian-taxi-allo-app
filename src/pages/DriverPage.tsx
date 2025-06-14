@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import MapComponent from '@/components/MapComponent';
+import Map from '@/components/map/Map';
 import DriverHeader from '@/components/driver/DriverHeader';
 import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
 import ActiveRideCard from '@/components/driver/ActiveRideCard';
@@ -192,7 +191,7 @@ const DriverPage = () => {
 
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
-      <MapComponent
+      <Map
         className="absolute inset-0 z-10"
         markers={mapMarkers}
         center={currentLocation || [33.5138, 36.2765]}
