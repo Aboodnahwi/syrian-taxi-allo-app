@@ -9,12 +9,7 @@ const Map = (props: MapProps) => {
 
   return (
     <div className={`relative ${props.className || 'w-full h-96'}`}>
-      {/* تنبيه إذا لم تحتوِ الديف على ارتفاع */}
-      <div ref={mapRef} className="w-full h-full min-h-[250px] rounded-lg bg-gray-100">
-        {/* هذا النص لن يظهر عادة، لكنه يظهر إذا فشلت اللوحة */}
-        {/* <div className="text-red-500 text-center mt-8">الخريطة لم تظهر؟</div> */}
-      </div>
-      
+      <div ref={mapRef} className="w-full h-full min-h-[250px] rounded-lg bg-gray-100" />
       <Button
         onClick={centerOnCurrentLocation}
         className="absolute top-4 right-4 z-[1000] bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 shadow-lg"
@@ -27,4 +22,3 @@ const Map = (props: MapProps) => {
 };
 
 export default Map;
-

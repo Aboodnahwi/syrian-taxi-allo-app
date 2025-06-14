@@ -1,6 +1,6 @@
 
 export interface MapMarker {
-  id: string;
+  id: string; // "from" أو "to"
   position: [number, number];
   popup?: string;
   icon?: {
@@ -9,6 +9,7 @@ export interface MapMarker {
     iconSize?: [number, number];
     iconAnchor?: [number, number];
   };
+  draggable?: boolean; // الجديد
 }
 
 export interface MapProps {
@@ -19,4 +20,6 @@ export interface MapProps {
   route?: Array<[number, number]>;
   className?: string;
   toast?: (options: any) => void;
+  // جديد ليستخدمه CustomerPage إذا أراد
+  onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
 }

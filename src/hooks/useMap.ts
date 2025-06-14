@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapProps } from '@/components/map/types';
 
@@ -46,12 +45,25 @@ export const useMap = ({
   markers = [],
   route,
   toast,
-}: Omit<MapProps, 'className'>) => {
+  onMarkerDrag
+}: Omit<MapProps, 'className'> & { 
+  onMarkerDrag?: (type:'from'|'to', lat:number, lng:number, address:string)=>void 
+}) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const markersRef = useRef<{[k:string]: any}>({});
   const routeLayerRef = useRef<any>(null);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
+
+  const fetchAddress = async (lat:number, lng:number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+      const data = await response.json();
+      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } catch {
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
 
   const getCurrentLocation = useCallback(() => {
     if (navigator.geolocation) {
@@ -163,11 +175,14 @@ export const useMap = ({
     if (!mapInstanceRef.current || !(window as any).L) return;
     const L = (window as any).L;
 
-    markersRef.current.forEach(marker => mapInstanceRef.current.removeLayer(marker));
-    markersRef.current = [];
+    // Remove old markers
+    Object.values(markersRef.current).forEach(marker => mapInstanceRef.current.removeLayer(marker));
+    markersRef.current = {};
 
     markers.forEach((markerData) => {
-      let markerOptions: any = {};
+      let markerOptions: any = {
+        draggable: markerData.draggable
+      };
       if (markerData.icon) {
         markerOptions.icon = L.divIcon({
           html: markerData.icon.html,
@@ -178,9 +193,34 @@ export const useMap = ({
       }
       const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
       if (markerData.popup) marker.bindPopup(markerData.popup);
-      markersRef.current.push(marker);
+
+      // دعم السحب
+      if (markerData.draggable && markerData.id) {
+        marker.on('dragend', async (e:any) => {
+          const latlng = e.target.getLatLng();
+          const address = await fetchAddress(latlng.lat, latlng.lng);
+          if (onMarkerDrag) {
+            onMarkerDrag(
+              markerData.id as 'from' | 'to',
+              latlng.lat,
+              latlng.lng,
+              address
+            );
+          }
+          marker.setPopupContent(markerData.popup || address);
+          marker.openPopup();
+          if (toast) {
+            toast({
+              title: markerData.id === 'from' ? "تم تحديث نقطة الانطلاق" : "تم تحديث الوجهة",
+              description: address,
+              className: "bg-blue-50 border-blue-200 text-blue-800"
+            });
+          }
+        });
+      }
+      markersRef.current[markerData.id] = marker;
     });
-  }, [markers]);
+  }, [markers, onMarkerDrag, toast]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -204,4 +244,3 @@ export const useMap = ({
 
   return { mapRef, centerOnCurrentLocation };
 };
-

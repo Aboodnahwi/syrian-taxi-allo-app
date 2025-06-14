@@ -46,8 +46,24 @@ const CustomerPage = () => {
     }
   }, [user, navigate]);
 
+  // وظيفة تحديث إحداثيات وحقل عنوان عند سحب الدبابيس
+  const handleMarkerDrag = async (
+    type: 'from' | 'to',
+    lat: number,
+    lng: number,
+    address: string
+  ) => {
+    if (type === 'from') {
+      setFromCoordinates([lat, lng]);
+      setFromLocation(address);
+    } else {
+      setToCoordinates([lat, lng]);
+      setToLocation(address);
+    }
+  };
+
+  // حالياً، سيتم تحديد نقطة الانطلاق فقط. يمكن تطويرها لاحقاً لاختيار بين نقطة الانطلاق والوجهة
   const handleMapClick = (lat: number, lng: number, address: string) => {
-    // حالياً، سيتم تحديد نقطة الانطلاق فقط. يمكن تطويرها لاحقاً لاختيار بين نقطة الانطلاق والوجهة
     setFromCoordinates([lat, lng]);
     setFromLocation(address);
     setShowFromSuggestions(false); // إخفاء أي اقتراحات عناوين مفتوحة
@@ -275,17 +291,30 @@ const CustomerPage = () => {
             ...(fromCoordinates ? [{
               id: 'from',
               position: fromCoordinates,
-              popup: 'نقطة الانطلاق'
+              popup: fromLocation || 'نقطة الانطلاق',
+              draggable: true,
+              icon: {
+                html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
+                iconSize: [26,36],
+                iconAnchor: [13,34],
+              }
             }] : []),
             ...(toCoordinates ? [{
               id: 'to',
               position: toCoordinates,
-              popup: 'الوجهة'
+              popup: toLocation || 'الوجهة',
+              draggable: true,
+              icon: {
+                html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
+                iconSize: [26,36],
+                iconAnchor: [13,34],
+              }
             }] : [])
           ]}
           route={route}
           toast={toast}
           onLocationSelect={handleMapClick}
+          onMarkerDrag={handleMarkerDrag}
         />
       </div>
 
