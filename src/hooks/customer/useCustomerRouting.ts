@@ -30,8 +30,11 @@ export const useCustomerRouting = ({
 
   const zoomToBothPoints = useCallback(() => {
     if (mapZoomToRouteRef?.current && fromCoordinates && toCoordinates) {
-      console.log("[useCustomerRouting] Calling zoom to route");
-      mapZoomToRouteRef.current();
+      console.log("[useCustomerRouting] Calling zoom to route with close zoom");
+      // Add a small delay to ensure route is processed
+      setTimeout(() => {
+        mapZoomToRouteRef.current?.();
+      }, 200);
     }
   }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
 
@@ -60,10 +63,10 @@ export const useCustomerRouting = ({
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
         
-        // Auto-zoom to fit both points with route after calculation
+        // Auto-zoom with closer view after route calculation
         setTimeout(() => {
           zoomToBothPoints();
-        }, 500);
+        }, 300);
       }
     } catch (error) {
       console.error('Error calculating route:', error);
@@ -74,19 +77,21 @@ export const useCustomerRouting = ({
       });
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       setRouteDistance(distance);
-      setRoute([]);
       
-      // Auto-zoom to fit both points even without route
+      // Set direct route for zoom purposes
+      setRoute([fromCoordinates, toCoordinates]);
+      
+      // Auto-zoom even without route API
       setTimeout(() => {
         zoomToBothPoints();
-      }, 500);
+      }, 300);
     }
   }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
   // Draw route when both coordinates are available
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
-      console.log("[useCustomerRouting] Both coordinates available, calculating route");
+      console.log("[useCustomerRouting] Both coordinates available, calculating route with close zoom");
       calculateRoute();
     } else {
       console.log("[useCustomerRouting] No coordinates for route - clearing route");

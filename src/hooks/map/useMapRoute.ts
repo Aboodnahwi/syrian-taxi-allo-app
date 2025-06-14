@@ -26,22 +26,28 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       return; 
     }
 
-    // If we have a route, zoom to route bounds
+    // If we have a route, zoom to route bounds with tighter padding
     if (routeLayerRef.current && route && route.length > 0) {
-      console.log("[useMapRoute] Zooming to route bounds");
+      console.log("[useMapRoute] Zooming to route bounds with close zoom");
       mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { 
         animate: true, 
-        padding: [60, 60],
-        maxZoom: 16
+        padding: [20, 20], // Reduced padding for closer zoom
+        maxZoom: 18 // Increased max zoom for closer view
       });
     } else if (route && route.length >= 2) {
       // If no route layer but we have route points, create bounds from first and last points
-      console.log("[useMapRoute] Zooming to route start/end points");
+      console.log("[useMapRoute] Zooming to route start/end points with close zoom");
       const bounds = L.latLngBounds([route[0], route[route.length - 1]]);
+      
+      // Calculate distance between points to determine appropriate zoom
+      const distance = mapInstanceRef.current.distance(route[0], route[route.length - 1]);
+      console.log("[useMapRoute] Distance between points:", distance, "meters");
+      
+      // Use minimal padding and higher zoom for closer view
       mapInstanceRef.current.fitBounds(bounds, { 
         animate: true, 
-        padding: [60, 60],
-        maxZoom: 16
+        padding: [15, 15], // Minimal padding
+        maxZoom: distance < 1000 ? 19 : distance < 5000 ? 17 : 15 // Dynamic max zoom based on distance
       });
     }
   }, [mapInstanceRef, route]);
