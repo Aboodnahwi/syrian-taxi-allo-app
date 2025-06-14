@@ -1,70 +1,93 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
-export const useRealTimeTrips = (userRole: string, userId?: string) => {
-  const [trips, setTrips] = useState<any[]>([]);
-  const { toast } = useToast();
+interface Trip {
+  id: string;
+  customer_id: string;
+  driver_id?: string;
+  from_location: string;
+  to_location: string;
+  from_coordinates?: [number, number];
+  to_coordinates?: [number, number];
+  vehicle_type: string;
+  distance_km?: number;
+  price: number;
+  status: string;
+  scheduled_time?: string;
+  created_at: string;
+  updated_at: string;
+  accepted_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  cancelled_at?: string;
+  customer_rating?: number;
+  driver_rating?: number;
+  customer_comment?: string;
+  driver_comment?: string;
+  cancellation_reason?: string;
+  estimated_duration?: number;
+  actual_duration?: number;
+}
+
+export const useRealTimeTrips = (userType: 'customer' | 'driver', userId?: string) => {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
 
-    // جلب الرحلات الحالية
     const fetchTrips = async () => {
-      let query = supabase.from('trips').select(`
-        *,
-        customer:profiles!trips_customer_id_fkey(name, phone),
-        driver:profiles!trips_driver_id_fkey(name, phone)
-      `);
+      try {
+        let query = supabase
+          .from('trips')
+          .select('*');
 
-      if (userRole === 'customer') {
-        query = query.eq('customer_id', userId);
-      } else if (userRole === 'driver') {
-        query = query.eq('driver_id', userId);
+        if (userType === 'customer') {
+          query = query.eq('customer_id', userId);
+        } else if (userType === 'driver') {
+          query = query.eq('driver_id', userId);
+        }
+
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[useRealTimeTrips] Error fetching trips:', error);
+          throw error;
+        }
+
+        console.log('[useRealTimeTrips] Fetched trips:', data?.length || 0);
+        setTrips(data || []);
+      } catch (error) {
+        console.error('[useRealTimeTrips] Error in fetchTrips:', error);
+        setTrips([]);
+      } finally {
+        setLoading(false);
       }
-
-      const { data } = await query.order('created_at', { ascending: false });
-      if (data) setTrips(data);
     };
 
     fetchTrips();
 
-    // الاستماع للتحديثات الحية
+    // Subscribe to real-time updates
     const channel = supabase
-      .channel('trips_realtime')
+      .channel('trips-changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'trips'
+          table: 'trips',
+          filter: userType === 'customer' ? `customer_id=eq.${userId}` : `driver_id=eq.${userId}`
         },
         (payload) => {
-          console.log('تحديث الرحلات:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            // إشعار بطلب جديد للسائقين
-            if (userRole === 'driver') {
-              toast({
-                title: "طلب رحلة جديد",
-                description: "يوجد طلب رحلة جديد في منطقتك",
-                className: "bg-blue-50 border-blue-200 text-blue-800"
-              });
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            // إشعارات تحديث حالة الرحلة
-            const newTrip = payload.new as any;
-            if (newTrip.status === 'accepted' && userRole === 'customer') {
-              toast({
-                title: "تم قبول طلبك",
-                description: "السائق في الطريق إليك",
-                className: "bg-green-50 border-green-200 text-green-800"
-              });
-            }
-          }
-          
-          fetchTrips();
+          console.log('[useRealTimeTrips] Real-time update:', payload);
+          fetchTrips(); // Refetch data when changes occur
         }
       )
       .subscribe();
@@ -72,96 +95,7 @@ export const useRealTimeTrips = (userRole: string, userId?: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, userRole, toast]);
+  }, [userType, userId]);
 
-  return trips;
-};
-
-export const useRealTimeDrivers = () => {
-  const [drivers, setDrivers] = useState<any[]>([]);
-
-  useEffect(() => {
-    // جلب السائقين المتاحين
-    const fetchDrivers = async () => {
-      const { data } = await supabase
-        .from('drivers')
-        .select(`
-          *,
-          profile:profiles!drivers_user_id_fkey(name, phone)
-        `)
-        .eq('is_online', true);
-      
-      if (data) setDrivers(data);
-    };
-
-    fetchDrivers();
-
-    // الاستماع لتحديثات السائقين
-    const channel = supabase
-      .channel('drivers_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        () => {
-          fetchDrivers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  return drivers;
-};
-
-export const useRealTimeNotifications = (userId?: string) => {
-  const [notifications, setNotifications] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    // جلب الإشعارات
-    const fetchNotifications = async () => {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (data) setNotifications(data);
-    };
-
-    fetchNotifications();
-
-    // الاستماع للإشعارات الجديدة
-    const channel = supabase
-      .channel('notifications_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          setNotifications(prev => [payload.new as any, ...prev.slice(0, 9)]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  },
-  [userId]);
-
-  return notifications;
+  return { trips, loading };
 };
