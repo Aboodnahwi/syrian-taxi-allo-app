@@ -63,62 +63,61 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
-    const manualCoords: [number, number] = [lat, lng];
-    const addressText = getManualAddress(lat, lng);
+  const onManualPinConfirm = React.useCallback(
+    async (lat: number, lng: number) => {
+      const manualCoords: [number, number] = [lat, lng];
+      const addressText = getManualAddress(lat, lng);
 
-    if (manualPinMode === "from") {
-      locationHook.setFromCoordinates(manualCoords);
-      locationHook.setFromLocation(addressText);
-      setMapCenter(manualCoords);
-      setMapZoom(17);
+      if (manualPinMode === "from") {
+        // 1. حفظ الإحداثيات الجديدة وموقع النص
+        locationHook.setFromCoordinates(manualCoords);
+        locationHook.setFromLocation(addressText);
+        setMapCenter(manualCoords);
+        setMapZoom(17);
 
-      toast({
-        title: "تم تحديد نقطة الانطلاق يدويًا",
-        description: addressText,
-        className: "bg-blue-50 border-blue-200 text-blue-800"
-      });
-      // انتظر حتى تتحدث fromCoordinates فعليًا، ثم ارسم خط السير
-      setTimeout(async () => {
-        if (calculateRoute && locationHook.toCoordinates) {
-          await calculateRoute(manualCoords, locationHook.toCoordinates);
-          setManualPinMode("none");
-        }
-        // إذا لا يوجد وجهة، أبقِ الدبوس حتى تحدد الوجهة
-        if (!locationHook.toCoordinates) {
-          setManualPinMode("none");
-        }
-      }, 50);
-    } else if (manualPinMode === "to") {
-      locationHook.setToCoordinates(manualCoords);
-      locationHook.setToLocation(addressText);
-      setMapCenter(manualCoords);
-      setMapZoom(17);
+        toast({
+          title: "تم تحديد نقطة الانطلاق يدويًا",
+          description: addressText,
+          className: "bg-blue-50 border-blue-200 text-blue-800",
+        });
 
-      toast({
-        title: "تم تحديد الوجهة يدويًا",
-        description: addressText,
-        className: "bg-orange-50 border-orange-200 text-orange-800"
-      });
-      setTimeout(async () => {
-        if (calculateRoute && locationHook.fromCoordinates) {
-          await calculateRoute(locationHook.fromCoordinates, manualCoords);
+        // 2. إذا كان هناك وجهة، ارسم المسار فورًا باستخدام القيم الصحيحة
+        if (locationHook.toCoordinates) {
+          await calculateRoute?.(manualCoords, locationHook.toCoordinates);
           setManualPinMode("none");
+        } else {
+          // إذا لا يوجد وجهة، نبقي الدبوس
+          setManualPinMode("from");
         }
-        // إذا لا يوجد نقطة انطلاق، أبقِ الدبوس حتى تحدد الانطلاق
-        if (!locationHook.fromCoordinates) {
+      } else if (manualPinMode === "to") {
+        locationHook.setToCoordinates(manualCoords);
+        locationHook.setToLocation(addressText);
+        setMapCenter(manualCoords);
+        setMapZoom(17);
+
+        toast({
+          title: "تم تحديد الوجهة يدويًا",
+          description: addressText,
+          className: "bg-orange-50 border-orange-200 text-orange-800",
+        });
+
+        if (locationHook.fromCoordinates) {
+          await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
           setManualPinMode("none");
+        } else {
+          setManualPinMode("to");
         }
-      }, 50);
-    }
-  }, [
-    manualPinMode,
-    locationHook,
-    setMapCenter,
-    setMapZoom,
-    toast,
-    calculateRoute
-  ]);
+      }
+    },
+    [
+      manualPinMode,
+      locationHook,
+      setMapCenter,
+      setMapZoom,
+      toast,
+      calculateRoute,
+    ]
+  );
 
   const handleMarkerDrag = React.useCallback(() => {}, []);
 
