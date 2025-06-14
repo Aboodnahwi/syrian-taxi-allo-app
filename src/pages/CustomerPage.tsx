@@ -14,6 +14,7 @@ import NotificationSystem from '@/components/NotificationSystem';
 import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import React from "react";
+import { useAutoCenterOnUser } from "@/hooks/useAutoCenterOnUser";
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {
@@ -60,6 +61,15 @@ const CustomerPage = () => {
     const gov = (user as any).governorate; // يجب جلبه من الملف التعريفي إذا لم يكن موجودًا في user مباشرة
     if (gov && GOVERNORATE_CENTERS[gov]) setMapCenter(GOVERNORATE_CENTERS[gov]);
   }, [user, navigate]);
+
+  // دمج hook مباشرة لتحديد الموقع عند أول تحميل:
+  useAutoCenterOnUser({
+    setMapCenter,
+    setFromCoordinates,
+    setFromLocation,
+    toast
+    // يمكن تمرير setZoomLevel إذا أردت
+  });
 
   // Callbacks refs to allow triggering zooms from parent
   const mapZoomToFromRef = useRef<() => void>();
