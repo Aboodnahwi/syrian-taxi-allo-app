@@ -55,15 +55,12 @@ const CustomerPage = () => {
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [orderOpen, setOrderOpen] = useState(false);
 
-  const [mapCenter, setMapCenter] = useState<[number, number]>([33.5138, 36.2765]); // Default: دمشق
-  const [mapZoom, setMapZoom] = useState<number>(11); // default zoom
-  const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
+  const [mapCenter, setMapCenter] = useState<[number, number]>([33.5138, 36.2765]);
+  const [mapZoom, setMapZoom] = useState<number>(11);
+  const [userLocated, setUserLocated] = useState(false);
   const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
-
-  // تم تعديلها (يتم تشييك عليها بعد التحديد الأولي)
   const [fromInitialized, setFromInitialized] = useState(false);
 
-  // استخدم الهوك الجديد للوضع القابل للسحب
   const {
     fromDraggable,
     enableDraggable,
@@ -74,51 +71,47 @@ const CustomerPage = () => {
     setManualPinMode
   });
 
-  // اجلب ملف المستخدم لتحديد المحافظة
-  useEffect(() => {
-    if (!user || user.role !== 'customer') {
-      navigate('/auth?type=customer');
-      return;
-    }
-    // فقط ضع الخريطة على المحافظة عند الدخول الأول إذا لم يتم تعيين موقع المستخدم
-    const gov = (user as any).governorate;
-    if (gov && GOVERNORATE_CENTERS[gov] && !userLocated && !fromCoordinates) {
-      setMapCenter(GOVERNORATE_CENTERS[gov]);
-      setMapZoom(11);
-    }
-    // إذا تم تحديد إحداثيات نقطة الانطلاق، لا ترجّع الكاميرا للمحافظة
-  }, [user, navigate, userLocated, fromCoordinates]);
-
-  // عند أول تحميل: قرّب على موقع المستخدم وضع الزووم للأقرب. 
-  // لا تعدل الانطلاق إلا إذا لم يتم ضبطه سابقًا 
+  // Auto-locate user on first load
   useEffect(() => {
     if (!fromInitialized && !fromCoordinates && navigator.geolocation) {
+      console.log("[CustomerPage] Getting user location on first load");
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
+          console.log("[CustomerPage] User location found:", lat, lng);
           setFromCoordinates([lat, lng]);
           setFromLocation("موقعي الحالي");
           setMapCenter([lat, lng]);
           setMapZoom(17);
           setUserLocated(true);
           setFromInitialized(true);
+          
+          toast({
+            title: "تم تحديد موقعك",
+            description: "تم تحديد موقعك الحالي كنقطة انطلاق",
+            className: "bg-green-50 border-green-200 text-green-800"
+          });
         },
         (error) => {
-          // fallback: use default center for البلد (دمشق مثلًا)
+          console.error("[CustomerPage] Error getting user location:", error);
           setFromInitialized(true);
+          toast({
+            title: "تعذر تحديد الموقع",
+            description: "يرجى السماح بالوصول لخدمات الموقع لتحديد موقعك تلقائياً",
+            variant: "destructive"
+          });
         }
       );
     }
-    // eslint-disable-next-line
-  }, [fromInitialized, fromCoordinates]);
+  }, [fromInitialized, fromCoordinates, toast]);
 
   // Callbacks refs to allow triggering zooms from parent
   const mapZoomToFromRef = useRef<() => void>();
   const mapZoomToToRef = useRef<() => void>();
   const mapZoomToRouteRef = useRef<() => void>();
 
-  // عند تحريك أي دبوس (سواء نقطة الانطلاق أو الوجهة)
+  // Handle marker drag
   const handleMarkerDrag = async (
     type: 'from' | 'to',
     lat: number,
@@ -130,9 +123,6 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      setMapCenter([lat, lng]);
-      setMapZoom(17);
-      // بعد السحب اليدوي يرجع الدبوس غير قابل للسحب
       if (manualPinMode === "from") {
         setTimeout(() => {
           disableDraggable();
@@ -141,12 +131,9 @@ const CustomerPage = () => {
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
-      setMapCenter([lat, lng]);
-      setMapZoom(17);
     }
   };
 
-  // قسمنا هذا الجزء من المنطق في hook منفصلة
   const {
     handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin: _handleManualToPinBase,
@@ -165,20 +152,17 @@ const CustomerPage = () => {
     mapCenter
   });
 
-  // عند اختيار "تعيين الانطلاق يدويًا" نفعّل قابلية السحب مباشرة
   const handleManualFromPin = () => {
     console.log("[CustomerPage] handleManualFromPin called");
     _handleManualFromPinBase();
     enableDraggable();
   };
 
-  // يدويًا للوجهة
   const handleManualToPin = () => {
     console.log("[CustomerPage] handleManualToPin called");
     _handleManualToPinBase();
   };
 
-  // النقرة على الخريطة تحدد النقطة بحسب حالة manualPinMode
   const handleMapClick = (lat: number, lng: number, address: string) => {
     console.log("[CustomerPage] handleMapClick:", lat, lng, address, "mode:", manualPinMode);
     
@@ -187,7 +171,7 @@ const CustomerPage = () => {
       setFromLocation(address);
       setMapCenter([lat, lng]);
       setMapZoom(17);
-      disableDraggable(); // أوقف السحب بعد تحديد الموقع
+      disableDraggable();
       setManualPinMode("none");
       toast({
         title: "تم تحديد نقطة الانطلاق يدويًا",
@@ -211,7 +195,7 @@ const CustomerPage = () => {
       setTimeout(() => mapZoomToToRef.current?.(), 400);
       return;
     }
-    // التصرف التقليدي (النقر بدون manualPinMode: يحدد من فقط)
+    // Default behavior: set as 'from' location
     setFromCoordinates([lat, lng]);
     setFromLocation(address);
     setShowFromSuggestions(false);
@@ -226,8 +210,8 @@ const CustomerPage = () => {
     setTimeout(() => mapZoomToFromRef.current?.(), 400);
   };
 
-  // عند اختيار عنوان نقطة الانطلاق/الوجهة من الاقتراحات أو البحث
   const selectLocation = (suggestion: any, type: 'from' | 'to') => {
+    console.log("[CustomerPage] selectLocation:", suggestion.name, type);
     if (type === 'from') {
       setFromLocation(suggestion.name);
       setFromCoordinates([suggestion.lat, suggestion.lon]);
@@ -247,16 +231,21 @@ const CustomerPage = () => {
       setTimeout(() => {
         mapZoomToToRef.current?.();
       }, 250);
+      
+      toast({
+        title: "تم تحديد الوجهة",
+        description: suggestion.name.substring(0, 50) + "...",
+        className: "bg-orange-50 border-orange-200 text-orange-800"
+      });
     }
   };
 
-  // رسم الطريق وتقريب الكاميرا عند توفر النقطتين
+  // Draw route when both coordinates are available
   useEffect(() => {
     const drawRouteAndFit = async () => {
       if (fromCoordinates && toCoordinates) {
         console.log("[CustomerPage] Drawing route between:", fromCoordinates, toCoordinates);
         await calculateRoute();
-        // بعد التأكد من رسم الطريق، قرّب لتشمل الطريق بالكامل مع الدبوسين
         setTimeout(() => mapZoomToRouteRef.current?.(), 500);
       } else {
         console.log("[CustomerPage] No coordinates for route - clearing route");
@@ -264,10 +253,9 @@ const CustomerPage = () => {
       }
     };
     drawRouteAndFit();
-    // eslint-disable-next-line
   }, [fromCoordinates, toCoordinates]);
 
-  // تحسين selectLocation: زووم على "from" أو "to"، ولو حُددت النقطتين اعمل fitBounds
+  // Search for location
   const searchLocation = async (query: string, type: 'from' | 'to') => {
     if (query.length < 3) {
       if (type === 'from') setFromSuggestions([]);
@@ -297,13 +285,7 @@ const CustomerPage = () => {
     }
   };
 
-  // حساب المسار والمسافة
-  useEffect(() => {
-    if (fromCoordinates && toCoordinates) {
-      calculateRoute();
-    }
-  }, [fromCoordinates, toCoordinates]);
-
+  // Calculate route
   const calculateRoute = async () => {
     if (!fromCoordinates || !toCoordinates) {
       console.log("[CustomerPage] calculateRoute: missing coordinates");
@@ -420,7 +402,7 @@ const CustomerPage = () => {
     }
   };
 
-  // تحديث useCurrentLocation ليضبط الزووم والمركز
+  // Update useCurrentLocation to adjust zoom and center
   const useCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -455,37 +437,34 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // الدبابيس يتم تحديدها حسب إحداثيات النقاط وتحديث draggable لنقطة الانطلاق إذا لزم
+  // Create markers with proper visibility and draggable settings
   const markers = [
     ...(fromCoordinates ? [{
-      id: "from",
+      id: "from" as const,
       position: fromCoordinates,
       popup: fromLocation || "نقطة الانطلاق",
-      draggable: fromDraggable, // فقط في حالة manual pin
+      draggable: fromDraggable || manualPinMode === "from",
       icon: {
-        html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
-        iconSize: [26, 36] as [number, number],
-        iconAnchor: [13, 34] as [number, number]
+        html: '<div style="background:#0ea5e9;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">📍</div>',
+        iconSize: [32, 42] as [number, number],
+        iconAnchor: [16, 40] as [number, number]
       }
     }] : []),
     ...(toCoordinates ? [{
-      id: "to",
+      id: "to" as const,
       position: toCoordinates,
       popup: toLocation || "الوجهة",
-      draggable: false,
+      draggable: manualPinMode === "to",
       icon: {
-        html: '<div style="background:#f59e42;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🏁</div>',
-        iconSize: [26, 36] as [number, number],
-        iconAnchor: [13, 34] as [number, number]
+        html: '<div style="background:#f59e42;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">🎯</div>',
+        iconSize: [32, 42] as [number, number],
+        iconAnchor: [16, 40] as [number, number]
       }
     }] : []),
   ];
 
-  // إضافة قنصولات للفحص عند التغيير
-  React.useEffect(() => {
-    console.log("[CustomerPage] markers updated:", markers.length, markers);
-    console.log("[CustomerPage] route updated:", route.length, route);
-  }, [markers, route]);
+  console.log("[CustomerPage] Rendering with markers:", markers.length, markers);
+  console.log("[CustomerPage] Route length:", route.length);
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -502,6 +481,7 @@ const CustomerPage = () => {
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
+      
       {/* Head & notification */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-blue-900/95 backdrop-blur-sm p-4">
         <div className="flex justify-between items-center">
@@ -522,6 +502,7 @@ const CustomerPage = () => {
           </div>
         </div>
       </div>
+      
       {/* مربعات البحث */}
       <div className="absolute top-20 left-4 right-4 z-30">
         <LocationInputs
@@ -542,6 +523,7 @@ const CustomerPage = () => {
           onManualToPin={handleManualToPin}
         />
       </div>
+      
       {/* لوحة الطلب */}
       <OrderPanel
         orderOpen={orderOpen}

@@ -56,14 +56,17 @@ export const useMap = ({
   const markersRef = useRef<{[k:string]: any}>({});
   const routeLayerRef = useRef<any>(null);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const zoomToLatLng = (lat: number, lng: number, myZoom: number = 17) => {
+    console.log("[useMap] zoomToLatLng called:", lat, lng, myZoom);
     if (mapInstanceRef.current) {
       mapInstanceRef.current.setView([lat, lng], myZoom, { animate: true });
     }
   };
 
   const zoomToRoute = () => {
+    console.log("[useMap] zoomToRoute called");
     if (mapInstanceRef.current && routeLayerRef.current) {
       mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60,60] });
     }
@@ -80,14 +83,16 @@ export const useMap = ({
   };
 
   const getCurrentLocation = useCallback(() => {
+    console.log("[useMap] getCurrentLocation called");
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
+          console.log("[useMap] User location found:", lat, lng);
           setCurrentLocation([lat, lng]);
 
-          if (mapInstanceRef.current) {
+          if (mapInstanceRef.current && mapReady) {
             try {
               const L = getLeaflet();
               const currentLocationIcon = L.divIcon({
@@ -99,8 +104,11 @@ export const useMap = ({
               L.marker([lat, lng], { icon: currentLocationIcon })
                 .addTo(mapInstanceRef.current)
                 .bindPopup('موقعك الحالي');
+                
+              // Move map to user location
+              mapInstanceRef.current.setView([lat, lng], 17, { animate: true });
             } catch (e) {
-              console.error("Leaflet is not loaded yet");
+              console.error("Error adding current location marker:", e);
             }
           }
         },
@@ -116,8 +124,9 @@ export const useMap = ({
         }
       );
     }
-  }, [toast]);
+  }, [toast, mapReady]);
 
+  // Initialize map
   useEffect(() => {
     if (!mapRef.current) return;
     let isCancelled = false;
@@ -129,6 +138,7 @@ export const useMap = ({
           loadCss(MAP_CSS_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
           loadScript(MAP_SCRIPT_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
         ]);
+        
         let L;
         try {
           L = getLeaflet();
@@ -136,12 +146,11 @@ export const useMap = ({
           console.error("[map] Leaflet غير موجود على window.L بعد تحميل السكربت!");
           return;
         }
+        
         if (isCancelled || !mapRef.current || mapInstanceRef.current) {
-          if (!mapRef.current) {
-            console.error("[map] mapRef.current is missing!");
-          }
           return;
         }
+        
         console.log("[map] Initializing Leaflet map...");
         const map = L.map(mapRef.current).setView(center, zoom);
         mapInstanceRef.current = map;
@@ -153,6 +162,7 @@ export const useMap = ({
         if (onLocationSelect) {
           map.on('click', async (e: any) => {
             const { lat, lng } = e.latlng;
+            console.log("[map] Map clicked at:", lat, lng);
             try {
               const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
               const data = await response.json();
@@ -164,8 +174,16 @@ export const useMap = ({
             }
           });
         }
-        setTimeout(() => { if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize(); }, 150);
-        getCurrentLocation();
+        
+        setTimeout(() => { 
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize(); 
+            setMapReady(true);
+            console.log("[map] Map ready, getting current location");
+            getCurrentLocation();
+          }
+        }, 150);
+        
         console.log("[map] Map has been initialized successfully.");
       } catch (error) {
         console.error("Error initializing map:", error);
@@ -175,8 +193,6 @@ export const useMap = ({
               description: (error as Error).message,
               variant: "destructive"
             });
-        } else {
-          alert("خطأ فني في الخريطة:\n" + (error as Error).message);
         }
       }
     };
@@ -188,14 +204,15 @@ export const useMap = ({
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        setMapReady(false);
       }
     };
   }, [center, zoom, onLocationSelect, toast, getCurrentLocation]);
 
-  // تحديث الدبابيس
+  // Update markers
   useEffect(() => {
-    if (!mapInstanceRef.current) {
-      console.log("[useMap] Map instance not ready yet");
+    if (!mapInstanceRef.current || !mapReady) {
+      console.log("[useMap] Map not ready for markers");
       return;
     }
 
@@ -209,7 +226,7 @@ export const useMap = ({
 
     console.log("[useMap] Processing markers:", markers.length, markers);
 
-    // إزالة الدبابيس القديمة
+    // Remove old markers
     Object.values(markersRef.current).forEach(marker => {
       if (mapInstanceRef.current && marker) {
         mapInstanceRef.current.removeLayer(marker);
@@ -217,7 +234,7 @@ export const useMap = ({
     });
     markersRef.current = {};
 
-    // إضافة الدبابيس الجديدة
+    // Add new markers
     markers.forEach((markerData) => {
       console.log("[useMap] Adding marker:", markerData.id, markerData.position);
       
@@ -240,10 +257,11 @@ export const useMap = ({
         marker.bindPopup(markerData.popup);
       }
 
-      // إضافة وظيفة السحب إذا كان الدبوس قابل للسحب
+      // Add drag functionality for draggable markers
       if (markerData.draggable && markerData.id && onMarkerDrag) {
         marker.on('dragend', async (e:any) => {
           const latlng = e.target.getLatLng();
+          console.log("[useMap] Marker dragged:", markerData.id, latlng.lat, latlng.lng);
           const address = await fetchAddress(latlng.lat, latlng.lng);
           onMarkerDrag(
             markerData.id as 'from' | 'to',
@@ -267,12 +285,12 @@ export const useMap = ({
     });
 
     console.log("[useMap] Total markers on map:", Object.keys(markersRef.current).length);
-  }, [markers, onMarkerDrag, toast]);
+  }, [markers, onMarkerDrag, toast, mapReady]);
   
-  // تحديث خط المسار
+  // Update route
   useEffect(() => {
-    if (!mapInstanceRef.current) {
-      console.log("[useMap] Map instance not ready for route");
+    if (!mapInstanceRef.current || !mapReady) {
+      console.log("[useMap] Map not ready for route");
       return;
     }
     
@@ -284,7 +302,7 @@ export const useMap = ({
       return; 
     }
 
-    // إزالة خط المسار القديم
+    // Remove old route
     if (routeLayerRef.current) {
       mapInstanceRef.current.removeLayer(routeLayerRef.current);
       routeLayerRef.current = null;
@@ -296,23 +314,22 @@ export const useMap = ({
       console.log("[useMap] Drawing route with", route.length, "points");
       routeLayerRef.current = L.polyline(route, { 
         color: '#ef4444', 
-        weight: 4, 
-        opacity: 0.8 
+        weight: 6, 
+        opacity: 0.9,
+        dashArray: '10, 5'
       }).addTo(mapInstanceRef.current);
       
       console.log("[useMap] Route drawn successfully");
-      
-      // تكبير لإظهار المسار كاملاً
-      try {
-        mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { 
-          animate: true, 
-          padding: [60, 60] 
-        });
-      } catch (error) {
-        console.error("[useMap] Error fitting bounds:", error);
-      }
     }
-  }, [route]);
+  }, [route, mapReady]);
+
+  // Update map center when it changes
+  useEffect(() => {
+    if (mapInstanceRef.current && mapReady) {
+      console.log("[useMap] Updating map center to:", center);
+      mapInstanceRef.current.setView(center, zoom, { animate: true });
+    }
+  }, [center, zoom, mapReady]);
 
   const centerOnCurrentLocation = () => {
     if (currentLocation && mapInstanceRef.current) {
