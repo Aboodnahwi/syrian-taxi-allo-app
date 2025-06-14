@@ -58,13 +58,14 @@ const CustomerPage = () => {
       navigate('/auth?type=customer');
       return;
     }
+    // فقط ضع الخريطة على المحافظة عند الدخول الأول إذا لم يتم تعيين موقع المستخدم
     const gov = (user as any).governorate;
-    // فقط ركز على المحافظة إذا لم يتم تعيين موقع المستخدم بعد
-    if (gov && GOVERNORATE_CENTERS[gov] && !userLocated) {
+    if (gov && GOVERNORATE_CENTERS[gov] && !userLocated && !fromCoordinates) {
       setMapCenter(GOVERNORATE_CENTERS[gov]);
       setMapZoom(11);
     }
-  }, [user, navigate, userLocated]); // ملاحظة التبعيات
+    // إذا تم تحديد إحداثيات نقطة الانطلاق، لا ترجّع الكاميرا للمحافظة
+  }, [user, navigate, userLocated, fromCoordinates]);
 
   // عند أول تحميل: قرّب على موقع المستخدم وضع الزووم للأقرب
   useAutoCenterOnUser({
@@ -84,7 +85,7 @@ const CustomerPage = () => {
   const mapZoomToToRef = useRef<() => void>();
   const mapZoomToRouteRef = useRef<() => void>();
 
-  // تحديث إحداثيات وحقل عنوان عند سحب الدبابيس
+  // عند تحريك أي دبوس (سواء نقطة الانطلاق أو الوجهة)
   const handleMarkerDrag = async (
     type: 'from' | 'to',
     lat: number,
@@ -94,20 +95,33 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      // بعد سحب الدبوس الأول: زووم ثم انتقل للوجهة (إن وُجدت)
-      setTimeout(() => mapZoomToFromRef.current?.(), 400);
-      if (toCoordinates)
-        setTimeout(() => mapZoomToRouteRef.current?.(), 850); // fit to both points
+      // زوم مباشرةً لنقطة الانطلاق الجديدة دائمًا
+      setTimeout(() => {
+        mapZoomToFromRef.current?.();
+      }, 350);
+      // إذا وجد دبوس الوجهة أيضًا: بعد فترة قصيرة fitBounds للطريق
+      if (toCoordinates) {
+        setTimeout(() => {
+          mapZoomToRouteRef.current?.();
+        }, 900);
+      }
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
-      // بعد سحب الوجهة: زووم عليها، ثم زووم على المسار
-      setTimeout(() => mapZoomToToRef.current?.(), 350);
-      setTimeout(() => mapZoomToRouteRef.current?.(), 900);
+      // زوم للوجهة بعد التحريك
+      setTimeout(() => {
+        mapZoomToToRef.current?.();
+      }, 350);
+      // إذا وجد دبوس الانطلاق أيضًا: fitBounds للطريق
+      if (fromCoordinates) {
+        setTimeout(() => {
+          mapZoomToRouteRef.current?.();
+        }, 900);
+      }
     }
   };
 
-  // تحديث handleMapClick ليضبط الزووم عند تحديد الموقع
+  // عند الضغط على الخريطة تضبط نقطة الانطلاق وتقرب إليها دائماً
   const handleMapClick = (lat: number, lng: number, address: string) => {
     setFromCoordinates([lat, lng]);
     setFromLocation(address);
@@ -123,7 +137,7 @@ const CustomerPage = () => {
     setTimeout(() => mapZoomToFromRef.current?.(), 400);
   };
 
-  // تحسين selectLocation: زووم على "from" أو "to"، ولو حُددت النقطتين اعمل fitBounds
+  // عند اختيار عنوان نقطة الانطلاق/الوجهة من الاقتراحات أو البحث
   const selectLocation = (suggestion: any, type: 'from' | 'to') => {
     if (type === 'from') {
       setFromLocation(suggestion.name);
@@ -134,9 +148,9 @@ const CustomerPage = () => {
       setUserLocated(true);
       setTimeout(() => {
         mapZoomToFromRef.current?.();
-        // إذا وُجدت أيضًا الوجهة، اعمل فورًا fitBounds
+        // عند وجود الوجهة: fitBounds للطريق (يتم بعد زووم الانطلاق)
         if (toCoordinates) {
-          setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+          setTimeout(() => mapZoomToRouteRef.current?.(), 600);
         }
       }, 400);
     } else {
@@ -147,23 +161,24 @@ const CustomerPage = () => {
       setMapZoom(17);
       setTimeout(() => {
         mapZoomToToRef.current?.();
-        // إذا تم اختيار الوجهة وأيضًا نقطة الانطلاق موجودة، fitBounds
-        if (fromCoordinates || fromLocation) {
-          setTimeout(() => mapZoomToRouteRef.current?.(), 500);
+        // عند وجود الانطلاق: fitBounds للطريق (يتم بعد زووم الوجهة)
+        if (fromCoordinates) {
+          setTimeout(() => mapZoomToRouteRef.current?.(), 600);
         }
       }, 400);
     }
   };
 
-  // عند اكتمال النقطتين: fitBounds عليهم والمسار
+  // عند اكتمال النقطتين: اعمل fitBounds للطريق ليظهرا معاً بدقة
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
       setTimeout(() => {
         mapZoomToRouteRef.current?.();
       }, 400);
     }
-  }, [toCoordinates, fromCoordinates]);
+  }, [fromCoordinates, toCoordinates]);
 
+  // تحسين selectLocation: زووم على "from" أو "to"، ولو حُددت النقطتين اعمل fitBounds
   const searchLocation = async (query: string, type: 'from' | 'to') => {
     if (query.length < 3) {
       if (type === 'from') setFromSuggestions([]);
