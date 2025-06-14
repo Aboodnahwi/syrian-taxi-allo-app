@@ -14,6 +14,7 @@ interface MapComponentProps {
   }>;
   route?: Array<[number, number]>;
   className?: string;
+  toast?: (options: any) => void;
 }
 
 const MAP_SCRIPT_ID = "leaflet-cdn-script";
@@ -25,7 +26,8 @@ const MapComponent = ({
   onLocationSelect,
   markers = [],
   route,
-  className = "w-full h-96"
+  className = "w-full h-96",
+  toast
 }: MapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -128,6 +130,13 @@ const MapComponent = ({
         },
         (error) => {
           console.error('Error getting location:', error);
+          if (toast) {
+            toast({
+              title: "خطأ في تحديد الموقع",
+              description: "تعذر الوصول إلى موقعك. يرجى تفعيل خدمات الموقع والسماح بالوصول.",
+              variant: "destructive"
+            });
+          }
         }
       );
     }

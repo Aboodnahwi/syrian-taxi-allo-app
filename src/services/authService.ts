@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types/auth';
 
@@ -86,6 +85,7 @@ export const authService = {
       }
 
       let finalUser: User | null = null;
+      let isNewUser = false; // Flag to check for new user
 
       if (userData) {
         const { data, error } = await supabase.rpc('verify_otp_and_create_user', {
@@ -129,6 +129,7 @@ export const authService = {
               return { success: false, user: null };
             }
             finalUser = profile;
+            isNewUser = true; // Set flag for new user
             localStorage.removeItem('pendingRegistration');
           } else {
             // لو كان الخطأ "هذا الرقم مستخدم مسبقًا"
@@ -190,11 +191,19 @@ export const authService = {
         finalUser = profile;
       }
 
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في ألو تكسي",
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
+      if (isNewUser) {
+        toast({
+          title: "تم التسجيل بنجاح",
+          description: "مرحباً بك في ألو تكسي",
+          className: "bg-green-50 border-green-200 text-green-800"
+        });
+      } else {
+        toast({
+          title: "تم تسجيل الدخول بنجاح",
+          description: "مرحباً بك في ألو تكسي",
+          className: "bg-green-50 border-green-200 text-green-800"
+        });
+      }
 
       return { success: true, user: finalUser };
     } catch (error: any) {

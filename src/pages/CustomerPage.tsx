@@ -108,6 +108,11 @@ const CustomerPage = () => {
       );
       const data = await response.json();
       
+      if (!response.ok) {
+        console.error('Error from openrouteservice:', data);
+        throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+      }
+      
       if (data.features && data.features[0]) {
         const coordinates = data.features[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
@@ -118,9 +123,15 @@ const CustomerPage = () => {
       }
     } catch (error) {
       console.error('Error calculating route:', error);
+      toast({
+        title: "خطأ في حساب المسار",
+        description: "تعذر الحصول على مسار الرحلة. سيتم الاعتماد على المسافة المباشرة.",
+        variant: "destructive"
+      });
       // حساب المسافة المباشرة كبديل
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       setRouteDistance(distance);
+      setRoute([]); // Clear any old route
     }
   };
 
@@ -260,6 +271,7 @@ const CustomerPage = () => {
           }] : [])
         ]}
         route={route}
+        toast={toast}
       />
 
       {/* شريط علوي */}
