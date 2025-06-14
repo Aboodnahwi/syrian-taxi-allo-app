@@ -15,6 +15,7 @@ import OrderPanel from '@/components/customer/OrderPanel';
 import React from "react";
 import { useAutoCenterOnUser } from "@/hooks/useAutoCenterOnUser";
 import { useManualPinMode } from "@/hooks/useManualPinMode";
+import { useDraggablePinState } from "@/hooks/useDraggablePinState";
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {
@@ -53,7 +54,16 @@ const CustomerPage = () => {
   const [mapZoom, setMapZoom] = useState<number>(11); // default zoom
   const [userLocated, setUserLocated] = useState(false); // لمعرفة هل حُدّد موقع المستخدم
   const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
-  const [fromDraggable, setFromDraggable] = useState(false); // جديد: هل دبوس الانطلاق قابل للسحب
+
+  // استخدم الهوك الجديد للوضع القابل للسحب
+  const {
+    fromDraggable,
+    enableDraggable,
+    disableDraggable,
+  } = useDraggablePinState({
+    manualPinMode,
+    setManualPinMode
+  });
 
   // اجلب ملف المستخدم لتحديد المحافظة
   useEffect(() => {
@@ -76,6 +86,8 @@ const CustomerPage = () => {
       setMapCenter(coords);
       setMapZoom(17); // زووم قريب جدًا على موقع المستخدم
       setUserLocated(true); // تم تحديد الموقع
+      setFromCoordinates(coords);  // يعيّن الدبوس
+      setFromLocation("موقعي الحالي");
     },
     setFromCoordinates,
     setFromLocation,
@@ -98,8 +110,7 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      setFromDraggable(false); // بعد السحب، لا يصبح قابل للسحب إلا عند اختيار التحديد اليدوي من جديد
-      setManualPinMode("none"); // الخروج من الوضع اليدوي
+      disableDraggable(); // بعد السحب، يتوقف السحب ويخرج من النظام اليدوي مباشرة.
       setTimeout(() => {
         mapZoomToFromRef.current?.();
       }, 350);
@@ -123,18 +134,11 @@ const CustomerPage = () => {
 
   // قسمنا هذا الجزء من المنطق في hook منفصلة
   const {
-    handleManualFromPin,
+    handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin,
     handleMapClickManual
   } = useManualPinMode({
-    setManualPinMode: (m) => {
-      setManualPinMode(m);
-      if (m === "from") {
-        setFromDraggable(true);
-      } else {
-        setFromDraggable(false);
-      }
-    },
+    setManualPinMode,
     setFromCoordinates,
     setToCoordinates,
     setFromLocation,
@@ -146,6 +150,12 @@ const CustomerPage = () => {
     toCoordinates,
     mapCenter
   });
+
+  // عند اختيار "تعيين الانطلاق يدويًا" نفعّل قابلية السحب مباشرة
+  const handleManualFromPin = () => {
+    _handleManualFromPinBase();
+    enableDraggable();
+  };
 
   // عدّلنا هنا فقط لكي تستدعي الدالة من الـ hook
   const handleMapClick = (lat: number, lng: number, address: string) => {
@@ -398,7 +408,7 @@ const CustomerPage = () => {
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: fromDraggable, // اجعل الدبوس قابل للسحب فقط في وضع اليدوي
+          draggable: fromDraggable,
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
