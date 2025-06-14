@@ -1,17 +1,25 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Navigation, MapPin } from 'lucide-react';
+import { Navigation } from 'lucide-react';
+
+interface MapMarker {
+  id: string;
+  position: [number, number];
+  popup?: string;
+  icon?: {
+    html: string;
+    className?: string;
+    iconSize?: [number, number];
+    iconAnchor?: [number, number];
+  };
+}
 
 interface MapComponentProps {
   center?: [number, number];
   zoom?: number;
   onLocationSelect?: (lat: number, lng: number, address: string) => void;
-  markers?: Array<{
-    id: string;
-    position: [number, number];
-    popup?: string;
-    icon?: string;
-  }>;
+  markers?: MapMarker[];
   route?: Array<[number, number]>;
   className?: string;
   toast?: (options: any) => void;
@@ -39,26 +47,39 @@ const MapComponent = ({
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // لا تكرر التحميل إذا تمت إضافته سابقًا
+    const initializeWithRetry = () => {
+      if ((window as any).L) {
+        initializeMap();
+      } else {
+        console.error("Leaflet not loaded, retrying...");
+        setTimeout(initializeWithRetry, 200);
+      }
+    };
+
     if (!document.getElementById(MAP_SCRIPT_ID)) {
       const script = document.createElement('script');
       script.id = MAP_SCRIPT_ID;
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
       script.onload = () => {
         if (!document.getElementById(MAP_CSS_ID)) {
           const link = document.createElement('link');
           link.id = MAP_CSS_ID;
           link.rel = 'stylesheet';
           link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          link.onload = initializeMap;
+          link.onerror = () => {
+            console.error("Failed to load Leaflet CSS.");
+            initializeMap(); // Try to initialize anyway
+          };
           document.head.appendChild(link);
-        }
-        setTimeout(() => {
+        } else {
           initializeMap();
-        }, 100);
+        }
       };
       document.head.appendChild(script);
     } else {
-      initializeMap();
+      initializeWithRetry();
     }
 
     return () => {
@@ -70,52 +91,48 @@ const MapComponent = ({
   }, []);
 
   const initializeMap = () => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current || mapInstanceRef.current || !(window as any).L) return;
 
     const L = (window as any).L;
 
-    if (!L) {
-      console.error("Leaflet is not loaded");
-      if(toast) {
-          toast({
-              title: "خطأ في تحميل الخريطة",
-              description: "لم يتم تحميل مكتبة الخرائط بنجاح. يرجى المحاولة مرة أخرى.",
-              variant: "destructive"
-          });
+    try {
+      const map = L.map(mapRef.current).setView(center, zoom);
+
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      if (onLocationSelect) {
+        map.on('click', async (e: any) => {
+          const { lat, lng } = e.latlng;
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+            );
+            const data = await response.json();
+            const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            onLocationSelect(lat, lng, address);
+          } catch (error) {
+            console.error('Error getting address:', error);
+            onLocationSelect(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+          }
+        });
       }
-      return;
-    }
 
-    const map = L.map(mapRef.current).setView(center, zoom);
+      mapInstanceRef.current = map;
+      map.invalidateSize(); // Ensure map size is correct
+      getCurrentLocation();
 
-    // إضافة طبقة OpenStreetMap
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    // إضافة حدث النقر على الخريطة
-    if (onLocationSelect) {
-      map.on('click', async (e: any) => {
-        const { lat, lng } = e.latlng;
-        
-        // الحصول على العنوان من الإحداثيات
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
-          );
-          const data = await response.json();
-          const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          
-          onLocationSelect(lat, lng, address);
-        } catch (error) {
-          console.error('Error getting address:', error);
-          onLocationSelect(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    } catch (error) {
+        console.error("Error initializing map:", error);
+        if (toast) {
+            toast({
+                title: "خطأ فني في الخريطة",
+                description: "حدث خطأ أثناء تهيئة الخريطة. يرجى إعادة تحميل الصفحة.",
+                variant: "destructive"
+            });
         }
-      });
     }
-
-    mapInstanceRef.current = map;
-    getCurrentLocation();
   };
 
   const getCurrentLocation = () => {
@@ -157,19 +174,27 @@ const MapComponent = ({
 
   // تحديث العلامات
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current || !(window as any).L) return;
 
     const L = (window as any).L;
 
-    // حذف العلامات القديمة
     markersRef.current.forEach(marker => {
       mapInstanceRef.current.removeLayer(marker);
     });
     markersRef.current = [];
 
-    // إضافة العلامات الجديدة
     markers.forEach((markerData) => {
-      const marker = L.marker(markerData.position)
+      let markerOptions: any = {};
+      if (markerData.icon) {
+        markerOptions.icon = L.divIcon({
+          html: markerData.icon.html,
+          className: markerData.icon.className || '',
+          iconSize: markerData.icon.iconSize,
+          iconAnchor: markerData.icon.iconAnchor,
+        });
+      }
+
+      const marker = L.marker(markerData.position, markerOptions)
         .addTo(mapInstanceRef.current);
       
       if (markerData.popup) {

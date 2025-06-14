@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Navigation, Clock, Phone, LogOut, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import NotificationSystem from '@/components/NotificationSystem';
+import MapComponent from '@/components/MapComponent';
 
 // طلبات الرحلات التجريبية
 const mockRideRequests = [
@@ -39,8 +39,6 @@ const mockRideRequests = [
 const DriverPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
   
   const [user, setUser] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(false);
@@ -48,6 +46,7 @@ const DriverPage = () => {
   const [rideRequests, setRideRequests] = useState(mockRideRequests);
   const [activeRide, setActiveRide] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
+  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
 
   // التحقق من تسجيل الدخول
   useEffect(() => {
@@ -64,111 +63,68 @@ const DriverPage = () => {
     setUser(parsedUser);
   }, [navigate]);
 
-  // تهيئة الخريطة
+  // الحصول على الموقع الحالي للسائق
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    const L = (window as any).L;
-    const map = L.map(mapRef.current).setView([33.5138, 36.2765], 12);
-
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    mapInstanceRef.current = map;
-
-    // الحصول على الموقع الحالي
-    getCurrentLocation();
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+    const getCurrentLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            setCurrentLocation([lat, lng]);
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            toast({
+              title: "خطأ في تحديد الموقع",
+              description: "تعذر الوصول لموقعك. يرجى تفعيل خدمات الموقع.",
+              variant: "destructive"
+            });
+          }
+        );
       }
     };
-  }, []);
+    getCurrentLocation();
+  }, [toast]);
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setCurrentLocation([lat, lng]);
-          
-          if (mapInstanceRef.current) {
-            const L = (window as any).L;
-            mapInstanceRef.current.setView([lat, lng], 15);
-            
-            // إضافة علامة للسائق
-            L.marker([lat, lng])
-              .addTo(mapInstanceRef.current)
-              .bindPopup('موقعك - سائق')
-              .openPopup();
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
-  };
-
-  // عرض طلبات الرحلات على الخريطة
+  // تجهيز العلامات لعرضها على الخريطة
   useEffect(() => {
-    if (mapInstanceRef.current && isOnline) {
-      const L = (window as any).L;
-      
-      // مسح العلامات السابقة
-      mapInstanceRef.current.eachLayer((layer: any) => {
-        if (layer instanceof L.Marker && layer.options.icon) {
-          mapInstanceRef.current.removeLayer(layer);
+    const markers = [];
+    
+    // إضافة علامة السائق
+    if (currentLocation) {
+      markers.push({
+        id: 'driver',
+        position: currentLocation,
+        popup: 'موقعي',
+        icon: {
+          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-pulse"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m10 13-2 2 2 2"></path><path d="m14 17 2-2-2-2"></path></svg></div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          className: 'driver-marker'
         }
       });
-
-      // إضافة علامات طلبات الرحلات
-      rideRequests.forEach((request) => {
-        const marker = L.marker(request.customerLocation, {
-          icon: L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div class="bg-taxi-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
-                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                       <path d="M10 2L3 7v11h14V7l-7-5z"/>
-                     </svg>
-                   </div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-          })
-        }).addTo(mapInstanceRef.current);
-
-        marker.bindPopup(`
-          <div class="font-tajawal">
-            <strong>${request.customerName}</strong><br>
-            من: ${request.from}<br>
-            إلى: ${request.to}<br>
-            المسافة: ${request.distance}<br>
-            السعر: ${request.price} ل.س
-          </div>
-        `);
-      });
-
-      // إضافة موقع السائق
-      if (currentLocation) {
-        L.marker(currentLocation, {
-          icon: L.divIcon({
-            className: 'driver-marker',
-            html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-pulse">
-                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                       <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
-                       <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3z"/>
-                     </svg>
-                   </div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-          })
-        }).addTo(mapInstanceRef.current);
-      }
     }
-  }, [isOnline, rideRequests, currentLocation]);
+    
+    // إضافة علامات طلبات الرحلات
+    if (isOnline && !activeRide) {
+      rideRequests.forEach((request) => {
+        markers.push({
+          id: `request-${request.id}`,
+          position: request.customerLocation,
+          popup: `<div class="font-tajawal"><strong>${request.customerName}</strong><br>من: ${request.from}<br>إلى: ${request.to}</div>`,
+          icon: {
+            html: `<div class="bg-taxi-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v3c0 .6.4 1 1 1h2"></path><path d="M7 17H5c-.6 0-1 .4-1 1v2c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-2c0-.6-.4-1-1-1Z"></path><path d="M19 17h2c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1h-2c-.6 0-1-.4-1-1v-2c0-.6.4-1 1-1Z"></path><path d="M12 17H7"></path><path d="M17 17h-5"></path><path d="M12 5v12"></path><circle cx="12" cy="3" r="1"></circle></svg></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            className: 'custom-div-icon'
+          }
+        });
+      });
+    }
+    
+    setMapMarkers(markers);
+  }, [isOnline, rideRequests, currentLocation, activeRide]);
 
   // تبديل حالة السائق
   const toggleOnlineStatus = () => {
@@ -236,7 +192,13 @@ const DriverPage = () => {
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
       {/* الخريطة */}
-      <div ref={mapRef} className="absolute inset-0 z-10"></div>
+      <MapComponent
+        className="absolute inset-0 z-10"
+        markers={mapMarkers}
+        center={currentLocation || [33.5138, 36.2765]}
+        zoom={currentLocation ? 14 : 11}
+        toast={toast}
+      />
 
       {/* شريط علوي */}
       <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900/95 to-emerald-900/95 backdrop-blur-sm p-4">
