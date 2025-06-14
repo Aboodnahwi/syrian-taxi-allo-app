@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +35,11 @@ const CustomerPage = () => {
   const [mapZoom, setMapZoom] = useState<number>(11);
   const [manualPinMode, setManualPinMode] = useState<"none"|"from"|"to">("none");
 
+  // Callbacks refs to allow triggering zooms from parent
+  const mapZoomToFromRef = useRef<() => void>();
+  const mapZoomToToRef = useRef<() => void>();
+  const mapZoomToRouteRef = useRef<() => void>();
+
   const {
     fromLocation,
     setFromLocation,
@@ -64,7 +68,8 @@ const CustomerPage = () => {
   const { route, routeDistance } = useCustomerRouting({
     fromCoordinates,
     toCoordinates,
-    toast
+    toast,
+    mapZoomToRouteRef
   });
 
   const {
@@ -110,11 +115,6 @@ const CustomerPage = () => {
     manualPinMode,
     setManualPinMode
   });
-
-  // Callbacks refs to allow triggering zooms from parent
-  const mapZoomToFromRef = useRef<() => void>();
-  const mapZoomToToRef = useRef<() => void>();
-  const mapZoomToRouteRef = useRef<() => void>();
 
   // Handle marker drag
   const handleMarkerDrag = async (

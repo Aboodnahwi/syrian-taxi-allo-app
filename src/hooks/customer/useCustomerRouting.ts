@@ -5,12 +5,14 @@ interface UseCustomerRoutingProps {
   fromCoordinates: [number, number] | null;
   toCoordinates: [number, number] | null;
   toast: (options: any) => void;
+  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
 }
 
 export const useCustomerRouting = ({
   fromCoordinates,
   toCoordinates,
-  toast
+  toast,
+  mapZoomToRouteRef
 }: UseCustomerRoutingProps) => {
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [routeDistance, setRouteDistance] = useState(0);
@@ -50,6 +52,14 @@ export const useCustomerRouting = ({
         setRoute(routeCoords);
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
+        
+        // Auto-zoom to fit both points with route after calculation
+        setTimeout(() => {
+          if (mapZoomToRouteRef?.current) {
+            console.log("[useCustomerRouting] Auto-zooming to route");
+            mapZoomToRouteRef.current();
+          }
+        }, 500);
       }
     } catch (error) {
       console.error('Error calculating route:', error);
@@ -61,8 +71,16 @@ export const useCustomerRouting = ({
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       setRouteDistance(distance);
       setRoute([]);
+      
+      // Auto-zoom to fit both points even without route
+      setTimeout(() => {
+        if (mapZoomToRouteRef?.current) {
+          console.log("[useCustomerRouting] Auto-zooming to points without route");
+          mapZoomToRouteRef.current();
+        }
+      }, 500);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, mapZoomToRouteRef]);
 
   // Draw route when both coordinates are available
   useEffect(() => {
