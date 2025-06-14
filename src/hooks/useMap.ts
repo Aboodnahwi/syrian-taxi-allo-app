@@ -11,8 +11,14 @@ const loadScript = (id: string, src: string) => new Promise<void>((resolve, reje
   script.id = id;
   script.src = src;
   script.async = true;
-  script.onload = () => resolve();
-  script.onerror = () => reject(new Error(`فشل تحميل السكربت: ${src}`));
+  script.onload = () => {
+    console.log(`[leaflet] script loaded: ${src}`);
+    resolve();
+  };
+  script.onerror = () => {
+    console.error(`[leaflet] فشل تحميل السكربت: ${src}`);
+    reject(new Error(`فشل تحميل السكربت: ${src}`));
+  };
   document.head.appendChild(script);
 });
 
@@ -22,8 +28,14 @@ const loadCss = (id: string, href: string) => new Promise<void>((resolve, reject
   link.id = id;
   link.rel = 'stylesheet';
   link.href = href;
-  link.onload = () => resolve();
-  link.onerror = () => reject(new Error(`فشل تحميل ملف الأنماط: ${href}`));
+  link.onload = () => {
+    console.log(`[leaflet] css loaded: ${href}`);
+    resolve();
+  };
+  link.onerror = () => {
+    console.error(`[leaflet] فشل تحميل ملف الأنماط: ${href}`);
+    reject(new Error(`فشل تحميل ملف الأنماط: ${href}`));
+  };
   document.head.appendChild(link);
 });
 
@@ -81,14 +93,22 @@ export const useMap = ({
     let isCancelled = false;
 
     const initializeMap = async () => {
+      console.log("[map] Starting map initialization...");
       try {
         await Promise.all([
           loadCss(MAP_CSS_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
           loadScript(MAP_SCRIPT_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
         ]);
-
-        if (isCancelled || !mapRef.current || !(window as any).L || mapInstanceRef.current) return;
-        
+        if (isCancelled || !mapRef.current || !(window as any).L || mapInstanceRef.current) {
+          if (!mapRef.current) {
+            console.error("[map] mapRef.current is missing!");
+          }
+          if (!(window as any).L) {
+            console.error("[map] window.L is not available after script load!");
+          }
+          return;
+        }
+        console.log("[map] Initializing Leaflet map...");
         const L = (window as any).L;
         const map = L.map(mapRef.current).setView(center, zoom);
         mapInstanceRef.current = map;
@@ -111,14 +131,19 @@ export const useMap = ({
             }
           });
         }
-        
         setTimeout(() => { if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize(); }, 150);
         getCurrentLocation();
-
+        console.log("[map] Map has been initialized successfully.");
       } catch (error) {
         console.error("Error initializing map:", error);
         if (toast) {
-            toast({ title: "خطأ فني في الخريطة", description: (error as Error).message, variant: "destructive" });
+            toast({
+              title: "خطأ فني في الخريطة",
+              description: (error as Error).message,
+              variant: "destructive"
+            });
+        } else {
+          alert("خطأ فني في الخريطة:\n" + (error as Error).message);
         }
       }
     };
@@ -179,3 +204,4 @@ export const useMap = ({
 
   return { mapRef, centerOnCurrentLocation };
 };
+
