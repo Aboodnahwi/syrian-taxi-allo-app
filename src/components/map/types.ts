@@ -20,6 +20,5 @@ export interface MapProps {
   route?: Array<[number, number]>;
   className?: string;
   toast?: (options: any) => void;
-  // جديد ليستخدمه CustomerPage إذا أراد
   onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
 }
