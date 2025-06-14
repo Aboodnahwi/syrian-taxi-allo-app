@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MapComponent from '@/components/MapComponent';
 import NotificationSystem from '@/components/NotificationSystem';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import React from "react";
 
 const CustomerPage = () => {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ const CustomerPage = () => {
   const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [routeDistance, setRouteDistance] = useState(0);
   const [route, setRoute] = useState<Array<[number, number]>>([]);
+  const [orderOpen, setOrderOpen] = useState(false);
 
   // التحقق من تسجيل الدخول
   useEffect(() => {
@@ -358,98 +361,141 @@ const CustomerPage = () => {
         </div>
       </div>
 
-      {/* لوحة الطلب */}
-      <div className="absolute bottom-0 left-0 right-0 z-30">
-        <Card className="bg-white/95 backdrop-blur-sm border-0 rounded-t-3xl m-0">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-slate-800 font-cairo text-lg">اختر نوع المركبة</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* أنواع المركبات */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {vehicleTypes.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  onClick={() => setSelectedVehicle(vehicle.id)}
-                  className={`min-w-[120px] p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedVehicle === vehicle.id
-                      ? 'border-taxi-500 bg-taxi-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className={`w-12 h-12 rounded-full ${vehicle.color} flex items-center justify-center mx-auto mb-2`}>
-                      <span className="text-2xl">{vehicle.icon}</span>
+      {/* لوحة الطلب المنسدلة */}
+      <Collapsible
+        open={orderOpen}
+        onOpenChange={setOrderOpen}
+        className="absolute left-0 right-0 bottom-0 z-50"
+      >
+        {/* لسان الفتح */}
+        <CollapsibleTrigger
+          className={`w-full flex justify-center items-center py-2 transition-all hover:bg-slate-200/80 border-t bg-white/95 shadow-lg rounded-t-2xl ${
+            orderOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+          aria-label={orderOpen ? "إغلاق" : "فتح لوحة طلب الرحلة"}
+        >
+          <div className="flex flex-col items-center gap-1">
+            <span className="w-10 h-1.5 rounded bg-slate-300 mb-0.5"></span>
+            <ChevronUp className="w-6 h-6 text-slate-500 animate-bounce" />
+            <span className="font-tajawal text-xs text-slate-700 mt-0.5">طلب رحلة</span>
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent
+          className={`
+            w-full
+            animate-accordion-down
+            bg-white/95
+            backdrop-blur-sm
+            border-0
+            shadow-xl
+            rounded-t-3xl
+            data-[state=closed]:hidden
+            max-h-[80vh] overflow-y-auto
+          `}
+        >
+          {/* زر إغلاق أعلى اللوحة */}
+          <div className="flex justify-center">
+            <button
+              className="w-12 h-8 -mb-1 bg-slate-100 rounded-b-lg flex flex-col items-center z-10 mt-2 shadow hover:bg-slate-200"
+              onClick={() => setOrderOpen(false)}
+            >
+              <ChevronDown className="w-6 h-6 text-slate-500" />
+              <span className="font-tajawal text-[10px] text-slate-600 leading-none">إغلاق</span>
+            </button>
+          </div>
+          {/* محتوى اللوحة (نفس الكود الأساسي للوحة الطلب) */}
+          <Card className="bg-transparent border-0 shadow-none rounded-t-3xl m-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-slate-800 font-cairo text-lg">اختر نوع المركبة</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* أنواع المركبات */}
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {vehicleTypes.map((vehicle) => (
+                  <div
+                    key={vehicle.id}
+                    onClick={() => setSelectedVehicle(vehicle.id)}
+                    className={`min-w-[120px] p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      selectedVehicle === vehicle.id
+                        ? 'border-taxi-500 bg-taxi-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className={`w-12 h-12 rounded-full ${vehicle.color} flex items-center justify-center mx-auto mb-2`}>
+                        <span className="text-2xl">{vehicle.icon}</span>
+                      </div>
+                      <p className="text-xs font-tajawal text-slate-700 mb-1">{vehicle.name}</p>
+                      <p className="text-xs font-bold text-slate-800">{vehicle.price.toLocaleString()} ل.س</p>
                     </div>
-                    <p className="text-xs font-tajawal text-slate-700 mb-1">{vehicle.name}</p>
-                    <p className="text-xs font-bold text-slate-800">{vehicle.price.toLocaleString()} ل.س</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* تفاصيل الرحلة */}
+              {fromLocation && toLocation && routeDistance > 0 && (
+                <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600 font-tajawal">المسافة:</span>
+                    <span className="font-semibold text-slate-800">{routeDistance.toFixed(1)} كم</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600 font-tajawal">السعر المتوقع:</span>
+                    <span className="text-lg font-bold text-emerald-600">{estimatedPrice.toLocaleString()} ل.س</span>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            {/* تفاصيل الرحلة */}
-            {fromLocation && toLocation && routeDistance > 0 && (
-              <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600 font-tajawal">المسافة:</span>
-                  <span className="font-semibold text-slate-800">{routeDistance.toFixed(1)} كم</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600 font-tajawal">السعر المتوقع:</span>
-                  <span className="text-lg font-bold text-emerald-600">{estimatedPrice.toLocaleString()} ل.س</span>
-                </div>
+              {/* خيارات الموعد */}
+              <div className="flex gap-2">
+                <Button
+                  variant={!isScheduled ? "default" : "outline"}
+                  onClick={() => setIsScheduled(false)}
+                  className="flex-1"
+                >
+                  اطلب الآن
+                </Button>
+                <Button
+                  variant={isScheduled ? "default" : "outline"}
+                  onClick={() => setIsScheduled(true)}
+                  className="flex-1"
+                >
+                  <Calendar className="w-4 h-4 ml-2" />
+                  جدولة الرحلة
+                </Button>
               </div>
-            )}
 
-            {/* خيارات الموعد */}
-            <div className="flex gap-2">
-              <Button
-                variant={!isScheduled ? "default" : "outline"}
-                onClick={() => setIsScheduled(false)}
-                className="flex-1"
+              {/* خيارات الجدولة */}
+              {isScheduled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    className="bg-white border-slate-200"
+                  />
+                  <Input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="bg-white border-slate-200"
+                  />
+                </div>
+              )}
+
+              {/* زر تأكيد الطلب */}
+              <Button 
+                onClick={requestRide}
+                className="w-full btn-taxi text-lg py-4"
+                disabled={!fromLocation || !toLocation}
               >
-                اطلب الآن
+                {isScheduled ? 'جدولة الرحلة' : 'طلب الرحلة'}
               </Button>
-              <Button
-                variant={isScheduled ? "default" : "outline"}
-                onClick={() => setIsScheduled(true)}
-                className="flex-1"
-              >
-                <Calendar className="w-4 h-4 ml-2" />
-                جدولة الرحلة
-              </Button>
-            </div>
-
-            {/* خيارات الجدولة */}
-            {isScheduled && (
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  type="date"
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                  className="bg-white border-slate-200"
-                />
-                <Input
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="bg-white border-slate-200"
-                />
-              </div>
-            )}
-
-            {/* زر تأكيد الطلب */}
-            <Button 
-              onClick={requestRide}
-              className="w-full btn-taxi text-lg py-4"
-              disabled={!fromLocation || !toLocation}
-            >
-              {isScheduled ? 'جدولة الرحلة' : 'طلب الرحلة'}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

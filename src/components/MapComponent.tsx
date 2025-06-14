@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Navigation, MapPin } from 'lucide-react';
@@ -16,6 +15,9 @@ interface MapComponentProps {
   route?: Array<[number, number]>;
   className?: string;
 }
+
+const MAP_SCRIPT_ID = "leaflet-cdn-script";
+const MAP_CSS_ID = "leaflet-cdn-css";
 
 const MapComponent = ({
   center = [33.5138, 36.2765], // دمشق
@@ -35,24 +37,32 @@ const MapComponent = ({
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // تحميل Leaflet
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-
-      setTimeout(() => {
-        initializeMap();
-      }, 100);
-    };
-    document.head.appendChild(script);
+    // لا تكرر التحميل إذا تمت إضافته سابقًا
+    if (!document.getElementById(MAP_SCRIPT_ID)) {
+      const script = document.createElement('script');
+      script.id = MAP_SCRIPT_ID;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => {
+        if (!document.getElementById(MAP_CSS_ID)) {
+          const link = document.createElement('link');
+          link.id = MAP_CSS_ID;
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
+        setTimeout(() => {
+          initializeMap();
+        }, 100);
+      };
+      document.head.appendChild(script);
+    } else {
+      initializeMap();
+    }
 
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
       }
     };
   }, []);
