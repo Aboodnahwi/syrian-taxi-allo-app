@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseCustomerLocationProps {
   toast: (options: any) => void;
@@ -22,6 +22,10 @@ export const useCustomerLocation = ({
   const [showToSuggestions, setShowToSuggestions] = useState(false);
   const [fromInitialized, setFromInitialized] = useState(false);
   const [userLocated, setUserLocated] = useState(false);
+
+  // Refs for debouncing and cancelling requests
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const abortControllerRef = useRef<AbortController>();
 
   // Auto-locate user on first load
   useEffect(() => {
@@ -58,16 +62,20 @@ export const useCustomerLocation = ({
     }
   }, [fromInitialized, fromCoordinates, toast, setMapCenter, setMapZoom]);
 
-  const searchLocation = async (query: string, type: 'from' | 'to') => {
-    if (query.length < 3) {
-      if (type === 'from') setFromSuggestions([]);
-      else setToSuggestions([]);
-      return;
-    }
+  const performSearch = useCallback(async (query: string, type: 'from' | 'to', abortSignal: AbortSignal) => {
     try {
+      console.log(`[useCustomerLocation] Searching for "${query}" (${type})`);
+      
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=sy&limit=5&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=sy&limit=5&addressdetails=1`,
+        { signal: abortSignal }
       );
+      
+      if (abortSignal.aborted) {
+        console.log(`[useCustomerLocation] Search aborted for "${query}"`);
+        return;
+      }
+
       const data = await response.json();
       const suggestions = data.map((item: any) => ({
         id: item.place_id,
@@ -75,6 +83,9 @@ export const useCustomerLocation = ({
         lat: parseFloat(item.lat),
         lon: parseFloat(item.lon)
       }));
+
+      console.log(`[useCustomerLocation] Found ${suggestions.length} suggestions for "${query}"`);
+      
       if (type === 'from') {
         setFromSuggestions(suggestions);
         setShowFromSuggestions(true);
@@ -83,9 +94,46 @@ export const useCustomerLocation = ({
         setShowToSuggestions(true);
       }
     } catch (error) {
-      console.error('Error searching location:', error);
+      if (error.name === 'AbortError') {
+        console.log(`[useCustomerLocation] Search request aborted for "${query}"`);
+      } else {
+        console.error('[useCustomerLocation] Error searching location:', error);
+      }
     }
-  };
+  }, []);
+
+  const searchLocation = useCallback((query: string, type: 'from' | 'to') => {
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Abort previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Clear suggestions immediately if query is too short
+    if (query.length < 3) {
+      if (type === 'from') {
+        setFromSuggestions([]);
+        setShowFromSuggestions(false);
+      } else {
+        setToSuggestions([]);
+        setShowToSuggestions(false);
+      }
+      return;
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const currentAbortController = abortControllerRef.current;
+
+    // Set debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(query, type, currentAbortController.signal);
+    }, 300); // 300ms debounce
+  }, [performSearch]);
 
   const useCurrentLocation = useCallback(() => {
     if (navigator.geolocation) {
@@ -110,6 +158,18 @@ export const useCustomerLocation = ({
       );
     }
   }, [toast, setMapCenter, setMapZoom]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   return {
     fromLocation,
