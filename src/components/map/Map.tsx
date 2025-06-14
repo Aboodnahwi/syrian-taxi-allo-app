@@ -30,7 +30,6 @@ const Map = (props: MapProps & {
       };
   }, [props.mapZoomToFromRef, props.mapZoomToToRef, props.mapZoomToRouteRef, props.markers, zoomToLatLng, zoomToRoute]);
 
-
   return (
     <div className={`relative ${props.className || 'w-full h-96'}`}>
       <div ref={mapRef} className="w-full h-full min-h-[250px] rounded-lg bg-gray-100" />

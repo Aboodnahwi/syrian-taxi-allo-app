@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -168,53 +169,6 @@ const CustomerPage = () => {
     _handleManualToPinBase();
   };
 
-  const handleMapClick = (lat: number, lng: number, address: string) => {
-    console.log("[CustomerPage] handleMapClick:", lat, lng, address, "mode:", manualPinMode);
-    
-    if (manualPinMode === "from") {
-      setFromCoordinates([lat, lng]);
-      setFromLocation(address);
-      setMapCenter([lat, lng]);
-      setMapZoom(17);
-      disableDraggable();
-      setManualPinMode("none");
-      toast({
-        title: "تم تحديد نقطة الانطلاق يدويًا",
-        description: address.substring(0, 50) + "...",
-        className: "bg-blue-50 border-blue-200 text-blue-800"
-      });
-      setTimeout(() => mapZoomToFromRef.current?.(), 400);
-      return;
-    }
-    if (manualPinMode === "to") {
-      setToCoordinates([lat, lng]);
-      setToLocation(address);
-      setMapCenter([lat, lng]);
-      setMapZoom(17);
-      setManualPinMode("none");
-      toast({
-        title: "تم تحديد الوجهة يدويًا",
-        description: address.substring(0, 50) + "...",
-        className: "bg-orange-50 border-orange-200 text-orange-800"
-      });
-      setTimeout(() => mapZoomToToRef.current?.(), 400);
-      return;
-    }
-    // Default behavior: set as 'from' location
-    setFromCoordinates([lat, lng]);
-    setFromLocation(address);
-    setShowFromSuggestions(false);
-    setMapCenter([lat, lng]);
-    setMapZoom(17);
-    setUserLocated(true);
-    toast({
-      title: "تم تحديد نقطة الانطلاق",
-      description: address.substring(0, 50) + "...",
-      className: "bg-blue-50 border-blue-200 text-blue-800"
-    });
-    setTimeout(() => mapZoomToFromRef.current?.(), 400);
-  };
-
   const selectLocation = (suggestion: any, type: 'from' | 'to') => {
     console.log("[CustomerPage] selectLocation:", suggestion.name, type);
     if (type === 'from') {
@@ -262,13 +216,13 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // Create markers with proper visibility and draggable settings
+  // Create markers with proper visibility and draggable settings - both pins are now draggable
   const markers = [
     ...(fromCoordinates ? [{
       id: "from" as const,
       position: fromCoordinates,
       popup: fromLocation || "نقطة الانطلاق",
-      draggable: fromDraggable || manualPinMode === "from",
+      draggable: true, // Always draggable
       icon: {
         html: '<div style="background:#0ea5e9;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">📍</div>',
         iconSize: [32, 42] as [number, number],
@@ -279,7 +233,7 @@ const CustomerPage = () => {
       id: "to" as const,
       position: toCoordinates,
       popup: toLocation || "الوجهة",
-      draggable: manualPinMode === "to",
+      draggable: true, // Always draggable
       icon: {
         html: '<div style="background:#f59e42;width:32px;height:42px;border-radius:16px 16px 20px 20px;box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">🎯</div>',
         iconSize: [32, 42] as [number, number],
@@ -300,7 +254,7 @@ const CustomerPage = () => {
         markers={markers}
         route={route}
         toast={toast}
-        onLocationSelect={handleMapClick}
+        onLocationSelect={undefined} // Remove map click functionality
         onMarkerDrag={handleMarkerDrag}
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}

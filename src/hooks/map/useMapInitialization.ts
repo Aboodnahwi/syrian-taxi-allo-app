@@ -1,41 +1,5 @@
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { getLeaflet } from '../leafletUtils';
-import { MAP_SCRIPT_ID, MAP_CSS_ID, LEAFLET_CDN, TILE_LAYER } from './mapConstants';
-
-const loadScript = (id: string, src: string) => new Promise<void>((resolve, reject) => {
-  if (document.getElementById(id)) return resolve();
-  const script = document.createElement('script');
-  script.id = id;
-  script.src = src;
-  script.async = true;
-  script.onload = () => {
-    console.log(`[leaflet] script loaded: ${src}`);
-    resolve();
-  };
-  script.onerror = () => {
-    console.error(`[leaflet] فشل تحميل السكربت: ${src}`);
-    reject(new Error(`فشل تحميل السكربت: ${src}`));
-  };
-  document.head.appendChild(script);
-});
-
-const loadCss = (id: string, href: string) => new Promise<void>((resolve, reject) => {
-  if (document.getElementById(id)) return resolve();
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = href;
-  link.onload = () => {
-    console.log(`[leaflet] css loaded: ${href}`);
-    resolve();
-  };
-  link.onerror = () => {
-    console.error(`[leaflet] فشل تحميل ملف الأنماط: ${href}`);
-    reject(new Error(`فشل تحميل ملف الأنماط: ${href}`));
-  };
-  document.head.appendChild(link);
-});
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 interface UseMapInitializationProps {
   center: [number, number];
@@ -54,102 +18,87 @@ export const useMapInitialization = ({
   const mapInstanceRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const zoomToLatLng = useCallback((lat: number, lng: number, myZoom: number = 17) => {
-    console.log("[useMapInitialization] zoomToLatLng called:", lat, lng, myZoom);
+  const fetchAddress = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+      const data = await response.json();
+      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } catch {
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
+
+  const zoomToLatLng = useCallback((lat: number, lng: number, zoomLevel: number = 15) => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([lat, lng], myZoom, { animate: true });
+      mapInstanceRef.current.setView([lat, lng], zoomLevel, { animate: true });
     }
   }, []);
 
-  // Initialize map
   useEffect(() => {
     if (!mapRef.current) return;
-    let isCancelled = false;
 
-    const initializeMap = async () => {
-      console.log("[map] Starting map initialization...");
-      try {
-        await Promise.all([
-          loadCss(MAP_CSS_ID, LEAFLET_CDN.CSS),
-          loadScript(MAP_SCRIPT_ID, LEAFLET_CDN.JS)
-        ]);
-        
-        let L;
-        try {
-          L = getLeaflet();
-        } catch {
-          console.error("[map] Leaflet غير موجود على window.L بعد تحميل السكربت!");
-          return;
-        }
-        
-        if (isCancelled || !mapRef.current || mapInstanceRef.current) {
-          return;
-        }
-        
-        console.log("[map] Initializing Leaflet map...");
-        const map = L.map(mapRef.current).setView(center, zoom);
-        mapInstanceRef.current = map;
+    const loadLeaflet = async () => {
+      if (!(window as any).L) {
+        const leafletScript = document.createElement('script');
+        leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletScript.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+        leafletScript.crossOrigin = '';
+        document.head.appendChild(leafletScript);
 
-        L.tileLayer(TILE_LAYER.URL, {
-          attribution: TILE_LAYER.ATTRIBUTION
-        }).addTo(map);
+        const leafletCSS = document.createElement('link');
+        leafletCSS.rel = 'stylesheet';
+        leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+        leafletCSS.crossOrigin = '';
+        document.head.appendChild(leafletCSS);
 
-        if (onLocationSelect) {
-          map.on('click', async (e: any) => {
-            const { lat, lng } = e.latlng;
-            console.log("[map] Map clicked at:", lat, lng);
-            try {
-              const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
-              const data = await response.json();
-              const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-              onLocationSelect(lat, lng, address);
-            } catch (error) {
-              console.error('Error getting address:', error);
-              onLocationSelect(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-            }
-          });
-        }
-        
-        setTimeout(() => { 
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize(); 
-            setMapReady(true);
-            console.log("[map] Map ready");
-          }
-        }, 150);
-        
-        console.log("[map] Map has been initialized successfully.");
-      } catch (error) {
-        console.error("Error initializing map:", error);
-        if (toast) {
-            toast({
-              title: "خطأ فني في الخريطة",
-              description: (error as Error).message,
-              variant: "destructive"
-            });
-        }
+        await new Promise((resolve) => {
+          leafletScript.onload = resolve;
+        });
       }
+
+      const L = (window as any).L;
+      
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+      }
+
+      mapInstanceRef.current = L.map(mapRef.current, {
+        zoomControl: false
+      }).setView(center, zoom);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapInstanceRef.current);
+
+      L.control.zoom({
+        position: 'bottomleft'
+      }).addTo(mapInstanceRef.current);
+
+      // Only add click event listener if onLocationSelect is provided
+      if (onLocationSelect) {
+        mapInstanceRef.current.on('click', async (e: any) => {
+          const { lat, lng } = e.latlng;
+          console.log("[useMapInitialization] Map clicked at:", lat, lng);
+          const address = await fetchAddress(lat, lng);
+          onLocationSelect(lat, lng, address);
+        });
+      }
+
+      setMapReady(true);
+      console.log("[useMapInitialization] Map initialized successfully");
     };
 
-    initializeMap();
+    loadLeaflet();
 
     return () => {
-      isCancelled = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        setMapReady(false);
       }
+      setMapReady(false);
     };
-  }, [center, zoom, onLocationSelect, toast]);
-
-  // Update map center when it changes
-  useEffect(() => {
-    if (mapInstanceRef.current && mapReady) {
-      console.log("[useMapInitialization] Updating map center to:", center);
-      mapInstanceRef.current.setView(center, zoom, { animate: true });
-    }
-  }, [center, zoom, mapReady]);
+  }, [center, zoom, onLocationSelect]);
 
   return {
     mapRef,
