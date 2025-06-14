@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -31,6 +30,8 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   onLocationHandlersReady
 }) => {
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
+  // re-render workaround: step
+  const [, forceRerender] = React.useReducer((s) => s + 1, 0);
 
   const {
     handleManualFromPin: _handleManualFromPinBase,
@@ -65,6 +66,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
   // عند تأكيد الموقع (الدبوس في مركز الخريطة)
   const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
+    console.log("[LocationSelectionHandler] Confirm button clicked", { lat, lng, mode: manualPinMode });
     if (manualPinMode === "from") {
       locationHook.setFromCoordinates([lat, lng]);
       locationHook.setFromLocation("نقطة من اختيارك");
@@ -88,6 +90,8 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
     }
+    // أجبِر إعادة التصيير للتأكد من ظهور التحديث
+    forceRerender();
     setTimeout(() => {
       if (calculateRoute) calculateRoute();
     }, 400);
@@ -148,4 +152,3 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
-
