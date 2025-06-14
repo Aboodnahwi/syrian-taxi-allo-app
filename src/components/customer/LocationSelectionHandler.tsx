@@ -63,7 +63,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  const onManualPinConfirm = React.useCallback(async (lat: number, lng: number) => {
+  const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
     const manualCoords: [number, number] = [lat, lng];
     const addressText = getManualAddress(lat, lng);
 
@@ -73,40 +73,43 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setMapCenter(manualCoords);
       setMapZoom(17);
 
-      let routeDrawn = false;
-      if (calculateRoute && locationHook.toCoordinates) {
-        await calculateRoute(manualCoords, locationHook.toCoordinates);
-        routeDrawn = true;
-      }
       toast({
         title: "تم تحديد نقطة الانطلاق يدويًا",
         description: addressText,
         className: "bg-blue-50 border-blue-200 text-blue-800"
       });
-      // فقط عندما نرسم خط السير (أو ليس هناك وجهة بعد) نلغي وضع التثبيت اليدوي
-      if (routeDrawn || !locationHook.toCoordinates) {
-        setManualPinMode("none");
-      }
+      // انتظر حتى تتحدث fromCoordinates فعليًا، ثم ارسم خط السير
+      setTimeout(async () => {
+        if (calculateRoute && locationHook.toCoordinates) {
+          await calculateRoute(manualCoords, locationHook.toCoordinates);
+          setManualPinMode("none");
+        }
+        // إذا لا يوجد وجهة، أبقِ الدبوس حتى تحدد الوجهة
+        if (!locationHook.toCoordinates) {
+          setManualPinMode("none");
+        }
+      }, 50);
     } else if (manualPinMode === "to") {
       locationHook.setToCoordinates(manualCoords);
       locationHook.setToLocation(addressText);
       setMapCenter(manualCoords);
       setMapZoom(17);
 
-      let routeDrawn = false;
-      if (calculateRoute && locationHook.fromCoordinates) {
-        await calculateRoute(locationHook.fromCoordinates, manualCoords);
-        routeDrawn = true;
-      }
       toast({
         title: "تم تحديد الوجهة يدويًا",
         description: addressText,
         className: "bg-orange-50 border-orange-200 text-orange-800"
       });
-      // فقط عندما نرسم خط السير (أو ليس هناك نقطة انطلاق بعد) نلغي وضع التثبيت اليدوي
-      if (routeDrawn || !locationHook.fromCoordinates) {
-        setManualPinMode("none");
-      }
+      setTimeout(async () => {
+        if (calculateRoute && locationHook.fromCoordinates) {
+          await calculateRoute(locationHook.fromCoordinates, manualCoords);
+          setManualPinMode("none");
+        }
+        // إذا لا يوجد نقطة انطلاق، أبقِ الدبوس حتى تحدد الانطلاق
+        if (!locationHook.fromCoordinates) {
+          setManualPinMode("none");
+        }
+      }, 50);
     }
   }, [
     manualPinMode,
