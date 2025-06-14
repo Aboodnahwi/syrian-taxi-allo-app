@@ -13,10 +13,38 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
 
   const zoomToRoute = useCallback(() => {
     console.log("[useMapRoute] zoomToRoute called");
-    if (mapInstanceRef.current && routeLayerRef.current) {
-      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60, 60] });
+    if (!mapInstanceRef.current) {
+      console.log("[useMapRoute] Map not available for zoom");
+      return;
     }
-  }, [mapInstanceRef]);
+
+    let L;
+    try { 
+      L = getLeaflet(); 
+    } catch { 
+      console.log("[useMapRoute] Leaflet not available for zoom");
+      return; 
+    }
+
+    // If we have a route, zoom to route bounds
+    if (routeLayerRef.current && route && route.length > 0) {
+      console.log("[useMapRoute] Zooming to route bounds");
+      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { 
+        animate: true, 
+        padding: [60, 60],
+        maxZoom: 16
+      });
+    } else if (route && route.length >= 2) {
+      // If no route layer but we have route points, create bounds from first and last points
+      console.log("[useMapRoute] Zooming to route start/end points");
+      const bounds = L.latLngBounds([route[0], route[route.length - 1]]);
+      mapInstanceRef.current.fitBounds(bounds, { 
+        animate: true, 
+        padding: [60, 60],
+        maxZoom: 16
+      });
+    }
+  }, [mapInstanceRef, route]);
 
   // Update route
   useEffect(() => {

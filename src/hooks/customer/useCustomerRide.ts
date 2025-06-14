@@ -56,15 +56,29 @@ export const useCustomerRide = ({
       });
       return;
     }
+
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      toast({
+        title: "خطأ في المصادقة",
+        description: "يرجى تسجيل الدخول أولاً",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       const price = calculatePrice(distance, selectedVehicle);
 
+      console.log("[useCustomerRide] Creating trip with user_id:", user.id);
+
       const { data, error } = await supabase
         .from('trips')
         .insert({
-          customer_id: userId,
+          customer_id: user.id, // Use authenticated user ID
           from_location: fromLocation,
           to_location: toLocation,
           from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
@@ -77,7 +91,12 @@ export const useCustomerRide = ({
         })
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[useCustomerRide] Error creating trip:", error);
+        throw error;
+      }
+
+      console.log("[useCustomerRide] Trip created successfully:", data);
 
       toast({
         title: "تم إرسال طلب الرحلة",
@@ -91,9 +110,10 @@ export const useCustomerRide = ({
       setToCoordinates(null);
       setRoute([]);
     } catch (error: any) {
+      console.error("[useCustomerRide] Error in requestRide:", error);
       toast({
         title: "خطأ في إرسال الطلب",
-        description: error.message,
+        description: error.message || "حدث خطأ غير متوقع",
         variant: "destructive"
       });
     }
@@ -106,7 +126,6 @@ export const useCustomerRide = ({
     scheduleDate,
     scheduleTime,
     selectedVehicle,
-    userId,
     calculatePrice,
     calculateDirectDistance,
     toast,

@@ -28,6 +28,13 @@ export const useCustomerRouting = ({
     return R * c;
   }, []);
 
+  const zoomToBothPoints = useCallback(() => {
+    if (mapZoomToRouteRef?.current && fromCoordinates && toCoordinates) {
+      console.log("[useCustomerRouting] Calling zoom to route");
+      mapZoomToRouteRef.current();
+    }
+  }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
+
   const calculateRoute = useCallback(async () => {
     if (!fromCoordinates || !toCoordinates) {
       console.log("[useCustomerRouting] calculateRoute: missing coordinates");
@@ -55,10 +62,7 @@ export const useCustomerRouting = ({
         
         // Auto-zoom to fit both points with route after calculation
         setTimeout(() => {
-          if (mapZoomToRouteRef?.current) {
-            console.log("[useCustomerRouting] Auto-zooming to route");
-            mapZoomToRouteRef.current();
-          }
+          zoomToBothPoints();
         }, 500);
       }
     } catch (error) {
@@ -74,26 +78,21 @@ export const useCustomerRouting = ({
       
       // Auto-zoom to fit both points even without route
       setTimeout(() => {
-        if (mapZoomToRouteRef?.current) {
-          console.log("[useCustomerRouting] Auto-zooming to points without route");
-          mapZoomToRouteRef.current();
-        }
+        zoomToBothPoints();
       }, 500);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, mapZoomToRouteRef]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
   // Draw route when both coordinates are available
   useEffect(() => {
-    const drawRouteAndFit = async () => {
-      if (fromCoordinates && toCoordinates) {
-        console.log("[useCustomerRouting] Drawing route between:", fromCoordinates, toCoordinates);
-        await calculateRoute();
-      } else {
-        console.log("[useCustomerRouting] No coordinates for route - clearing route");
-        setRoute([]);
-      }
-    };
-    drawRouteAndFit();
+    if (fromCoordinates && toCoordinates) {
+      console.log("[useCustomerRouting] Both coordinates available, calculating route");
+      calculateRoute();
+    } else {
+      console.log("[useCustomerRouting] No coordinates for route - clearing route");
+      setRoute([]);
+      setRouteDistance(0);
+    }
   }, [fromCoordinates, toCoordinates, calculateRoute]);
 
   return {
