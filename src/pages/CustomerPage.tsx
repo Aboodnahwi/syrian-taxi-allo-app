@@ -119,30 +119,19 @@ const CustomerPage = () => {
     lng: number,
     address: string
   ) => {
-    console.log("Marker dragged:", type, lat, lng, address);
+    // عندما يُسحب أي دبوس نحدث إحداثياته ونرسم المسار مباشرة
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
-      setTimeout(() => {
-        mapZoomToFromRef.current?.();
-      }, 350);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
-      setTimeout(() => {
-        mapZoomToToRef.current?.();
-      }, 350);
+      setMapCenter([lat, lng]);
+      setMapZoom(17);
     }
-
-    // إذا أصبحت النقطتان متاحتان، ارسم الطريق وقرب الكاميرا
-    if (
-      (type === "from" && toCoordinates) ||
-      (type === "to" && fromCoordinates)
-    ) {
-      setTimeout(() => {
-        mapZoomToRouteRef.current?.();
-      }, 800);
-    }
+    // سيتم استدعاء effect الخاص بحساب المسار عند تحديث from/toCoordinates تلقائيًا
   };
 
   // قسمنا هذا الجزء من المنطق في hook منفصلة
@@ -425,7 +414,7 @@ const CustomerPage = () => {
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: true, // السماح بالسحب دائمًا بغض النظر عن الوضع اليدوي
+          draggable: true, // السماح بالسحب دائمًا
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
