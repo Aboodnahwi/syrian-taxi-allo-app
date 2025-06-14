@@ -39,6 +39,11 @@ export const useCustomerRouting = ({
   }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
 
   const calculateRoute = useCallback(async () => {
+    console.log("[useCustomerRouting] calculateRoute called with:", {
+      from: fromCoordinates,
+      to: toCoordinates
+    });
+    
     if (!fromCoordinates || !toCoordinates) {
       console.log("[useCustomerRouting] calculateRoute: missing coordinates");
       return;
@@ -58,7 +63,7 @@ export const useCustomerRouting = ({
       if (data.features && data.features[0]) {
         const coordinates = data.features[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
-        console.log("[useCustomerRouting] Route calculated successfully:", routeCoords.length, "points");
+        console.log("[useCustomerRouting] NEW Route calculated successfully:", routeCoords.length, "points");
         setRoute(routeCoords);
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
@@ -90,6 +95,11 @@ export const useCustomerRouting = ({
 
   // Draw route when both coordinates are available
   useEffect(() => {
+    console.log("[useCustomerRouting] useEffect triggered - coordinates changed:", {
+      from: fromCoordinates,
+      to: toCoordinates
+    });
+    
     if (fromCoordinates && toCoordinates) {
       console.log("[useCustomerRouting] Both coordinates available, calculating route with close zoom");
       calculateRoute();

@@ -69,8 +69,12 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const onManualPinConfirm = React.useCallback((lat: number, lng: number) => {
     console.log("[LocationSelectionHandler] Confirm button clicked", { lat, lng, mode: manualPinMode });
     if (manualPinMode === "from") {
+      console.log("[LocationSelectionHandler] Setting FROM coordinates:", [lat, lng]);
+      
+      // حديث الإحداثيات أولاً
       locationHook.setFromCoordinates([lat, lng]);
-      locationHook.setFromLocation("نقطة من اختيارك");
+      // إخفاء النص من مربع البحث
+      locationHook.setFromLocation("");
       setMapCenter([lat, lng]);
       setMapZoom(17);
       setManualPinMode("none");
@@ -84,15 +88,22 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       // أجبِر إعادة التصيير أولاً
       forceRerender();
       
-      // احسب المسار بعد تأخير قصير للتأكد من تحديث الـ state
+      // انتظر قليلاً ثم احسب المسار بالإحداثيات الجديدة
       setTimeout(() => {
-        console.log("[LocationSelectionHandler] Calculating route after FROM pin confirmation");
-        if (calculateRoute) calculateRoute();
-      }, 100);
+        console.log("[LocationSelectionHandler] Recalculating route with NEW coordinates");
+        console.log("FROM:", [lat, lng], "TO:", locationHook.toCoordinates);
+        if (calculateRoute) {
+          calculateRoute();
+        }
+      }, 200);
 
     } else if (manualPinMode === "to") {
+      console.log("[LocationSelectionHandler] Setting TO coordinates:", [lat, lng]);
+      
+      // تحديث الإحداثيات أولاً
       locationHook.setToCoordinates([lat, lng]);
-      locationHook.setToLocation("وجهة من اختيارك");
+      // إخفاء النص من مربع البحث
+      locationHook.setToLocation("");
       setMapCenter([lat, lng]);
       setMapZoom(17);
       setManualPinMode("none");
@@ -106,11 +117,14 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       // أجبِر إعادة التصيير أولاً
       forceRerender();
       
-      // احسب المسار بعد تأخير قصير للتأكد من تحديث الـ state
+      // انتظر قليلاً ثم احسب المسار بالإحداثيات الجديدة
       setTimeout(() => {
-        console.log("[LocationSelectionHandler] Calculating route after TO pin confirmation");
-        if (calculateRoute) calculateRoute();
-      }, 100);
+        console.log("[LocationSelectionHandler] Recalculating route with NEW coordinates");
+        console.log("FROM:", locationHook.fromCoordinates, "TO:", [lat, lng]);
+        if (calculateRoute) {
+          calculateRoute();
+        }
+      }, 200);
     }
   }, [manualPinMode, locationHook, setMapCenter, setMapZoom, toast, calculateRoute, forceRerender]);
 
