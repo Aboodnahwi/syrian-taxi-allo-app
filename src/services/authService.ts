@@ -91,53 +91,67 @@ export const authService = {
         userData = JSON.parse(pendingRegistration);
       }
 
-      // التحقق من رمز OTP أولاً
-      const { data: isValidOtp, error: otpError } = await supabase
-        .rpc('verify_otp', { p_phone: phone, p_code: code });
-
-      if (otpError || !isValidOtp) {
-        toast({
-          title: "رمز التحقق خاطئ",
-          description: "يرجى إدخال الرمز الصحيح",
-          variant: "destructive"
-        });
-        return { success: false, user: null };
-      }
-
       let finalUser: User | null = null;
 
-      // إذا كان هناك تسجيل معلق (مستخدم جديد)
       if (userData) {
-        // إنشاء معرف فريد للمستخدم
-        const userId = crypto.randomUUID();
-        
-        // إنشاء الملف الشخصي مباشرة
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            name: userData.name,
-            phone: userData.phone,
-            role: userData.role,
-            governorate: userData.governorate
-          })
-          .select()
-          .single();
+        // تسجيل مستخدم جديد باستعمال الدالة المخصصة في قاعدة البيانات
+        const { data, error } = await supabase.rpc('verify_otp_and_create_user', {
+          p_phone: userData.phone,
+          p_code: code,
+          p_user_data: userData
+        });
 
-        if (createError) {
-          console.error('Profile creation error:', createError);
+        if (error) {
           toast({
-            title: "خطأ في إنشاء الحساب",
-            description: "حدث خطأ أثناء إنشاء الملف الشخصي",
+            title: "خطأ في التحقق",
+            description: error.message,
             variant: "destructive"
           });
           return { success: false, user: null };
         }
 
-        finalUser = newProfile;
+        if (!data || !data.success) {
+          toast({
+            title: "فشل التحقق",
+            description: data?.error || "حدث خطأ أثناء إنشاء الحساب",
+            variant: "destructive"
+          });
+          return { success: false, user: null };
+        }
+
+        // جلب الملف الشخصي من profiles
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user_id)
+          .single();
+
+        if (profileError || !profile) {
+          toast({
+            title: "تعذر جلب الحساب",
+            description: "تم إنشاء المستخدم ولكن حدث خطأ بجلب البيانات",
+            variant: "destructive"
+          });
+          return { success: false, user: null };
+        }
+
+        finalUser = profile;
         localStorage.removeItem('pendingRegistration');
       } else {
-        // مستخدم موجود - جلب الملف الشخصي
+        // مستخدم حالي - تحقق رمز OTP القديم
+        const { data: isValidOtp, error: otpError } = await supabase
+          .rpc('verify_otp', { p_phone: phone, p_code: code });
+
+        if (otpError || !isValidOtp) {
+          toast({
+            title: "رمز التحقق خاطئ",
+            description: "يرجى إدخال الرمز الصحيح",
+            variant: "destructive"
+          });
+          return { success: false, user: null };
+        }
+
+        // جلب الملف الشخصي
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
