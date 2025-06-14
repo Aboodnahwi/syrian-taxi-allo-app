@@ -119,6 +119,7 @@ const CustomerPage = () => {
     lng: number,
     address: string
   ) => {
+    console.log("Marker dragged:", type, lat, lng, address);
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
@@ -132,7 +133,8 @@ const CustomerPage = () => {
         mapZoomToToRef.current?.();
       }, 350);
     }
-    // عند توفر النقطتين، رسم المسار والتقريب
+
+    // إذا أصبحت النقطتان متاحتان، ارسم الطريق وقرب الكاميرا
     if (
       (type === "from" && toCoordinates) ||
       (type === "to" && fromCoordinates)
@@ -416,14 +418,14 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  // تحديد الدبابيس
+  // تحديد الدبابيس الظاهرة بناءً على وجود الإحداثيات
   const markers = [
     ...(fromCoordinates
       ? [{
           id: "from",
           position: fromCoordinates,
           popup: fromLocation || "نقطة الانطلاق",
-          draggable: true, // السماح بالسحب دائمًا
+          draggable: true, // السماح بالسحب دائمًا بغض النظر عن الوضع اليدوي
           icon: {
             html: '<div style="background:#0ea5e9;width:26px;height:36px;border-radius:14px 14px 20px 20px;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;">🚩</div>',
             iconSize: [26, 36] as [number, number],
