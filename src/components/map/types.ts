@@ -21,4 +21,8 @@ export interface MapProps {
   className?: string;
   toast?: (options: any) => void;
   onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
+  // callbacks لزوم جديد
+  onZoomToFrom?: (cb: () => void) => void;
+  onZoomToTo?: (cb: () => void) => void;
+  onZoomToRoute?: (cb: () => void) => void;
 }

@@ -4,8 +4,28 @@ import { Navigation } from 'lucide-react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
 
-const Map = (props: MapProps) => {
-  const { mapRef, centerOnCurrentLocation } = useMap(props);
+const Map = (props: MapProps & {
+  onZoomToFrom?: () => void;
+  onZoomToTo?: () => void;
+  onZoomToRoute?: () => void;
+}) => {
+  const { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap(props);
+  // expose methods to parent if needed
+  if (props.onZoomToFrom) props.onZoomToFrom(() => {
+    if (props.markers?.find(m => m.id === "from")) {
+      const from = props.markers?.find(m => m.id === "from");
+      if (from) zoomToLatLng(from.position[0], from.position[1], 17);
+    }
+  });
+  if (props.onZoomToTo) props.onZoomToTo(() => {
+    if (props.markers?.find(m => m.id === "to")) {
+      const to = props.markers?.find(m => m.id === "to");
+      if (to) zoomToLatLng(to.position[0], to.position[1], 17);
+    }
+  });
+  if (props.onZoomToRoute) props.onZoomToRoute(() => {
+    zoomToRoute();
+  });
 
   return (
     <div className={`relative ${props.className || 'w-full h-96'}`}>

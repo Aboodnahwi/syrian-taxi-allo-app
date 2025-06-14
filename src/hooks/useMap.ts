@@ -55,6 +55,20 @@ export const useMap = ({
   const routeLayerRef = useRef<any>(null);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
 
+  // طريقة zoom على نقطة
+  const zoomToLatLng = (lat: number, lng: number, myZoom: number = 17) => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([lat, lng], myZoom, { animate: true });
+    }
+  };
+
+  // zoom على المسار
+  const zoomToRoute = () => {
+    if (mapInstanceRef.current && routeLayerRef.current) {
+      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60,60] });
+    }
+  };
+
   const fetchAddress = async (lat:number, lng:number) => {
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
@@ -216,6 +230,8 @@ export const useMap = ({
               className: "bg-blue-50 border-blue-200 text-blue-800"
             });
           }
+          // بعد سحب أي دبوس اعمل zoom عليه
+          zoomToLatLng(latlng.lat, latlng.lng, 17);
         });
       }
       markersRef.current[markerData.id] = marker;
@@ -230,7 +246,7 @@ export const useMap = ({
 
     if (route && route.length > 1) {
       routeLayerRef.current = L.polyline(route, { color: '#ef4444', weight: 4, opacity: 0.8 }).addTo(mapInstanceRef.current);
-      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds());
+      mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60,60] });
     }
   }, [route]);
 
@@ -242,5 +258,6 @@ export const useMap = ({
     }
   };
 
-  return { mapRef, centerOnCurrentLocation };
+  // expose التحكمات الجديدة مع الطريقة القديمة
+  return { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute };
 };

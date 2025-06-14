@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +60,12 @@ const CustomerPage = () => {
     if (gov && GOVERNORATE_CENTERS[gov]) setMapCenter(GOVERNORATE_CENTERS[gov]);
   }, [user, navigate]);
 
-  // قم بتحديث إحداثيات وحقل عنوان عند سحب الدبابيس
+  // Callbacks refs to allow triggering zooms from parent
+  const mapZoomToFrom = useRef<() => void>();
+  const mapZoomToTo = useRef<() => void>();
+  const mapZoomToRoute = useRef<() => void>();
+
+  // تحديث إحداثيات وحقل عنوان عند سحب الدبابيس
   const handleMarkerDrag = async (
     type: 'from' | 'to',
     lat: number,
@@ -70,9 +75,12 @@ const CustomerPage = () => {
     if (type === 'from') {
       setFromCoordinates([lat, lng]);
       setFromLocation(address);
+      setTimeout(() => mapZoomToFrom.current?.(), 400); // zoom للانطلاق
     } else {
       setToCoordinates([lat, lng]);
       setToLocation(address);
+      setTimeout(() => mapZoomToTo.current?.(), 400); // zoom للوجهة
+      setTimeout(() => mapZoomToRoute.current?.(), 900); // zoom للمسار بعد قليل
     }
   };
 
@@ -85,7 +93,16 @@ const CustomerPage = () => {
       description: address.substring(0, 50) + "...",
       className: "bg-blue-50 border-blue-200 text-blue-800"
     });
+    setTimeout(() => mapZoomToFrom.current?.(), 400); // zoom للانطلاق بعد تحديدها أول مرة
   };
+
+  // عند تحديد موقع الوجهة - zoom عند تحديد
+  useEffect(() => {
+    if (fromCoordinates && toCoordinates) {
+      setTimeout(() => mapZoomToTo.current?.(), 350);
+      setTimeout(() => mapZoomToRoute.current?.(), 750);
+    }
+  }, [toCoordinates]);
 
   const searchLocation = async (query: string, type: 'from' | 'to') => {
     if (query.length < 3) {
@@ -321,6 +338,10 @@ const CustomerPage = () => {
           toast={toast}
           onLocationSelect={handleMapClick}
           onMarkerDrag={handleMarkerDrag}
+          // Callbacks refs to allow triggering zooms from parent
+          onZoomToFrom={(cb) => { mapZoomToFrom.current = cb; }}
+          onZoomToTo={(cb) => { mapZoomToTo.current = cb; }}
+          onZoomToRoute={(cb) => { mapZoomToRoute.current = cb; }}
         />
       </div>
       {/* Head & notification */}
