@@ -1,4 +1,3 @@
-
 // تم إزالة الاستيراد المكرر لـ useRef
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +13,7 @@ import Map from '@/components/map/Map';
 import NotificationSystem from '@/components/NotificationSystem';
 import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
-import React, { useRef } from "react";
+import React from "react";
 
 // Helper: governorate center mapping (for demo, put real coords as needed)
 const GOVERNORATE_CENTERS: Record<string, [number, number]> = {

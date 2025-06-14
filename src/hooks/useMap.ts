@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapProps } from '@/components/map/types';
+import { getLeaflet } from './leafletUtils';
 
 const MAP_SCRIPT_ID = "leaflet-cdn-script";
 const MAP_CSS_ID = "leaflet-cdn-css";
@@ -55,14 +56,12 @@ export const useMap = ({
   const routeLayerRef = useRef<any>(null);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
 
-  // طريقة zoom على نقطة
   const zoomToLatLng = (lat: number, lng: number, myZoom: number = 17) => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.setView([lat, lng], myZoom, { animate: true });
     }
   };
 
-  // zoom على المسار
   const zoomToRoute = () => {
     if (mapInstanceRef.current && routeLayerRef.current) {
       mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { animate: true, padding: [60,60] });
@@ -88,16 +87,20 @@ export const useMap = ({
           setCurrentLocation([lat, lng]);
 
           if (mapInstanceRef.current) {
-            const L = (window as any).L;
-            const currentLocationIcon = L.divIcon({
-              html: '<div style="background: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-              iconSize: [20, 20],
-              className: 'current-location-marker'
-            });
+            try {
+              const L = getLeaflet();
+              const currentLocationIcon = L.divIcon({
+                html: '<div style="background: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                className: 'current-location-marker'
+              });
 
-            L.marker([lat, lng], { icon: currentLocationIcon })
-              .addTo(mapInstanceRef.current)
-              .bindPopup('موقعك الحالي');
+              L.marker([lat, lng], { icon: currentLocationIcon })
+                .addTo(mapInstanceRef.current)
+                .bindPopup('موقعك الحالي');
+            } catch (e) {
+              console.error("Leaflet is not loaded yet");
+            }
           }
         },
         (error) => {
@@ -125,14 +128,16 @@ export const useMap = ({
           loadCss(MAP_CSS_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
           loadScript(MAP_SCRIPT_ID, 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js')
         ]);
-        // استخدام متغير محلي L مع الحماية من عدم وجوده على window
-        const L = (window as any).L;
-        if (isCancelled || !mapRef.current || !L || mapInstanceRef.current) {
+        let L;
+        try {
+          L = getLeaflet();
+        } catch {
+          console.error("[map] Leaflet غير موجود على window.L بعد تحميل السكربت!");
+          return;
+        }
+        if (isCancelled || !mapRef.current || mapInstanceRef.current) {
           if (!mapRef.current) {
             console.error("[map] mapRef.current is missing!");
-          }
-          if (!L) {
-            console.error("[map] window.L is not available after script load!");
           }
           return;
         }
@@ -187,8 +192,12 @@ export const useMap = ({
   }, [center, zoom, onLocationSelect, toast, getCurrentLocation]);
 
   useEffect(() => {
-    if (!mapInstanceRef.current || !(window as any).L) return;
-    const L = (window as any).L;
+    if (!mapInstanceRef.current) return;
+
+    let L;
+    try {
+      L = getLeaflet();
+    } catch { return; }
 
     // Remove old markers
     Object.values(markersRef.current).forEach(marker => mapInstanceRef.current.removeLayer(marker));
@@ -231,15 +240,12 @@ export const useMap = ({
               className: "bg-blue-50 border-blue-200 text-blue-800"
             });
           }
-          // بعد سحب أي دبوس اعمل zoom عليه مباشرة (تم التأكد ـ مكرر من الأعلى)
           zoomToLatLng(latlng.lat, latlng.lng, 17);
         });
       }
       markersRef.current[markerData.id] = marker;
     });
-
-    // debug: تأكد من أن Marker وTiles تعمل
-    if (window && window.L && mapInstanceRef.current) {
+    if (window && (window as any).L && mapInstanceRef.current) {
       console.log("Leaflet instance and map loaded.");
       if (markers.length > 0)
         console.log("Markers added:", markers);
@@ -248,8 +254,8 @@ export const useMap = ({
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;
-    const L = (window as any).L;
-
+    let L;
+    try { L = getLeaflet(); } catch { return; }
     if (routeLayerRef.current) mapInstanceRef.current.removeLayer(routeLayerRef.current);
 
     if (route && route.length > 1) {
@@ -266,6 +272,5 @@ export const useMap = ({
     }
   };
 
-  // expose التحكمات الجديدة مع الطريقة القديمة
   return { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute };
 };
