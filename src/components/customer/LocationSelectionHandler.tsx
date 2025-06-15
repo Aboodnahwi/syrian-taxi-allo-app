@@ -70,7 +70,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const { onManualPinConfirm } = useManualPinConfirm({
     manualPinMode,
     mapCenterRef,
-    locationHook,
+    setFromCoordinates: locationHook.setFromCoordinates,
+    setFromLocation: locationHook.setFromLocation,
+    setToCoordinates: locationHook.setToCoordinates,
+    setToLocation: locationHook.setToLocation,
     setMapCenter,
     setMapZoom,
     toast,

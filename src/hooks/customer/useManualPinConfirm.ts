@@ -1,9 +1,13 @@
+
 import { useCallback } from "react";
 
 interface UseManualPinConfirmProps {
   manualPinMode: "none" | "from" | "to";
   mapCenterRef: React.MutableRefObject<[number, number]>;
-  locationHook: any;
+  setFromCoordinates: (coords: [number, number]) => void;
+  setFromLocation: (location: string) => void;
+  setToCoordinates: (coords: [number, number]) => void;
+  setToLocation: (location: string) => void;
   setMapCenter: (coords: [number, number]) => void;
   setMapZoom: (zoom: number) => void;
   toast: (opts: any) => void;
@@ -14,7 +18,10 @@ interface UseManualPinConfirmProps {
 export function useManualPinConfirm({
   manualPinMode,
   mapCenterRef,
-  locationHook,
+  setFromCoordinates,
+  setFromLocation,
+  setToCoordinates,
+  setToLocation,
   setMapCenter,
   setMapZoom,
   toast,
@@ -41,16 +48,16 @@ export function useManualPinConfirm({
       const address = await fetchAddress(lat, lng);
       // تثبيت الدبوس وتحديث العنوان
       if (manualPinMode === "from") {
-        locationHook.setFromCoordinates([lat, lng]);
-        locationHook.setFromLocation(address);
+        setFromCoordinates([lat, lng]);
+        setFromLocation(address);
         toast({
           title: "تم تثبيت نقطة الانطلاق",
           description: address,
           className: "bg-sky-50 border-sky-200 text-sky-800"
         });
       } else if (manualPinMode === "to") {
-        locationHook.setToCoordinates([lat, lng]);
-        locationHook.setToLocation(address);
+        setToCoordinates([lat, lng]);
+        setToLocation(address);
         toast({
           title: "تم تثبيت الوجهة",
           description: address,
@@ -67,7 +74,10 @@ export function useManualPinConfirm({
     },
     [
       manualPinMode,
-      locationHook,
+      setFromCoordinates,
+      setFromLocation,
+      setToCoordinates,
+      setToLocation,
       setManualPinMode,
       setManualConfirmKey,
       setMapCenter,
@@ -80,3 +90,4 @@ export function useManualPinConfirm({
     onManualPinConfirm,
   };
 }
+
