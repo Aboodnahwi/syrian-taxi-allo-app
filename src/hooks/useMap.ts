@@ -52,6 +52,7 @@ export const useMap = ({
 
   return { 
     mapRef, 
+    mapInstanceRef,
     centerOnCurrentLocation, 
     zoomToLatLng, 
     zoomToRoute 

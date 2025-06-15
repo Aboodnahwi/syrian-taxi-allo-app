@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
 
@@ -19,7 +19,8 @@ const Map: React.FC<MapProps> = ({
   mapZoomToRouteRef,
   onMapMove,
 }) => {
-  const { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
+  // استخدم هوك useMap كي تحصل على مراجع الخريطة مباشرة
+  const { mapRef, mapInstanceRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
     center,
     zoom,
     onLocationSelect,
@@ -49,17 +50,13 @@ const Map: React.FC<MapProps> = ({
   }, [mapZoomToFromRef, mapZoomToToRef, mapZoomToRouteRef, markers, zoomToLatLng, zoomToRoute]);
 
   // mapMove live center (for manual pin update)
-  const mapInstanceRef = useRef<any>(null);
   useEffect(() => {
-    // we rely on the hook creating the instance on mapRef.current
-    // this requires that useMap underhood puts map instance on mapRef.current (or expose one shared place)
-    if (mapRef.current && onMapMove) {
-      // Try to support both possible approaches
-      const map = mapRef.current.leafletElement || mapRef.current;
-      if (!map) return;
+    // استخدم المرجع الصحيح لخريطة leaflet
+    if (mapInstanceRef.current && onMapMove) {
+      const map = mapInstanceRef.current;
+      if (!map || typeof map.on !== "function") return;
       const handleMove = () => {
         const center = map.getCenter();
-        // LatLng is usually LatLng object for leaflet
         onMapMove([center.lat, center.lng]);
       };
       map.on('move', handleMove);
@@ -67,7 +64,7 @@ const Map: React.FC<MapProps> = ({
         map.off('move', handleMove);
       };
     }
-  }, [mapRef, onMapMove]);
+  }, [mapInstanceRef, onMapMove]);
   
   return (
     <div className={`relative ${className || 'w-full h-96'}`}>
