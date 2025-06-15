@@ -7,7 +7,7 @@ interface UseMapMarkersProps {
   mapInstanceRef: React.MutableRefObject<any>;
   mapReady: boolean;
   markers: MapMarker[];
-  onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
+  // تم تعطيل onMarkerDrag
   toast?: (options: any) => void;
 }
 
@@ -15,7 +15,6 @@ export const useMapMarkers = ({
   mapInstanceRef,
   mapReady,
   markers,
-  onMarkerDrag,
   toast
 }: UseMapMarkersProps) => {
   const markersRef = useRef<{[k:string]: any}>({});
@@ -36,7 +35,6 @@ export const useMapMarkers = ({
       console.log("[useMapMarkers] Map not ready for markers");
       return;
     }
-
     let L;
     try {
       L = getLeaflet();
@@ -44,8 +42,6 @@ export const useMapMarkers = ({
       console.log("[useMapMarkers] Leaflet not available yet");
       return; 
     }
-
-    console.log("[useMapMarkers] Processing markers:", markers.length, markers);
 
     // Remove old markers
     Object.values(markersRef.current).forEach(marker => {
@@ -57,12 +53,9 @@ export const useMapMarkers = ({
 
     // Add new markers
     markers.forEach((markerData) => {
-      console.log("[useMapMarkers] Adding marker:", markerData.id, markerData.position);
-      
       let markerOptions: any = {
-        draggable: markerData.draggable || false
+        draggable: false // دائماً غير قابل للسحب
       };
-
       if (markerData.icon) {
         markerOptions.icon = L.divIcon({
           html: markerData.icon.html,
@@ -71,42 +64,13 @@ export const useMapMarkers = ({
           iconAnchor: markerData.icon.iconAnchor || [13, 34],
         });
       }
-
       const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
-      
       if (markerData.popup) {
         marker.bindPopup(markerData.popup);
       }
-
-      // Add drag functionality for draggable markers
-      if (markerData.draggable && markerData.id && onMarkerDrag) {
-        marker.on('dragend', async (e: any) => {
-          const latlng = e.target.getLatLng();
-          console.log("[useMapMarkers] Marker dragged:", markerData.id, latlng.lat, latlng.lng);
-          const address = await fetchAddress(latlng.lat, latlng.lng);
-          onMarkerDrag(
-            markerData.id as 'from' | 'to',
-            latlng.lat,
-            latlng.lng,
-            address
-          );
-          marker.setPopupContent(address);
-          if (toast) {
-            toast({
-              title: markerData.id === 'from' ? "تم تحديث نقطة الانطلاق" : "تم تحديث الوجهة",
-              description: address,
-              className: "bg-blue-50 border-blue-200 text-blue-800"
-            });
-          }
-        });
-      }
-
       markersRef.current[markerData.id] = marker;
-      console.log("[useMapMarkers] Marker added successfully:", markerData.id);
     });
-
-    console.log("[useMapMarkers] Total markers on map:", Object.keys(markersRef.current).length);
-  }, [markers, onMarkerDrag, toast, mapReady, mapInstanceRef]);
+  }, [markers, mapReady, mapInstanceRef]);
 
   return {
     markersRef
