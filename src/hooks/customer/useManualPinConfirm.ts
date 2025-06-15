@@ -59,10 +59,14 @@ export function useManualPinConfirm({
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
         
-        // حساب المسار إذا كانت الوجهة موجودة
-        if (locationHook.toCoordinates && calculateRoute) {
+        // حساب المسار إذا كانت الوجهة موجودة - استخدام calculateRoute من locationHook
+        if (locationHook.toCoordinates && locationHook.calculateRoute) {
           console.log(`[useManualPinConfirm] Calculating route from ${manualCoords} to ${locationHook.toCoordinates}`);
-          await calculateRoute(manualCoords, locationHook.toCoordinates);
+          try {
+            await locationHook.calculateRoute(manualCoords, locationHook.toCoordinates);
+          } catch (error) {
+            console.error('[useManualPinConfirm] Error calculating route:', error);
+          }
         }
       } else if (manualPinMode === "to") {
         console.log(`[useManualPinConfirm] Setting TO coordinates:`, manualCoords);
@@ -75,10 +79,14 @@ export function useManualPinConfirm({
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
         
-        // حساب المسار إذا كانت نقطة الانطلاق موجودة
-        if (locationHook.fromCoordinates && calculateRoute) {
+        // حساب المسار إذا كانت نقطة الانطلاق موجودة - استخدام calculateRoute من locationHook
+        if (locationHook.fromCoordinates && locationHook.calculateRoute) {
           console.log(`[useManualPinConfirm] Calculating route from ${locationHook.fromCoordinates} to ${manualCoords}`);
-          await calculateRoute(locationHook.fromCoordinates, manualCoords);
+          try {
+            await locationHook.calculateRoute(locationHook.fromCoordinates, manualCoords);
+          } catch (error) {
+            console.error('[useManualPinConfirm] Error calculating route:', error);
+          }
         }
       }
       

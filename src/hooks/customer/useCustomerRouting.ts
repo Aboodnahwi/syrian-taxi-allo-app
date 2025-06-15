@@ -38,7 +38,7 @@ export const useCustomerRouting = ({
     }
   }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
 
-  // تعديل دالة calculateRoute لاستقبال قيم اختيارية.
+  // تحديث دالة calculateRoute لتتعامل مع التحديثات الفورية
   const calculateRoute = useCallback(async (
     passedFromCoordinates?: [number, number] | null,
     passedToCoordinates?: [number, number] | null
@@ -46,25 +46,18 @@ export const useCustomerRouting = ({
     const from = passedFromCoordinates ?? fromCoordinates;
     const to = passedToCoordinates ?? toCoordinates;
 
+    console.log(`[useCustomerRouting] calculateRoute called with from:`, from, `to:`, to);
+
     if (!from || !to) {
+      console.log(`[useCustomerRouting] Missing coordinates, skipping route calculation`);
       return;
     }
 
-    // تحقق من أن الإحداثيات تغيرت فعلاً
-    const fromChanged = !lastCalculatedFrom || 
-      lastCalculatedFrom[0] !== from[0] || 
-      lastCalculatedFrom[1] !== from[1];
-    
-    const toChanged = !lastCalculatedTo || 
-      lastCalculatedTo[0] !== to[0] || 
-      lastCalculatedTo[1] !== to[1];
-
-    if (!fromChanged && !toChanged) {
-      return;
-    }
-
+    // تسجيل الإحداثيات الجديدة مباشرة
     setLastCalculatedFrom([...from]);
     setLastCalculatedTo([...to]);
+
+    console.log(`[useCustomerRouting] Starting route calculation from:`, from, `to:`, to);
 
     try {
       const response = await fetch(
@@ -80,11 +73,13 @@ export const useCustomerRouting = ({
         setRoute(routeCoords);
         const distance = data.features[0].properties.segments[0].distance / 1000;
         setRouteDistance(distance);
+        console.log(`[useCustomerRouting] Route calculated successfully, distance: ${distance}km`);
         setTimeout(() => {
           zoomToBothPoints();
         }, 300);
       }
     } catch (error) {
+      console.error('[useCustomerRouting] Error calculating route:', error);
       toast({
         title: "خطأ في حساب المسار",
         description: "تعذر الحصول على مسار الرحلة. سيتم الاعتماد على المسافة المباشرة.",
@@ -93,17 +88,22 @@ export const useCustomerRouting = ({
       const distance = calculateDirectDistance(from, to);
       setRouteDistance(distance);
       setRoute([from, to]);
+      console.log(`[useCustomerRouting] Using direct distance: ${distance}km`);
       setTimeout(() => {
         zoomToBothPoints();
       }, 300);
     }
-  // مهم: أضف lastCalculatedFrom/To في dependencies!
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, lastCalculatedFrom, lastCalculatedTo]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
-  // auto draw route when both coordinates available
+  // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
+      console.log(`[useCustomerRouting] Auto-calculating route due to coordinate change`);
       calculateRoute();
+    } else {
+      // إذا لم تكن هناك إحداثيات كاملة، امسح المسار
+      setRoute([]);
+      setRouteDistance(0);
     }
   }, [fromCoordinates, toCoordinates, calculateRoute]);
 
