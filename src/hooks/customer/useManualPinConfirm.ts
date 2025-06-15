@@ -28,7 +28,7 @@ export function useManualPinConfirm({
   setManualPinMode,
   setManualConfirmKey,
 }: UseManualPinConfirmProps) {
-  // جلب العنوان مباشرة بناءً على إحداثيات التثبيت
+  // جلب العنوان بناءً على إحداثيات الدبوس
   const fetchAddress = async (lat: number, lng: number) => {
     try {
       const response = await fetch(
@@ -41,15 +41,15 @@ export function useManualPinConfirm({
     }
   };
 
+  // تأكيد الموقع الجديد وتحديث الحالات الرئيسية مباشرة
   const onManualPinConfirm = useCallback(
     async (lat: number, lng: number) => {
       if (manualPinMode === "none") return;
-      // جلب العنوان
       const address = await fetchAddress(lat, lng);
-      // تثبيت الدبوس وتحديث العنوان
+
       if (manualPinMode === "from") {
         setFromCoordinates([lat, lng]);
-        setFromLocation(address);
+        setFromLocation(address); // يحدث مربع البحث مباشرة
         toast({
           title: "تم تثبيت نقطة الانطلاق",
           description: address,
@@ -57,20 +57,19 @@ export function useManualPinConfirm({
         });
       } else if (manualPinMode === "to") {
         setToCoordinates([lat, lng]);
-        setToLocation(address);
+        setToLocation(address); // يحدث مربع البحث مباشرة
         toast({
           title: "تم تثبيت الوجهة",
           description: address,
           className: "bg-orange-50 border-orange-200 text-orange-800"
         });
       }
-      // إغلاق وضع الدبوس اليدوي
-      setManualPinMode("none");
-      setManualConfirmKey(Date.now()); // استخدام timestamp بدلاً من دالة
-      // تكبير الخريطة إلى النقطة الجديدة
+
+      setManualPinMode("none"); // إخفاء وضع الدبوس اليدوي
+      setManualConfirmKey(Date.now()); // لإعادة تحفيز useEffect في الأعلى
       setMapCenter([lat, lng]);
       setMapZoom(17);
-      // سيتم حساب المسار تلقائيًا عبر useEffect في useCustomerRouting
+      // سيتم إعادة رسم المسار تلقائياً إذا كانت الاحداثيات موجودة للجهتين
     },
     [
       manualPinMode,
@@ -90,4 +89,3 @@ export function useManualPinConfirm({
     onManualPinConfirm,
   };
 }
-
