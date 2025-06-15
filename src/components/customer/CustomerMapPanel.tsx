@@ -1,3 +1,4 @@
+
 import React from "react";
 import Map from "@/components/map/Map";
 
@@ -56,7 +57,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
   
-  // زر شفاف فوق الدبوس لاختيار تحريكه (في الوضع العادي فقط)
+  // رسم أزرار marker فقط إذا لسنا في manualPinMode
   const markerButtons = (!manualPinMode || manualPinMode === "none")
     ? markers.map(marker => (
         <button
@@ -81,7 +82,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
       ))
     : null;
 
-  // الكود الذي يرسم الدبوس الثابت في منتصف الشاشة في وضع التحديد اليدوي فقط (Overlay فقط! ليس على الخريطة)
+  // Overlay دبوس ثابت في منتصف الشاشة في manualPinMode فقط
   const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
     <div
       className="pointer-events-none absolute left-1/2 top-1/2 z-[1200] transition-transform duration-200"
@@ -91,7 +92,6 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.3))"
       }}
     >
-      {/* الدبوس حسب النوع */}
       <div
         className={`flex items-center justify-center font-bold text-lg rounded-b-[20px]`}
         style={{
@@ -109,11 +109,12 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-0">
+      {/* نرسم الخريطة بدون دبابيس إذا كنا في manualPinMode */}
       <Map
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={markers}
+        markers={manualPinMode !== "none" ? [] : markers}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}
