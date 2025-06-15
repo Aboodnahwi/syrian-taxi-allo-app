@@ -35,7 +35,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const {
     handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin: _handleManualToPinBase,
-    handleMapClickManual
+    // handleMapClickManual غير مستخدمة بالمنطق الجديد
   } = useManualPinMode({
     setManualPinMode,
     setFromCoordinates: locationHook.setFromCoordinates,
@@ -54,9 +54,12 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   const getManualAddress = (lat: number, lng: number) =>
     `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
+  // عند الضغط على زر التفعيل اليدوي: فعل وضع الدبوس فقط واجعل الخريطة على المستخدم
   const handleManualFromPin = React.useCallback(() => {
     _handleManualFromPinBase();
     setManualPinMode("from");
+    // ملاحظة! لا تحدّث إحداثيات الدبوس فورًا (ليظل ثابتًا في مركز الخريطة)
+    // يمكن إظهار دبوس "افتراضي" إذا رغبت بذلك من خلال CustomerMapMarkers (غالبًا كافٍ)
   }, [_handleManualFromPinBase]);
 
   const handleManualToPin = React.useCallback(() => {
@@ -64,14 +67,13 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  // إعادة الصياغة هنا: تحديث كل شيء فورياً ثم رسم المسار متى ما توفر الطرف الآخر
+  // عند الضغط زر تأكيد الموقع: خذ موقع (المركز الحالي للخريطة) كموقع الدبوس
   const onManualPinConfirm = React.useCallback(
     async (lat: number, lng: number) => {
       const manualCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
 
       if (manualPinMode === "from") {
-        // حدّث نقطة الانطلاق فورا
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
         setMapCenter(manualCoords);
@@ -82,12 +84,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           description: addressText,
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
-        // بعد تحديث الانطلاق، إذا وُجدت وجهة ارسم المسار فوراً
         if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
-        // حدّث نقطة الوجهة فورا
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
         setMapCenter(manualCoords);
@@ -98,11 +98,11 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           description: addressText,
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
-        // بعد تحديث الوجهة، إذا وُجدت نقطة انطلاق ارسم المسار فوراً
         if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
+      // سيظهر الدبوس الجديد فورا عن طريق CustomerMapMarkers (تأخذ القيم من fromCoordinates/toCoordinates)
     },
     [
       manualPinMode,
