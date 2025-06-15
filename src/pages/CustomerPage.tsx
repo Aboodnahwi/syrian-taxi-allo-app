@@ -46,25 +46,36 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // Define handleMapMarkerClick with proper error handling
-  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
-    console.log(`[CustomerPage] Pin ${type} clicked, trying to activate manual mode`);
-    console.log('[CustomerPage] locationHandlers available:', !!locationHandlers);
+  // معالج سحب الدبابيس
+  const handleMarkerDrag = useCallback(async (type: "from" | "to", lat: number, lng: number, address: string) => {
+    console.log(`[CustomerPage] Marker ${type} dragged to:`, lat, lng);
     
-    if (locationHandlers?.handleMarkerDrag) {
-      console.log(`[CustomerPage] Calling handleMarkerDrag for ${type}`);
-      locationHandlers.handleMarkerDrag(type);
-    } else {
-      console.log('[CustomerPage] locationHandlers or handleMarkerDrag not available yet');
-      // Retry after a short delay if handlers aren't ready yet
-      setTimeout(() => {
-        if (locationHandlers?.handleMarkerDrag) {
-          console.log(`[CustomerPage] Retrying handleMarkerDrag for ${type}`);
-          locationHandlers.handleMarkerDrag(type);
-        }
-      }, 100);
+    if (type === "from") {
+      locationHook.setFromCoordinates([lat, lng]);
+      locationHook.setFromLocation(address);
+      
+      // حساب المسار إذا كانت الوجهة موجودة
+      if (locationHook.toCoordinates && locationHook.calculateRoute) {
+        await locationHook.calculateRoute([lat, lng], locationHook.toCoordinates);
+      }
+    } else if (type === "to") {
+      locationHook.setToCoordinates([lat, lng]);
+      locationHook.setToLocation(address);
+      
+      // حساب المسار إذا كانت نقطة الانطلاق موجودة
+      if (locationHook.fromCoordinates && locationHook.calculateRoute) {
+        await locationHook.calculateRoute(locationHook.fromCoordinates, [lat, lng]);
+      }
     }
-  }, [locationHandlers]);
+  }, [locationHook]);
+
+  // تعيين معالج السحب في النافذة العامة ليتمكن useMapMarkers من الوصول إليه
+  useEffect(() => {
+    (window as any).onMarkerDrag = handleMarkerDrag;
+    return () => {
+      delete (window as any).onMarkerDrag;
+    };
+  }, [handleMarkerDrag]);
 
   const [manualPinAddress, setManualPinAddress] = useState<string>("");
   useEffect(() => {
@@ -93,8 +104,7 @@ const CustomerPage = () => {
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
     manualPinMode: locationHandlers?.manualPinMode,
-    mapCenter,
-    onMarkerClick: handleMapMarkerClick
+    mapCenter
   });
 
   // إذا لم يكن هناك مستخدم لا ترسم شيء
@@ -130,13 +140,12 @@ const CustomerPage = () => {
         route={routingHook.route}
         toast={toast}
         onLocationSelect={undefined}
-        onMarkerDrag={() => {}} // لا يسمح بالسحب التقليدي
+        onMarkerDrag={handleMarkerDrag}
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
-        onMarkerClick={handleMapMarkerClick}
         manualPinAddress={manualPinAddress}
       />
 

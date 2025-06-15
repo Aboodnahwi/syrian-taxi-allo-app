@@ -56,22 +56,6 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
-  
-  // معالج النقر على الدبوس في الخريطة
-  const handleMarkerClick = React.useCallback((markerId: string) => {
-    console.log("[CustomerMapPanel] Marker clicked:", markerId);
-    if (onMarkerClick && (markerId === "from" || markerId === "to")) {
-      onMarkerClick(markerId);
-    }
-  }, [onMarkerClick]);
-
-  // إضافة معالج النقر للدبابيس
-  const markersWithClickHandler = React.useMemo(() => {
-    return markers.map(marker => ({
-      ...marker,
-      onClick: () => handleMarkerClick(marker.id)
-    }));
-  }, [markers, handleMarkerClick]);
 
   // Overlay دبوس ثابت في منتصف الشاشة في manualPinMode فقط
   const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
@@ -100,12 +84,12 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-0">
-      {/* نرسم الخريطة بالدبابيس العادية إذا لم نكن في manualPinMode */}
+      {/* نرسم الخريطة بالدبابيس العادية القابلة للسحب إذا لم نكن في manualPinMode */}
       <Map
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={manualPinMode !== "none" ? [] : markersWithClickHandler}
+        markers={manualPinMode !== "none" ? [] : markers}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}

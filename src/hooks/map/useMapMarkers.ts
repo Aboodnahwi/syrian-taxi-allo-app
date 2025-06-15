@@ -53,7 +53,7 @@ export const useMapMarkers = ({
     // Add new markers
     markers.forEach((markerData) => {
       let markerOptions: any = {
-        draggable: false // دائماً غير قابل للسحب
+        draggable: markerData.draggable || false
       };
       if (markerData.icon) {
         markerOptions.icon = L.divIcon({
@@ -69,11 +69,17 @@ export const useMapMarkers = ({
         marker.bindPopup(markerData.popup);
       }
 
-      // إضافة معالج النقر إذا كان موجوداً
-      if (markerData.onClick) {
-        marker.on('click', () => {
-          console.log("[useMapMarkers] Marker clicked:", markerData.id);
-          markerData.onClick!();
+      // إضافة معالج السحب إذا كان الدبوس قابل للسحب
+      if (markerData.draggable) {
+        marker.on('dragend', async (e: any) => {
+          const position = e.target.getLatLng();
+          const address = await fetchAddress(position.lat, position.lng);
+          console.log(`[useMapMarkers] Marker ${markerData.id} dragged to:`, position.lat, position.lng);
+          
+          // استدعاء onMarkerDrag من خلال المكون الأب
+          if ((window as any).onMarkerDrag) {
+            (window as any).onMarkerDrag(markerData.id, position.lat, position.lng, address);
+          }
         });
       }
 
