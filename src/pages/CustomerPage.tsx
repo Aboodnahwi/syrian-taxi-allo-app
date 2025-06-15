@@ -7,6 +7,7 @@ import CustomerPageHeader from '@/components/customer/CustomerPageHeader';
 import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
+import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
 import {
   getVehicleName,
   getVehicleIcon,
@@ -93,13 +94,22 @@ const CustomerPage = () => {
   }, [locationHook, debouncedSetFromCoordinates, debouncedSetToCoordinates]);
   
 
+  const handleMapMove = useCallback((center: [number, number]) => {
+    setMapCenter(center);
+  }, [setMapCenter]);
+
+  const { manualPinAddress, manualPinCoordinates } = useManualPinAddress({
+    mapCenter,
+    manualPinMode: locationHandlers?.manualPinMode || 'none',
+  });
+
   // Calculate markers
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
-    manualPinMode: "none", // دائماً none لأننا لا نستخدم الوضع اليدوي
+    manualPinMode: locationHandlers?.manualPinMode || 'none',
     mapCenter,
   });
 
@@ -140,6 +150,11 @@ const CustomerPage = () => {
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
+        onMapMove={handleMapMove}
+        manualPinMode={locationHandlers?.manualPinMode || 'none'}
+        onManualPinConfirm={locationHandlers?.onManualPinConfirm}
+        manualPinAddress={manualPinAddress}
+        manualPinCoordinates={manualPinCoordinates}
       />
 
       {/* Head & notification */}
