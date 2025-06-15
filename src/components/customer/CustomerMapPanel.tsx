@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Map from "@/components/map/Map";
 
 interface Marker {
@@ -36,7 +36,7 @@ interface CustomerMapPanelProps {
   manualPinCoordinates?: [number, number] | null; // أضفت هذا الحقل
 }
 
-const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
+const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: [number, number]) => void }> = ({
   mapCenter,
   mapZoom,
   markers,
@@ -51,7 +51,8 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   onManualPinConfirm,
   onMarkerClick,
   manualPinAddress,
-  manualPinCoordinates
+  manualPinCoordinates,
+  onMapMove
 }) => {
   React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
@@ -105,6 +106,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
+        onMapMove={onMapMove}
       />
 
       {/* دبوس ثابت في منتصف الشاشة عند وضع التحديد اليدوي (Overlay فقط) */}

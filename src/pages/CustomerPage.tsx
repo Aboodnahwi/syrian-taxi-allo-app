@@ -47,6 +47,8 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
+  const [liveMapCenter, setLiveMapCenter] = useState<[number, number]>(mapCenter);
+
   // Setup global marker drag handler
   const { handleMarkerDrag } = useGlobalMarkerDragHandler({ locationHook, toast });
 
@@ -55,7 +57,7 @@ const CustomerPage = () => {
 
   // Setup manual pin address fetching
   const { manualPinAddress, manualPinCoordinates } = useManualPinAddress({ 
-    mapCenter, 
+    mapCenter: liveMapCenter, 
     manualPinMode: locationHandlers?.manualPinMode 
   });
 
@@ -80,6 +82,10 @@ const CustomerPage = () => {
     icon: getVehicleIcon(p.vehicle_type),
     color: getVehicleColor(p.vehicle_type)
   }));
+
+  const handleLiveMapMove = (center: [number, number]) => {
+    setLiveMapCenter(center);
+  };
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -118,6 +124,7 @@ const CustomerPage = () => {
         onMarkerClick={handleMapMarkerClick}
         manualPinAddress={manualPinAddress}
         manualPinCoordinates={manualPinCoordinates}
+        onMapMove={locationHandlers?.manualPinMode !== 'none' ? handleLiveMapMove : undefined}
       />
 
       {/* Head & notification */}

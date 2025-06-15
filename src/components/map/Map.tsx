@@ -1,9 +1,15 @@
-
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+
+interface MapProps {
+  mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
+  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
+  onMapMove?: (center: [number, number]) => void;
+}
 
 const Map = (props: MapProps & {
   mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
@@ -29,6 +35,24 @@ const Map = (props: MapProps & {
         zoomToRoute();
       };
   }, [props.mapZoomToFromRef, props.mapZoomToToRef, props.mapZoomToRouteRef, props.markers, zoomToLatLng, zoomToRoute]);
+
+  const mapInstanceRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (mapInstanceRef.current && props.onMapMove) {
+      const map = mapInstanceRef.current;
+
+      const handleMove = () => {
+        const center = map.getCenter();
+        props.onMapMove([center.lat, center.lng]);
+      };
+      map.on('move', handleMove);
+
+      return () => {
+        map.off('move', handleMove);
+      };
+    }
+  }, [props.onMapMove]);
 
   return (
     <div className={`relative ${props.className || 'w-full h-96'}`}>
