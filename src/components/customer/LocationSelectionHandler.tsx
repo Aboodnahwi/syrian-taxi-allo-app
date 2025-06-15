@@ -74,7 +74,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setMapCenter,
     setMapZoom,
     toast,
-    calculateRoute: locationHook.calculateRoute, // تمرير calculateRoute مباشرة من locationHook
     setManualPinMode,
     setManualConfirmKey,
   });

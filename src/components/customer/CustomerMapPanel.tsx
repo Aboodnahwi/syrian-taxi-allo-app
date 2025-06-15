@@ -1,4 +1,3 @@
-
 import React from "react";
 import Map from "@/components/map/Map";
 import { MapPin, Check } from 'lucide-react';
@@ -96,14 +95,14 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
           </div>
           
           {/* Confirmation Panel */}
-          <div className="absolute bottom-4 left-4 right-4 z-[1002]">
+          <div className="absolute top-1/2 left-1/2 z-[1002] w-64 -translate-x-1/2 mt-4">
             <Card className="shadow-2xl">
               <CardContent className="p-4">
-                <p className="text-sm font-semibold mb-2">
+                <p className="text-sm font-semibold mb-2 text-center">
                   {manualPinMode === 'from' ? 'تحديد نقطة الانطلاق' : 'تحديد الوجهة'}
                 </p>
                 {manualPinAddress ? (
-                  <p className="text-sm text-slate-600">{manualPinAddress}</p>
+                  <p className="text-sm text-slate-600 text-center">{manualPinAddress}</p>
                 ) : (
                   <Skeleton className="h-4 w-full" />
                 )}
