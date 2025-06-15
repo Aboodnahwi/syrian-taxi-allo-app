@@ -8,7 +8,10 @@ interface CustomerMapMarkersProps {
   toLocation: string;
   manualPinMode?: "none" | "from" | "to";
   mapCenter?: [number, number]; // مركز الخريطة الحالي
+  onMarkerClick?: (type: "from" | "to") => void;
 }
+
+// ترجّع فقط بيانات الدبابيس ولا تعرض أي jsx
 
 const useCustomerMapMarkers = ({
   fromCoordinates,
@@ -16,9 +19,9 @@ const useCustomerMapMarkers = ({
   fromLocation,
   toLocation,
   manualPinMode,
-  mapCenter
+  mapCenter,
+  onMarkerClick
 }: CustomerMapMarkersProps) => {
-  // في وضع تحريك الدبوس (العادي أو اليدوي): الدبوس في مركز الخريطة
   if (manualPinMode === "from" && mapCenter) {
     return [{
       id: "from" as const,
@@ -45,7 +48,7 @@ const useCustomerMapMarkers = ({
       }
     }];
   }
-  // الوضع العادي: إحداثيات ثابتة لا تقبل السحب
+  // الوضع العادي: إحداثيات ثابتة لا تقبل السحب، لكن سيتم التعامل مع onMarkerClick في CustomerMapPanel
   return [
     ...(fromCoordinates ? [{
       id: "from" as const,

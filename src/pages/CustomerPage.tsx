@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -39,7 +38,7 @@ const CustomerPage = () => {
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
     handleManualToPin: () => void;
-    handleMarkerDrag: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
+    handleMarkerDrag: (type: 'from' | 'to') => void;
     selectLocation: (suggestion: any, type: 'from' | 'to') => void;
     manualPinMode?: "none"|"from"|"to";
     onManualPinConfirm?: (lat:number,lng:number)=>void;
@@ -52,7 +51,7 @@ const CustomerPage = () => {
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
     manualPinMode: locationHandlers?.manualPinMode,
-    mapCenter // إضافة هنا!
+    mapCenter
   });
 
   if (!user) return null;
@@ -67,6 +66,11 @@ const CustomerPage = () => {
 
   console.log("[CustomerPage] Rendering with markers:", markers.length, markers);
   console.log("[CustomerPage] Route length:", routingHook.route.length);
+
+  // function to handle clicking on ordinary marker
+  const handleMapMarkerClick = (type:"from"|"to") => {
+    locationHandlers?.handleMarkerDrag(type);
+  };
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -90,13 +94,14 @@ const CustomerPage = () => {
         route={routingHook.route}
         toast={toast}
         onLocationSelect={undefined}
-        onMarkerDrag={locationHandlers?.handleMarkerDrag || (() => {})}
+        onMarkerDrag={() => {}}
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
         // جديد:
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
+        onMarkerClick={handleMapMarkerClick}
       />
       
       {/* Head & notification */}

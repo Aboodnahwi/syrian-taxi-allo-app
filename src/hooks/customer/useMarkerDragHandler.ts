@@ -1,11 +1,43 @@
+
 /**
- * تم تعطيل سحب الماركرات العادي. التحريك الآن فقط عبر "manual pin mode" بحيث يكون الدبوس في مركز الخريطة
+ * يسمح بتحريك الدبوس العادي (من أو إلى) عبر تحريك الخريطة وتثبيت الدبوس في المركز.
  */
 
-export function useMarkerDragHandler() {
-  // لا حاجة لأي منطق لأن السحب المباشر ملغى. التحريك يتم فقط عبر "manual pin mode"
-  // ملاحظة: يجب استخدام setManualPinMode وonManualPinConfirm من المكون الرئيسي
+type MarkerType = "from" | "to";
 
-  // إعادة واجهة فارغة للتماشي مع التوقيع
-  return { handleMarkerDrag: () => {} };
+interface UseMarkerDragHandlerProps {
+  manualPinMode: "none"|"from"|"to";
+  setManualPinMode: (mode: "none"|"from"|"to") => void;
+  setMapCenter: (coords: [number, number]) => void;
+  setMapZoom: (zoom: number) => void;
+  fromCoordinates: [number, number] | null;
+  toCoordinates: [number, number] | null;
+}
+
+export function useMarkerDragHandler({
+  manualPinMode,
+  setManualPinMode,
+  setMapCenter,
+  setMapZoom,
+  fromCoordinates,
+  toCoordinates
+}: UseMarkerDragHandlerProps) {
+  /**
+   * عند الضغط على دبوس معين أفعّل وضع manual pin mode له وأجعل مركز الخريطة هو موقعه.
+   */
+  function handleMarkerDrag(type: MarkerType) {
+    if (manualPinMode !== "none") return; // لا تسمح بتحريك اثنين معًا
+    if (type === "from" && fromCoordinates) {
+      setManualPinMode("from");
+      setMapCenter(fromCoordinates);
+      setMapZoom(17);
+    }
+    if (type === "to" && toCoordinates) {
+      setManualPinMode("to");
+      setMapCenter(toCoordinates);
+      setMapZoom(17);
+    }
+  }
+
+  return { handleMarkerDrag };
 }

@@ -1,3 +1,4 @@
+
 /**
  * Component: LocationSelectionHandler
  * يربط جميع هوكات تحديد/تحريك المواقع، وينظم handlers بوضوح ويرجعها للأب
@@ -20,7 +21,7 @@ interface LocationSelectionHandlerProps {
   onLocationHandlersReady: (handlers: {
     handleManualFromPin: () => void;
     handleManualToPin: () => void;
-    handleMarkerDrag: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
+    handleMarkerDrag: (type: 'from' | 'to') => void;
     selectLocation: (suggestion: any, type: 'from' | 'to') => void;
     manualPinMode: "none"|"from"|"to";
     onManualPinConfirm: (lat: number, lng: number) => void;
@@ -37,17 +38,12 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   mapZoomToToRef,
   onLocationHandlersReady
 }) => {
-  // مرجع دائم لمركز الخريطة
   const mapCenterRef = React.useRef(mapCenter);
   React.useEffect(() => { mapCenterRef.current = mapCenter; }, [mapCenter]);
 
-  // === state خاص بالدبوس اليدوي ===
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
   const [manualConfirmKey, setManualConfirmKey] = React.useState(0);
 
-  // === Handlers للإجراءات المختلفة بشكل منظم ===
-
-  // التعامل مع وضع اختيار الدبوس يدويًا
   const { handleManualFromPin, handleManualToPin } = useManualPinModeHandler({
     setManualPinMode,
     setFromCoordinates: locationHook.setFromCoordinates,
@@ -62,7 +58,16 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     mapCenter
   });
 
-  // تأكيد اختيار الدبوس اليدوي
+  // استدعِ useMarkerDragHandler مع props لتفعيل manualPinMode عند النقر على دبوس
+  const { handleMarkerDrag } = useMarkerDragHandler({
+    manualPinMode,
+    setManualPinMode,
+    setMapCenter,
+    setMapZoom,
+    fromCoordinates: locationHook.fromCoordinates,
+    toCoordinates: locationHook.toCoordinates
+  });
+
   const { onManualPinConfirm } = useManualPinConfirm({
     manualPinMode,
     mapCenterRef,
@@ -75,11 +80,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualConfirmKey,
   });
 
-  // تحكم بسحب الدبابيس (marker)
-  // changed to match function signature
-  const { handleMarkerDrag } = useMarkerDragHandler();
-
-  // عند اختيار موقع من الاقتراحات
   const { selectLocation } = useLocationSelectHandler({
     locationHook,
     setMapCenter,
@@ -89,17 +89,15 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     toast
   });
 
-  // تمرير جميع الهاندلرز المرتبة للأب عند أي تغيير
   React.useEffect(() => {
     onLocationHandlersReady({
       handleManualFromPin,
       handleManualToPin,
-      handleMarkerDrag, // now matches expected signature
+      handleMarkerDrag,
       selectLocation,
       manualPinMode,
       onManualPinConfirm,
     });
-  // إضافة manualConfirmKey dependency لإجبار التعديل
   }, [
     handleManualFromPin,
     handleManualToPin,
@@ -111,7 +109,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     manualConfirmKey,
   ]);
 
-  // هذا المكون لا يعرض أي شيء على الواجهة (منطقي فقط)
   return null;
 };
 

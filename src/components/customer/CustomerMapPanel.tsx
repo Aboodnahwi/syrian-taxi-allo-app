@@ -30,9 +30,10 @@ interface CustomerMapPanelProps {
   mapZoomToFromRef: React.MutableRefObject<(() => void) | undefined>;
   mapZoomToToRef: React.MutableRefObject<(() => void) | undefined>;
   mapZoomToRouteRef: React.MutableRefObject<(() => void) | undefined>;
-  // جديد
   manualPinMode?: "none" | "from" | "to";
   onManualPinConfirm?: (lat: number, lng: number) => void;
+  // جديد
+  onMarkerClick?: (type: "from" | "to") => void;
 }
 
 const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
@@ -48,11 +49,37 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   mapZoomToRouteRef,
   manualPinMode,
   onManualPinConfirm,
+  onMarkerClick
 }) => {
   React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
+
+  // رسم أزرار خفية فوق الدبابيس في الوضع "العادي"
+  const markerButtons = (!manualPinMode || manualPinMode === "none")
+    ? markers.map(marker => (
+        <button
+          key={marker.id}
+          type="button"
+          aria-label={`اختر تحريك دبوس ${marker.id === "from" ? "الانطلاق" : "الوجهة"}`}
+          className="absolute z-[1100] bg-transparent border-none p-0 m-0"
+          style={{
+            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // (تقريبا، أي فقط placeholder: يحتاج mapping geocoord to px for real map)
+            top: `calc(${((marker.position[0] - mapCenter[0]) * -200 + 50)}vh)`,
+            width: 32, height: 42,
+            transform: "translate(-50%, -100%)",
+            cursor: "pointer",
+            pointerEvents: "auto",
+            opacity: 0
+          }}
+          tabIndex={0}
+          onClick={() => {
+            if (onMarkerClick) onMarkerClick(marker.id as "from"|"to");
+          }}
+        />
+      ))
+    : null;
 
   return (
     <div className="fixed inset-0 z-0">
@@ -69,6 +96,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
+      {markerButtons}
       {/* دبوس وزر عائم دائما فوق كل شيء عند اختيار الموقع يدويًا */}
       {manualPinMode !== "none" && (
         <>
@@ -102,4 +130,3 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
 };
 
 export default CustomerMapPanel;
-
