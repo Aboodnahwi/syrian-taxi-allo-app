@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -74,6 +73,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         locationHook.setFromLocation(addressText);
         setMapCenter(manualCoords);
         setMapZoom(17);
+        setManualPinMode("none");
 
         toast({
           title: "تم تحديد نقطة الانطلاق يدويًا",
@@ -84,16 +84,13 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         // 2. إذا كان هناك وجهة، ارسم المسار فورًا باستخدام القيم الصحيحة
         if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
-          // أعطي وقتًا صغيرًا لتحديث إحداثيات الدبابيس ثم أخفي وضع اليدوي
-          setTimeout(() => setManualPinMode("none"), 400);
-        } else {
-          setManualPinMode("from");
         }
       } else if (manualPinMode === "to") {
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
         setMapCenter(manualCoords);
         setMapZoom(17);
+        setManualPinMode("none");
 
         toast({
           title: "تم تحديد الوجهة يدويًا",
@@ -103,9 +100,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
         if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
-          setTimeout(() => setManualPinMode("none"), 400);
-        } else {
-          setManualPinMode("to");
         }
       }
     },
@@ -173,4 +167,3 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
-
