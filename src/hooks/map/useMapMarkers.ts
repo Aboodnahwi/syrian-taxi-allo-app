@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import { getLeaflet } from '../leafletUtils';
 import { MapMarker } from '@/components/map/types';
@@ -99,7 +98,7 @@ export const useMapMarkers = ({
         // إضافة معالج أثناء السحب لتحديث فوري
         marker.on('drag', (e: any) => {
           const position = e.target.getLatLng();
-          console.log(`[useMapMarkers] Marker ${markerData.id} being dragged to:`, position.lat, position.lng);
+          console.log(`[useMapMarkers] [DRAG] Marker ${markerData.id} moving: ${position.lat}, ${position.lng}`);
         });
       }
 
