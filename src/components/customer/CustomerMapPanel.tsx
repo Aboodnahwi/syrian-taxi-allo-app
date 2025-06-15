@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Map from "@/components/map/Map";
 
@@ -33,7 +34,7 @@ interface CustomerMapPanelProps {
   onManualPinConfirm?: (lat: number, lng: number) => void;
   onMarkerClick?: (type: "from" | "to") => void;
   manualPinAddress?: string;
-  manualPinCoordinates?: [number, number] | null; // أضفت هذا الحقل
+  manualPinCoordinates?: [number, number] | null;
 }
 
 const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: [number, number]) => void }> = ({
@@ -47,11 +48,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
   mapZoomToFromRef,
   mapZoomToToRef,
   mapZoomToRouteRef,
-  manualPinMode,
-  onManualPinConfirm,
   onMarkerClick,
-  manualPinAddress,
-  manualPinCoordinates,
   onMapMove
 }) => {
   React.useEffect(() => {
@@ -60,48 +57,20 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
     console.log("[CustomerMapPanel] onMarkerClick:", onMarkerClick);
   }, [markers, route, onMarkerClick]);
 
-  // تمرير onMarkerClick للدبابيس
-  const markersWithClick = markers.map(marker => ({
+  // جعل جميع الدبابيس قابلة للسحب
+  const draggableMarkers = markers.map(marker => ({
     ...marker,
+    draggable: true,
     onClick: () => onMarkerClick?.(marker.id as "from" | "to")
   }));
 
-  // Overlay دبوس ثابت في منتصف الشاشة في manualPinMode فقط
-  const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
-    <div
-      className="pointer-events-none absolute left-1/2 top-1/2 z-[1200] transition-transform duration-200"
-      style={{
-        transform: "translate(-50%, -100%)",
-        width: 32, height: 42,
-        filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.3))"
-      }}
-    >
-      <div
-        className={`flex items-center justify-center font-bold text-lg rounded-b-[20px]`}
-        style={{
-          width: 32,
-          height: 42,
-          borderRadius: "16px 16px 20px 20px",
-          background: manualPinMode === "from" ? "#0ea5e9" : "#f59e42",
-          color: "#fff"
-        }}
-      >
-        {manualPinMode === "from" ? "📍" : "🎯"}
-      </div>
-    </div>
-  ) : null;
-
   return (
     <div className="fixed inset-0 z-0">
-      {/* نرسم الخريطة بالدبابيس العادية القابلة للسحب إذا لم نكن في manualPinMode */}
       <Map
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={manualPinMode !== "none" ? [] : markers.map(marker => ({
-          ...marker,
-          onClick: () => onMarkerClick?.(marker.id as "from" | "to")
-        }))}
+        markers={draggableMarkers}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}
@@ -111,41 +80,6 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
         mapZoomToRouteRef={mapZoomToRouteRef}
         onMapMove={onMapMove}
       />
-
-      {/* دبوس ثابت في منتصف الشاشة عند وضع التحديد اليدوي (Overlay فقط) */}
-      {overlayPin}
-
-      {/* عرض العنوان الحالي تحت الدبوس في التحديد اليدوي */}
-      {manualPinMode !== "none" && (
-        <div className="absolute left-1/2 top-[54%] z-[1061] -translate-x-1/2 flex flex-col items-center w-[98vw] max-w-sm mb-1 px-2 text-center">
-          <div className="rounded bg-white/90 px-3 py-2 text-slate-700 text-xs shadow font-medium border border-slate-200 max-w-full truncate" title={manualPinAddress || ""}>
-            {manualPinAddress ? manualPinAddress : "جاري جلب العنوان..."}
-          </div>
-        </div>
-      )}
-
-      {/* زر تأكيد الموقع في وضع التحديد اليدوي */}
-      {manualPinMode !== "none" && (
-        <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
-          <button
-            onClick={() => {
-              // نستخدم manualPinCoordinates الأحدث عند الضغط
-              if (onManualPinConfirm && manualPinCoordinates) {
-                onManualPinConfirm(manualPinCoordinates[0], manualPinCoordinates[1]);
-              }
-            }}
-            className="bg-slate-900/95 text-white px-5 py-2 rounded-xl shadow-md font-bold hover:bg-slate-800 transition focus:outline-none"
-            style={{
-              minWidth: 160,
-              fontSize: 18,
-              zIndex: 1070,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
-            }}
-          >
-            تأكيد
-          </button>
-        </div>
-      )}
     </div>
   );
 };

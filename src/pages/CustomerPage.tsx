@@ -1,7 +1,7 @@
+
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import { useMarkerClickHandler } from '@/hooks/customer/useMarkerClickHandler';
-import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
 import { useGlobalMarkerDragHandler } from '@/hooks/customer/useGlobalMarkerDragHandler';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
@@ -47,19 +47,11 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  const [liveMapCenter, setLiveMapCenter] = useState<[number, number]>(mapCenter);
-
   // Setup global marker drag handler
   const { handleMarkerDrag } = useGlobalMarkerDragHandler({ locationHook, toast });
 
   // Setup marker click handler
   const { handleMapMarkerClick } = useMarkerClickHandler({ locationHandlers });
-
-  // Setup manual pin address fetching
-  const { manualPinAddress, manualPinCoordinates } = useManualPinAddress({ 
-    mapCenter: liveMapCenter, 
-    manualPinMode: locationHandlers?.manualPinMode 
-  });
 
   // Calculate markers
   const markers = useCustomerMapMarkers({
@@ -67,7 +59,7 @@ const CustomerPage = () => {
     toCoordinates: locationHook.toCoordinates,
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
-    manualPinMode: locationHandlers?.manualPinMode,
+    manualPinMode: "none", // دائماً none لأننا لا نستخدم الوضع اليدوي
     mapCenter,
     onMarkerClick: handleMapMarkerClick
   });
@@ -82,10 +74,6 @@ const CustomerPage = () => {
     icon: getVehicleIcon(p.vehicle_type),
     color: getVehicleColor(p.vehicle_type)
   }));
-
-  const handleLiveMapMove = (center: [number, number]) => {
-    setLiveMapCenter(center);
-  };
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -113,18 +101,7 @@ const CustomerPage = () => {
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
-        manualPinMode={locationHandlers?.manualPinMode}
-        onManualPinConfirm={(lat, lng) => {
-          // استخدم manualPinCoordinates إذا وجدت وإلا خزّن mapCenter
-          const coords = manualPinCoordinates ?? mapCenter;
-          if (locationHandlers?.onManualPinConfirm) {
-            locationHandlers.onManualPinConfirm(coords[0], coords[1]);
-          }
-        }}
         onMarkerClick={handleMapMarkerClick}
-        manualPinAddress={manualPinAddress}
-        manualPinCoordinates={manualPinCoordinates}
-        onMapMove={locationHandlers?.manualPinMode !== 'none' ? handleLiveMapMove : undefined}
       />
 
       {/* Head & notification */}
