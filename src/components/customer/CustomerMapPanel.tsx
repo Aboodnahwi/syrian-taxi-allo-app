@@ -88,7 +88,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
       {manualPinMode && manualPinMode !== 'none' && (
         <>
           {/* Center Pin */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full z-[1001] pointer-events-none">
              <MapPin 
                className={`w-10 h-10 drop-shadow-lg ${manualPinMode === 'from' ? 'text-sky-500' : 'text-orange-500'}`} 
                fill="currentColor"
@@ -96,7 +96,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
           </div>
           
           {/* Confirmation Panel */}
-          <div className="absolute bottom-4 left-4 right-4 z-20">
+          <div className="absolute bottom-4 left-4 right-4 z-[1002]">
             <Card className="shadow-2xl">
               <CardContent className="p-4">
                 <p className="text-sm font-semibold mb-2">
