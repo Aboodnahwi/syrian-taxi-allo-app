@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import { useMarkerClickHandler } from '@/hooks/customer/useMarkerClickHandler';
@@ -55,7 +54,7 @@ const CustomerPage = () => {
   const { handleMapMarkerClick } = useMarkerClickHandler({ locationHandlers });
 
   // Setup manual pin address fetching
-  const { manualPinAddress } = useManualPinAddress({ 
+  const { manualPinAddress, manualPinCoordinates } = useManualPinAddress({ 
     mapCenter, 
     manualPinMode: locationHandlers?.manualPinMode 
   });
@@ -109,9 +108,16 @@ const CustomerPage = () => {
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
         manualPinMode={locationHandlers?.manualPinMode}
-        onManualPinConfirm={locationHandlers?.onManualPinConfirm}
+        onManualPinConfirm={(lat, lng) => {
+          // استخدم manualPinCoordinates إذا وجدت وإلا خزّن mapCenter
+          const coords = manualPinCoordinates ?? mapCenter;
+          if (locationHandlers?.onManualPinConfirm) {
+            locationHandlers.onManualPinConfirm(coords[0], coords[1]);
+          }
+        }}
         onMarkerClick={handleMapMarkerClick}
         manualPinAddress={manualPinAddress}
+        manualPinCoordinates={manualPinCoordinates}
       />
 
       {/* Head & notification */}
