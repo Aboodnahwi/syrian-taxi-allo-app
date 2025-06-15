@@ -98,7 +98,10 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={manualPinMode !== "none" ? [] : markersWithClick}
+        markers={manualPinMode !== "none" ? [] : markers.map(marker => ({
+          ...marker,
+          onClick: () => onMarkerClick?.(marker.id as "from" | "to")
+        }))}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}

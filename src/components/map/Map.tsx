@@ -1,61 +1,76 @@
+
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
-import React, { useEffect, useRef } from 'react';
 
-interface MapProps {
-  mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
-  mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
-  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
-  onMapMove?: (center: [number, number]) => void;
-}
-
-const Map = (props: MapProps & {
-  mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
-  mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
-  mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;
+const Map: React.FC<MapProps> = ({
+  className,
+  center,
+  zoom,
+  markers,
+  route,
+  onLocationSelect,
+  onMarkerDrag,
+  toast,
+  mapZoomToFromRef,
+  mapZoomToToRef,
+  mapZoomToRouteRef,
+  onMapMove,
 }) => {
-  const { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap(props);
+  const { mapRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
+    center,
+    zoom,
+    onLocationSelect,
+    markers,
+    route,
+    toast,
+    onMarkerDrag,
+  });
 
   // Hooks for parent to control zoom of from/to/route
   useEffect(() => {
-    if (props.mapZoomToFromRef)
-      props.mapZoomToFromRef.current = () => {
-        const from = props.markers?.find(m => m.id === "from");
+    if (mapZoomToFromRef)
+      mapZoomToFromRef.current = () => {
+        const from = markers?.find(m => m.id === "from");
         if (from) zoomToLatLng(from.position[0], from.position[1], 17);
       };
-    if (props.mapZoomToToRef)
-      props.mapZoomToToRef.current = () => {
-        const to = props.markers?.find(m => m.id === "to");
+    if (mapZoomToToRef)
+      mapZoomToToRef.current = () => {
+        const to = markers?.find(m => m.id === "to");
         if (to) zoomToLatLng(to.position[0], to.position[1], 17);
       };
-    if (props.mapZoomToRouteRef)
-      props.mapZoomToRouteRef.current = () => {
+    if (mapZoomToRouteRef)
+      mapZoomToRouteRef.current = () => {
         zoomToRoute();
       };
-  }, [props.mapZoomToFromRef, props.mapZoomToToRef, props.mapZoomToRouteRef, props.markers, zoomToLatLng, zoomToRoute]);
+    // eslint-disable-next-line
+  }, [mapZoomToFromRef, mapZoomToToRef, mapZoomToRouteRef, markers, zoomToLatLng, zoomToRoute]);
 
+  // mapMove live center (for manual pin update)
   const mapInstanceRef = useRef<any>(null);
-
   useEffect(() => {
-    if (mapInstanceRef.current && props.onMapMove) {
-      const map = mapInstanceRef.current;
-
+    // we rely on the hook creating the instance on mapRef.current
+    // this requires that useMap underhood puts map instance on mapRef.current (or expose one shared place)
+    if (mapRef.current && onMapMove) {
+      // Try to support both possible approaches
+      const map = mapRef.current.leafletElement || mapRef.current;
+      if (!map) return;
       const handleMove = () => {
         const center = map.getCenter();
-        props.onMapMove([center.lat, center.lng]);
+        // LatLng is usually LatLng object for leaflet
+        onMapMove([center.lat, center.lng]);
       };
       map.on('move', handleMove);
-
       return () => {
         map.off('move', handleMove);
       };
     }
-  }, [props.onMapMove]);
-
+  }, [mapRef, onMapMove]);
+  
   return (
-    <div className={`relative ${props.className || 'w-full h-96'}`}>
+    <div className={`relative ${className || 'w-full h-96'}`}>
       <div ref={mapRef} className="w-full h-full min-h-[250px] rounded-lg bg-gray-100" />
       <Button
         onClick={centerOnCurrentLocation}
