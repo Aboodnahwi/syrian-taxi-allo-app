@@ -53,6 +53,17 @@ export const useCustomerRouting = ({
       return;
     }
 
+    // منع الحساب المتكرر للنفس الإحداثيات
+    const fromStr = `${from[0]},${from[1]}`;
+    const toStr = `${to[0]},${to[1]}`;
+    const lastFromStr = lastCalculatedFrom ? `${lastCalculatedFrom[0]},${lastCalculatedFrom[1]}` : '';
+    const lastToStr = lastCalculatedTo ? `${lastCalculatedTo[0]},${lastCalculatedTo[1]}` : '';
+    
+    if (fromStr === lastFromStr && toStr === lastToStr) {
+      console.log(`[useCustomerRouting] Same coordinates, skipping duplicate calculation`);
+      return;
+    }
+
     // تسجيل الإحداثيات الجديدة مباشرة
     setLastCalculatedFrom([...from]);
     setLastCalculatedTo([...to]);
@@ -76,7 +87,7 @@ export const useCustomerRouting = ({
         console.log(`[useCustomerRouting] Route calculated successfully, distance: ${distance}km`);
         setTimeout(() => {
           zoomToBothPoints();
-        }, 300);
+        }, 500);
       }
     } catch (error) {
       console.error('[useCustomerRouting] Error calculating route:', error);
@@ -91,21 +102,31 @@ export const useCustomerRouting = ({
       console.log(`[useCustomerRouting] Using direct distance: ${distance}km`);
       setTimeout(() => {
         zoomToBothPoints();
-      }, 300);
+      }, 500);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, lastCalculatedFrom, lastCalculatedTo]);
 
-  // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات
+  // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات (فقط للتحديثات التلقائية)
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
-      console.log(`[useCustomerRouting] Auto-calculating route due to coordinate change`);
-      calculateRoute();
+      // التأكد من أن هذه ليست نفس الإحداثيات المحسوبة مسبقاً
+      const fromStr = `${fromCoordinates[0]},${fromCoordinates[1]}`;
+      const toStr = `${toCoordinates[0]},${toCoordinates[1]}`;
+      const lastFromStr = lastCalculatedFrom ? `${lastCalculatedFrom[0]},${lastCalculatedFrom[1]}` : '';
+      const lastToStr = lastCalculatedTo ? `${lastCalculatedTo[0]},${lastCalculatedTo[1]}` : '';
+      
+      if (fromStr !== lastFromStr || toStr !== lastToStr) {
+        console.log(`[useCustomerRouting] Auto-calculating route due to coordinate change`);
+        calculateRoute();
+      }
     } else {
       // إذا لم تكن هناك إحداثيات كاملة، امسح المسار
       setRoute([]);
       setRouteDistance(0);
+      setLastCalculatedFrom(null);
+      setLastCalculatedTo(null);
     }
-  }, [fromCoordinates, toCoordinates, calculateRoute]);
+  }, [fromCoordinates, toCoordinates]);
 
   return {
     route,

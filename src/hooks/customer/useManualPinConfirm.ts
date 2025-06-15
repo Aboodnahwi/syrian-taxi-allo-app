@@ -50,6 +50,8 @@ export function useManualPinConfirm({
       
       if (manualPinMode === "from") {
         console.log(`[useManualPinConfirm] Setting FROM coordinates:`, manualCoords);
+        
+        // تحديث الإحداثيات والعنوان
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
 
@@ -59,17 +61,25 @@ export function useManualPinConfirm({
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
         
-        // حساب المسار إذا كانت الوجهة موجودة - استخدام calculateRoute من locationHook
-        if (locationHook.toCoordinates && locationHook.calculateRoute) {
-          console.log(`[useManualPinConfirm] Calculating route from ${manualCoords} to ${locationHook.toCoordinates}`);
+        // حساب المسار فوراً إذا كانت الوجهة موجودة
+        if (locationHook.toCoordinates) {
+          console.log(`[useManualPinConfirm] Calculating route immediately from ${manualCoords} to ${locationHook.toCoordinates}`);
           try {
-            await locationHook.calculateRoute(manualCoords, locationHook.toCoordinates);
+            // استخدام calculateRoute مباشرة مع الإحداثيات الجديدة
+            if (locationHook.calculateRoute) {
+              await locationHook.calculateRoute(manualCoords, locationHook.toCoordinates);
+            } else if (calculateRoute) {
+              await calculateRoute(manualCoords, locationHook.toCoordinates);
+            }
           } catch (error) {
             console.error('[useManualPinConfirm] Error calculating route:', error);
           }
         }
+        
       } else if (manualPinMode === "to") {
         console.log(`[useManualPinConfirm] Setting TO coordinates:`, manualCoords);
+        
+        // تحديث الإحداثيات والعنوان
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
 
@@ -79,18 +89,23 @@ export function useManualPinConfirm({
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
         
-        // حساب المسار إذا كانت نقطة الانطلاق موجودة - استخدام calculateRoute من locationHook
-        if (locationHook.fromCoordinates && locationHook.calculateRoute) {
-          console.log(`[useManualPinConfirm] Calculating route from ${locationHook.fromCoordinates} to ${manualCoords}`);
+        // حساب المسار فوراً إذا كانت نقطة الانطلاق موجودة
+        if (locationHook.fromCoordinates) {
+          console.log(`[useManualPinConfirm] Calculating route immediately from ${locationHook.fromCoordinates} to ${manualCoords}`);
           try {
-            await locationHook.calculateRoute(locationHook.fromCoordinates, manualCoords);
+            // استخدام calculateRoute مباشرة مع الإحداثيات الجديدة
+            if (locationHook.calculateRoute) {
+              await locationHook.calculateRoute(locationHook.fromCoordinates, manualCoords);
+            } else if (calculateRoute) {
+              await calculateRoute(locationHook.fromCoordinates, manualCoords);
+            }
           } catch (error) {
             console.error('[useManualPinConfirm] Error calculating route:', error);
           }
         }
       }
       
-      // الخروج من وضع التحديد اليدوي
+      // الخروج من وضع التحديد اليدوي مع تأخير قصير
       setTimeout(() => {
         setManualPinMode("none");
         setManualConfirmKey((k) => k + 1);
