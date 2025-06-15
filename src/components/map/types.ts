@@ -1,27 +1,27 @@
 
 export interface MapMarker {
-  id: string; // "from" أو "to"
+  id: string;
   position: [number, number];
   popup?: string;
+  draggable?: boolean;
   icon?: {
     html: string;
     className?: string;
     iconSize?: [number, number];
     iconAnchor?: [number, number];
   };
-  draggable?: boolean;
+  onClick?: () => void;
 }
 
 export interface MapProps {
+  className?: string;
   center?: [number, number];
   zoom?: number;
-  onLocationSelect?: (lat: number, lng: number, address: string) => void;
   markers?: MapMarker[];
   route?: Array<[number, number]>;
-  className?: string;
-  toast?: (options: any) => void;
+  onLocationSelect?: (lat: number, lng: number, address: string) => void;
   onMarkerDrag?: (type: 'from' | 'to', lat: number, lng: number, address: string) => void;
-  // Optional refs for controlling zoom externally
+  toast?: (options: any) => void;
   mapZoomToFromRef?: React.MutableRefObject<(() => void) | undefined>;
   mapZoomToToRef?: React.MutableRefObject<(() => void) | undefined>;
   mapZoomToRouteRef?: React.MutableRefObject<(() => void) | undefined>;

@@ -6,8 +6,7 @@ import { MapMarker } from '@/components/map/types';
 interface UseMapMarkersProps {
   mapInstanceRef: React.MutableRefObject<any>;
   mapReady: boolean;
-  markers: MapMarker[];
-  // تم تعطيل onMarkerDrag
+  markers: (MapMarker & { onClick?: () => void })[];
   toast?: (options: any) => void;
 }
 
@@ -65,9 +64,19 @@ export const useMapMarkers = ({
         });
       }
       const marker = L.marker(markerData.position, markerOptions).addTo(mapInstanceRef.current);
+      
       if (markerData.popup) {
         marker.bindPopup(markerData.popup);
       }
+
+      // إضافة معالج النقر إذا كان موجوداً
+      if (markerData.onClick) {
+        marker.on('click', () => {
+          console.log("[useMapMarkers] Marker clicked:", markerData.id);
+          markerData.onClick!();
+        });
+      }
+
       markersRef.current[markerData.id] = marker;
     });
   }, [markers, mapReady, mapInstanceRef]);

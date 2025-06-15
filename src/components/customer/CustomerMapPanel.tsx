@@ -57,30 +57,21 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
   
-  // رسم أزرار marker فقط إذا لسنا في manualPinMode
-  const markerButtons = (!manualPinMode || manualPinMode === "none")
-    ? markers.map(marker => (
-        <button
-          key={marker.id}
-          type="button"
-          aria-label={`اختر تحريك دبوس ${marker.id === "from" ? "الانطلاق" : "الوجهة"}`}
-          className="absolute z-[1100] bg-transparent border-none p-0 m-0"
-          style={{
-            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // تقريبي، وليس دقيق واقعيًا
-            top: `calc(${((marker.position[0] - mapCenter[0]) * -200 + 50)}vh)`,
-            width: 32, height: 42,
-            transform: "translate(-50%, -100%)",
-            cursor: "pointer",
-            pointerEvents: "auto",
-            opacity: 0
-          }}
-          tabIndex={0}
-          onClick={() => {
-            if (onMarkerClick) onMarkerClick(marker.id as "from"|"to");
-          }}
-        />
-      ))
-    : null;
+  // معالج النقر على الدبوس في الخريطة
+  const handleMarkerClick = React.useCallback((markerId: string) => {
+    console.log("[CustomerMapPanel] Marker clicked:", markerId);
+    if (onMarkerClick && (markerId === "from" || markerId === "to")) {
+      onMarkerClick(markerId);
+    }
+  }, [onMarkerClick]);
+
+  // إضافة معالج النقر للدبابيس
+  const markersWithClickHandler = React.useMemo(() => {
+    return markers.map(marker => ({
+      ...marker,
+      onClick: () => handleMarkerClick(marker.id)
+    }));
+  }, [markers, handleMarkerClick]);
 
   // Overlay دبوس ثابت في منتصف الشاشة في manualPinMode فقط
   const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
@@ -109,12 +100,12 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-0">
-      {/* نرسم الخريطة بدون دبابيس إذا كنا في manualPinMode */}
+      {/* نرسم الخريطة بالدبابيس العادية إذا لم نكن في manualPinMode */}
       <Map
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={manualPinMode !== "none" ? [] : markers}
+        markers={manualPinMode !== "none" ? [] : markersWithClickHandler}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}
@@ -123,7 +114,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
-      {markerButtons}
+
       {/* دبوس ثابت في منتصف الشاشة عند وضع التحديد اليدوي (Overlay فقط) */}
       {overlayPin}
 
