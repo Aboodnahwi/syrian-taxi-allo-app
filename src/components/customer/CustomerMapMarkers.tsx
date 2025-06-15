@@ -11,8 +11,7 @@ interface CustomerMapMarkersProps {
   onMarkerClick?: (type: "from" | "to") => void;
 }
 
-// ترجّع فقط بيانات الدبابيس ولا تعرض أي jsx
-
+// تظهر الدبابيس دائماً بنفس الشكل سواء في الوضع العادي أو اليدوي
 const useCustomerMapMarkers = ({
   fromCoordinates,
   toCoordinates,
@@ -22,10 +21,12 @@ const useCustomerMapMarkers = ({
   mapCenter,
   onMarkerClick
 }: CustomerMapMarkersProps) => {
+
+  // إذا كنا في وضع manual pin mode لأي نقطة، ثبت دبوسها في مركز الخريطة بنفس شكل الدبوس العادي
   if (manualPinMode === "from" && mapCenter) {
     return [{
       id: "from" as const,
-      position: mapCenter,
+      position: mapCenter, // دائماً في المركز الحالي للخريطة
       popup: fromLocation || "نقطة الانطلاق",
       draggable: false,
       icon: {
@@ -38,7 +39,7 @@ const useCustomerMapMarkers = ({
   if (manualPinMode === "to" && mapCenter) {
     return [{
       id: "to" as const,
-      position: mapCenter,
+      position: mapCenter, // دائماً في المركز الحالي للخريطة
       popup: toLocation || "الوجهة",
       draggable: false,
       icon: {
@@ -48,7 +49,7 @@ const useCustomerMapMarkers = ({
       }
     }];
   }
-  // الوضع العادي: إحداثيات ثابتة لا تقبل السحب، لكن سيتم التعامل مع onMarkerClick في CustomerMapPanel
+  // الوضع العادي: دبابيس ثابتة فقط حسب الإحداثيات
   return [
     ...(fromCoordinates ? [{
       id: "from" as const,
@@ -76,3 +77,4 @@ const useCustomerMapMarkers = ({
 };
 
 export default useCustomerMapMarkers;
+

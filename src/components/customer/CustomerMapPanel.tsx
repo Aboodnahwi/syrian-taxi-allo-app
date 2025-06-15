@@ -32,7 +32,6 @@ interface CustomerMapPanelProps {
   mapZoomToRouteRef: React.MutableRefObject<(() => void) | undefined>;
   manualPinMode?: "none" | "from" | "to";
   onManualPinConfirm?: (lat: number, lng: number) => void;
-  // جديد
   onMarkerClick?: (type: "from" | "to") => void;
 }
 
@@ -56,7 +55,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
 
-  // رسم أزرار خفية فوق الدبابيس في الوضع "العادي"
+  // زر شفاف فوق الدبوس لاختيار تحريكه
   const markerButtons = (!manualPinMode || manualPinMode === "none")
     ? markers.map(marker => (
         <button
@@ -65,7 +64,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
           aria-label={`اختر تحريك دبوس ${marker.id === "from" ? "الانطلاق" : "الوجهة"}`}
           className="absolute z-[1100] bg-transparent border-none p-0 m-0"
           style={{
-            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // (تقريبا، أي فقط placeholder: يحتاج mapping geocoord to px for real map)
+            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // تقريب حسابي ولا يظهر بدقة عند الاستخدام الواقعي
             top: `calc(${((marker.position[0] - mapCenter[0]) * -200 + 50)}vh)`,
             width: 32, height: 42,
             transform: "translate(-50%, -100%)",
@@ -97,33 +96,24 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
       {markerButtons}
-      {/* دبوس وزر عائم دائما فوق كل شيء عند اختيار الموقع يدويًا */}
+      {/* لا تعرض أي دبوس عائم أثناء التحديد اليدوي */}
       {manualPinMode !== "none" && (
-        <>
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1050] -translate-x-1/2 -translate-y-full transition-all select-none">
-            {manualPinMode === "from" ? (
-              <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>📍</span>
-            ) : (
-              <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>🎯</span>
-            )}
-          </div>
-          <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
-            <button
-              onClick={() => {
-                if (onManualPinConfirm) onManualPinConfirm(mapCenter[0], mapCenter[1]);
-              }}
-              className="bg-slate-900/95 text-white px-5 py-2 rounded-xl shadow-md font-bold hover:bg-slate-800 transition focus:outline-none"
-              style={{
-                minWidth: 160,
-                fontSize: 18,
-                zIndex: 1070,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
-              }}
-            >
-              تأكيد الموقع الحالي
-            </button>
-          </div>
-        </>
+        <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
+          <button
+            onClick={() => {
+              if (onManualPinConfirm) onManualPinConfirm(mapCenter[0], mapCenter[1]);
+            }}
+            className="bg-slate-900/95 text-white px-5 py-2 rounded-xl shadow-md font-bold hover:bg-slate-800 transition focus:outline-none"
+            style={{
+              minWidth: 160,
+              fontSize: 18,
+              zIndex: 1070,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+            }}
+          >
+            تأكيد الموقع الحالي
+          </button>
+        </div>
       )}
     </div>
   );
