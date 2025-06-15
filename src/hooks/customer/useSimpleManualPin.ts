@@ -42,22 +42,26 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
     });
   }, [toast]);
 
-  // تحديث العنوان والإحداثيات أثناء تحريك الخريطة
+  // تحديث الإحداثيات والعنوان في الوقت الفعلي
   const updateAddress = useCallback(async (lat: number, lng: number) => {
     if (!isManualMode || !currentPinType) return;
     
-    // تحديث الإحداثيات فوراً للاستجابة السريعة
+    // تحديث الإحداثيات فوراً
     setCurrentCoordinates([lat, lng]);
     
-    // عرض الإحداثيات في مربع البحث فوراً
+    // عرض الإحداثيات في مربع البحث فوراً (في الوقت الفعلي)
     const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     if (onUpdateSearchBox) {
       onUpdateSearchBox(lat, lng, currentPinType);
     }
     
-    // جلب العنوان مع الإحداثيات
-    const { address } = await fetchAddress(lat, lng);
-    setCurrentAddress(`${address}\n📍 ${coordinates}`);
+    // جلب العنوان للعرض في لوحة التأكيد
+    try {
+      const { address } = await fetchAddress(lat, lng);
+      setCurrentAddress(`${address}\n📍 ${coordinates}`);
+    } catch {
+      setCurrentAddress(`📍 ${coordinates}`);
+    }
   }, [isManualMode, currentPinType, onUpdateSearchBox, fetchAddress]);
 
   // تأكيد الموقع وحفظ الإحداثيات في مربع البحث

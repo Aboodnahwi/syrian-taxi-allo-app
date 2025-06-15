@@ -33,7 +33,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
   onMarkerDrag,
   onPinTypeChange
 }) => {
-  // معالج الدبوس اليدوي البسيط مع حفظ الإحداثيات
+  // معالج الدبوس اليدوي البسيط مع تحديث الإحداثيات في الوقت الفعلي
   const { 
     isManualMode, 
     currentAddress, 
@@ -64,7 +64,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
       onPinTypeChange(null);
     },
     onUpdateSearchBox: (lat, lng, type) => {
-      // تحديث مربع البحث بالإحداثيات أثناء تحريك الخريطة
+      // تحديث مربع البحث بالإحداثيات في الوقت الفعلي
       const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       if (type === 'from') {
         locationHook.setFromLocation(coordinates);
@@ -75,9 +75,9 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
     toast
   });
 
-  // تحديث العنوان والإحداثيات عند تحريك الخريطة في الوضع اليدوي
+  // تحديث الإحداثيات في الوقت الفعلي عند تحريك الخريطة
   React.useEffect(() => {
-    if (isManualMode) {
+    if (isManualMode && mapCenter) {
       updateAddress(mapCenter[0], mapCenter[1]);
     }
   }, [mapCenter, isManualMode, updateAddress]);
