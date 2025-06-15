@@ -84,33 +84,45 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       if (manualPinMode === "from") {
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
-        setMapCenter(manualCoords); // optional, just for extra alignment
+
+        setMapCenter(manualCoords); // لمحاذاة الخريطة
         setMapZoom(17);
-        setManualPinMode("none");
         toast({
           title: "تم تحديد نقطة الانطلاق يدويًا",
           description: addressText,
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
+
+        // نؤجل تعطيل وضع manual حتى تتحدث الستيت لضمان إعادة التصيير بصورة صحيحة
+        setTimeout(() => {
+          setManualPinMode("none");
+        }, 0);
+
         if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
+
         setMapCenter(manualCoords);
         setMapZoom(17);
-        setManualPinMode("none");
         toast({
           title: "تم تحديد الوجهة يدويًا",
           description: addressText,
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
+
+        setTimeout(() => {
+          setManualPinMode("none");
+        }, 0);
+
         if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
       // سيظهر الدبوس الجديد فوراً عن طريق CustomerMapMarkers في الموقع الجديد وسيتم رسم المسار تلقائيًا.
+      console.log("[onManualPinConfirm] تم تحديث الإحداثيات:", manualCoords, "manualPinMode قبل التعطيل:", manualPinMode);
     },
     [
       manualPinMode,
