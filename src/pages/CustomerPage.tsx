@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -36,7 +35,7 @@ const CustomerPage = () => {
     toast
   } = useCustomerPageState();
 
-  // HOOKS MUST GO BEFORE ANY CONDITIONAL RETURNS!
+  // جميع الهوكات يجب أن تكون هنا فوق أي شرط
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
     handleManualToPin: () => void;
@@ -46,10 +45,7 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // Track address under center-pin for manual mode
   const [manualPinAddress, setManualPinAddress] = useState<string>("");
-
-  // update address under pin on map move in manual pin mode
   useEffect(() => {
     if (!locationHandlers?.manualPinMode || locationHandlers.manualPinMode === "none") {
       setManualPinAddress("");
@@ -69,7 +65,7 @@ const CustomerPage = () => {
     return () => { isActive = false; };
   }, [mapCenter, locationHandlers?.manualPinMode]);
 
-  // Call all external hooks above any conditional return
+  // markers always calculated before any render exit
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
@@ -79,6 +75,7 @@ const CustomerPage = () => {
     mapCenter
   });
 
+  // إذا لم يكن هناك مستخدم لا ترسم شيء
   if (!user) return null;
 
   const vehicleTypes = pricing.map(p => ({
@@ -89,17 +86,16 @@ const CustomerPage = () => {
     color: getVehicleColor(p.vehicle_type)
   }));
 
-  console.log("[CustomerPage] Rendering with markers:", markers.length, markers);
-  console.log("[CustomerPage] Route length:", routingHook.route.length);
-
-  // عند الضغط على الدبوس العادي نفعل وضع التحديد اليدوي مباشرة باستخدام handleMarkerDrag
-  const handleMapMarkerClick = (type:"from"|"to") => {
-    locationHandlers?.handleMarkerDrag(type);
+  // دائمًا نمُكن دخول وضع التحديد اليدوي عند الضغط على أي دبوس
+  const handleMapMarkerClick = (type: "from" | "to") => {
+    if (locationHandlers?.handleMarkerDrag) {
+      locationHandlers.handleMarkerDrag(type);
+    }
   };
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
-      {/* Location Selection Logic Handler */}
+      {/* Location Selection Handler */}
       <LocationSelectionHandler
         locationHook={locationHook}
         mapCenter={mapCenter}
@@ -123,14 +119,12 @@ const CustomerPage = () => {
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
-        // مهم: تمرير الحالة الصحيحة
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
-        // الأهم: إذا ضغط دبوس نفعل التحديد اليدوي لهذا الدبوس بالضبط
-        onMarkerClick={handleMapMarkerClick}
+        onMarkerClick={handleMapMarkerClick} // <-- هنا التمرير
         manualPinAddress={manualPinAddress}
       />
-      
+
       {/* Head & notification */}
       <CustomerPageHeader 
         userName={user.name}
