@@ -81,13 +81,25 @@ export const useMapMarkers = ({
       if (markerData.draggable) {
         marker.on('dragend', async (e: any) => {
           const position = e.target.getLatLng();
-          const address = await fetchAddress(position.lat, position.lng);
-          console.log(`[useMapMarkers] Marker ${markerData.id} dragged to:`, position.lat, position.lng);
+          const lat = position.lat;
+          const lng = position.lng;
+          const address = await fetchAddress(lat, lng);
           
-          // استدعاء onMarkerDrag من خلال المكون الأب
+          console.log(`[useMapMarkers] Marker ${markerData.id} dragged to:`, lat, lng, address);
+          
+          // البحث عن معالج السحب في النافذة العامة والاستدعاء مباشرة
           if ((window as any).onMarkerDrag) {
-            (window as any).onMarkerDrag(markerData.id, position.lat, position.lng, address);
+            console.log(`[useMapMarkers] Calling window.onMarkerDrag for ${markerData.id}`);
+            (window as any).onMarkerDrag(markerData.id, lat, lng, address);
+          } else {
+            console.error(`[useMapMarkers] window.onMarkerDrag not found!`);
           }
+        });
+
+        // إضافة معالج أثناء السحب لتحديث فوري
+        marker.on('drag', (e: any) => {
+          const position = e.target.getLatLng();
+          console.log(`[useMapMarkers] Marker ${markerData.id} being dragged to:`, position.lat, position.lng);
         });
       }
 

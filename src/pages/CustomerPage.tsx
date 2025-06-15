@@ -45,28 +45,56 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // معالج سحب الدبابيس
+  // معالج سحب الدبابيس - محسن لضمان التحديث الفوري
   const handleMarkerDrag = useCallback(async (type: "from" | "to", lat: number, lng: number, address: string) => {
-    console.log(`[CustomerPage] Marker ${type} dragged to:`, lat, lng);
+    console.log(`[CustomerPage] Marker ${type} dragged to:`, lat, lng, address);
+    
+    const newCoordinates: [number, number] = [lat, lng];
     
     if (type === "from") {
-      locationHook.setFromCoordinates([lat, lng]);
+      console.log(`[CustomerPage] Updating FROM coordinates to:`, newCoordinates);
+      locationHook.setFromCoordinates(newCoordinates);
       locationHook.setFromLocation(address);
       
+      // إظهار toast لتأكيد التحديث
+      toast({
+        title: "تم تحديث نقطة الانطلاق",
+        description: address,
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+      
       // حساب المسار إذا كانت الوجهة موجودة
-      if (locationHook.toCoordinates && locationHook.calculateRoute) {
-        await locationHook.calculateRoute([lat, lng], locationHook.toCoordinates);
+      if (locationHook.toCoordinates) {
+        console.log(`[CustomerPage] Calculating route from ${newCoordinates} to ${locationHook.toCoordinates}`);
+        try {
+          await locationHook.calculateRoute(newCoordinates, locationHook.toCoordinates);
+        } catch (error) {
+          console.error(`[CustomerPage] Error calculating route:`, error);
+        }
       }
     } else if (type === "to") {
-      locationHook.setToCoordinates([lat, lng]);
+      console.log(`[CustomerPage] Updating TO coordinates to:`, newCoordinates);
+      locationHook.setToCoordinates(newCoordinates);
       locationHook.setToLocation(address);
       
+      // إظهار toast لتأكيد التحديث
+      toast({
+        title: "تم تحديث الوجهة",
+        description: address,
+        className: "bg-orange-50 border-orange-200 text-orange-800"
+      });
+      
       // حساب المسار إذا كانت نقطة الانطلاق موجودة
-      if (locationHook.fromCoordinates && locationHook.calculateRoute) {
-        await locationHook.calculateRoute(locationHook.fromCoordinates, [lat, lng]);
+      if (locationHook.fromCoordinates) {
+        console.log(`[CustomerPage] Calculating route from ${locationHook.fromCoordinates} to ${newCoordinates}`);
+        try {
+          await locationHook.calculateRoute(locationHook.fromCoordinates, newCoordinates);
+        } catch (error) {
+          console.error(`[CustomerPage] Error calculating route:`, error);
+        }
       }
     }
-  }, [locationHook]);
+  }, [locationHook, toast]);
 
   // معالج النقر على الدبوس لتفعيل وضع التحديد اليدوي
   const handleMapMarkerClick = useCallback((type: "from" | "to") => {
@@ -87,8 +115,10 @@ const CustomerPage = () => {
 
   // تعيين معالج السحب في النافذة العامة ليتمكن useMapMarkers من الوصول إليه
   useEffect(() => {
+    console.log("[CustomerPage] Setting window.onMarkerDrag");
     (window as any).onMarkerDrag = handleMarkerDrag;
     return () => {
+      console.log("[CustomerPage] Cleaning up window.onMarkerDrag");
       delete (window as any).onMarkerDrag;
     };
   }, [handleMarkerDrag]);
