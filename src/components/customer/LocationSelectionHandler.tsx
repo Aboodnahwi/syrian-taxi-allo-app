@@ -38,6 +38,9 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   // التحكم بوضعية تحديد يدوية (من/إلى/لاشيء)
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
 
+  // --- [NEW: معرف لجعل كل تأكيد دبوس فريدًا] ---
+  const [manualConfirmKey, setManualConfirmKey] = React.useState(0);
+
   const {
     handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin: _handleManualToPinBase,
@@ -91,11 +94,12 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         setMapCenter(manualCoords);
         setMapZoom(17);
 
-        // أضمن أن fromCoordinates تم تحديثها قبل إلغاء manualPinMode
+        // إضافة تأخير بسيط ليضمن التحديث الكامل قبل إطفاء manualPinMode
         setTimeout(() => {
           setManualPinMode("none");
+          setManualConfirmKey((k) => k + 1); // Force re-render/cycle
           console.log("[onManualPinConfirm] manualPinMode set to none بعد التحديث");
-        }, 100);
+        }, 200);
 
         toast({
           title: "تم تحديد نقطة الانطلاق يدويًا",
@@ -115,8 +119,9 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
         setTimeout(() => {
           setManualPinMode("none");
+          setManualConfirmKey((k) => k + 1); // Force re-render/cycle
           console.log("[onManualPinConfirm] manualPinMode set to none بعد التحديث");
-        }, 100);
+        }, 200);
 
         toast({
           title: "تم تحديد الوجهة يدويًا",
@@ -128,11 +133,9 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
-
-      // تسجيل القيم الجديدة بعد التأكيد
       setTimeout(() => {
-        console.log("[onManualPinConfirm] fromCoordinates:", locationHook.fromCoordinates, "toCoordinates:", locationHook.toCoordinates);
-      }, 200);
+        console.log("[onManualPinConfirm] after-confirm fromCoordinates:", locationHook.fromCoordinates, "toCoordinates:", locationHook.toCoordinates, "manualPinMode:", manualPinMode);
+      }, 300);
     },
     [
       manualPinMode,
@@ -141,7 +144,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setMapZoom,
       toast,
       calculateRoute,
-      getManualAddress,
+      getManualAddress
     ]
   );
 
@@ -186,7 +189,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setMapZoom,
       toast,
       calculateRoute,
-      getManualAddress,
+      getManualAddress
     ]
   );
 
@@ -219,6 +222,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
   }, [locationHook, setMapCenter, setMapZoom, mapZoomToFromRef, mapZoomToToRef, toast]);
 
+  // React.useEffect: في حالة تغير manualConfirmKey نجبر التحديث
   React.useEffect(() => {
     onLocationHandlersReady({
       handleManualFromPin,
@@ -236,6 +240,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     manualPinMode,
     onManualPinConfirm,
     onLocationHandlersReady,
+    manualConfirmKey, // dependency لإجبار re-prop injection في الأب
   ]);
 
   return null;
