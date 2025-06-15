@@ -9,17 +9,21 @@ interface UseSimpleManualPinProps {
 export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps) => {
   const [isManualMode, setIsManualMode] = useState(false);
   const [currentAddress, setCurrentAddress] = useState<string>("");
+  const [currentCoordinates, setCurrentCoordinates] = useState<[number, number] | null>(null);
 
-  // جلب العنوان
+  // جلب العنوان مع عرض الإحداثيات
   const fetchAddress = async (lat: number, lng: number) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
       );
       const data = await response.json();
-      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const address = data.display_name || coordinates;
+      return { address, coordinates };
     } catch {
-      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      return { address: coordinates, coordinates };
     }
   };
 
@@ -27,6 +31,7 @@ export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps
   const startManualMode = useCallback((type: 'from' | 'to') => {
     setIsManualMode(true);
     setCurrentAddress("");
+    setCurrentCoordinates(null);
     toast({
       title: type === 'from' ? "حدد نقطة الانطلاق" : "حدد الوجهة",
       description: "حرك الخريطة للموقع المطلوب ثم اضغط تأكيد",
@@ -34,31 +39,49 @@ export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps
     });
   }, [toast]);
 
-  // تحديث العنوان أثناء تحريك الخريطة
+  // تحديث العنوان والإحداثيات أثناء تحريك الخريطة
   const updateAddress = useCallback(async (lat: number, lng: number) => {
     if (!isManualMode) return;
-    const address = await fetchAddress(lat, lng);
-    setCurrentAddress(address);
+    
+    // تحديث الإحداثيات فوراً للاستجابة السريعة
+    setCurrentCoordinates([lat, lng]);
+    
+    // جلب العنوان مع الإحداثيات
+    const { address, coordinates } = await fetchAddress(lat, lng);
+    setCurrentAddress(`${address}\n📍 ${coordinates}`);
   }, [isManualMode]);
 
-  // تأكيد الموقع
+  // تأكيد الموقع وحفظ الإحداثيات في مربع البحث
   const confirmLocation = useCallback(async (lat: number, lng: number) => {
-    if (!isManualMode) return;
-    const address = await fetchAddress(lat, lng);
+    if (!isManualMode || !currentCoordinates) return;
+    
+    const { address } = await fetchAddress(lat, lng);
+    
+    // إرسال العنوان مع الإحداثيات للتأكيد
     onConfirm(lat, lng, address);
+    
+    toast({
+      title: "تم حفظ الموقع",
+      description: `الإحداثيات: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      className: "bg-green-50 border-green-200 text-green-800"
+    });
+    
     setIsManualMode(false);
     setCurrentAddress("");
-  }, [isManualMode, onConfirm]);
+    setCurrentCoordinates(null);
+  }, [isManualMode, currentCoordinates, onConfirm, toast]);
 
   // إلغاء الوضع اليدوي
   const cancelManualMode = useCallback(() => {
     setIsManualMode(false);
     setCurrentAddress("");
+    setCurrentCoordinates(null);
   }, []);
 
   return {
     isManualMode,
     currentAddress,
+    currentCoordinates,
     startManualMode,
     updateAddress,
     confirmLocation,

@@ -33,15 +33,23 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
   onMarkerDrag,
   onPinTypeChange
 }) => {
-  // معالج الدبوس اليدوي البسيط
-  const { isManualMode, currentAddress, startManualMode, updateAddress, confirmLocation, cancelManualMode } = useSimpleManualPin({
+  // معالج الدبوس اليدوي البسيط مع حفظ الإحداثيات
+  const { 
+    isManualMode, 
+    currentAddress, 
+    currentCoordinates,
+    startManualMode, 
+    updateAddress, 
+    confirmLocation, 
+    cancelManualMode 
+  } = useSimpleManualPin({
     onConfirm: (lat, lng, address) => {
       if (currentPinType === 'from') {
         locationHook.setFromCoordinates([lat, lng]);
         locationHook.setFromLocation(address);
         toast({
           title: "تم تحديد نقطة الانطلاق",
-          description: address,
+          description: `${address}\n📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           className: "bg-sky-50 border-sky-200 text-sky-800"
         });
       } else if (currentPinType === 'to') {
@@ -49,7 +57,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
         locationHook.setToLocation(address);
         toast({
           title: "تم تحديد الوجهة",
-          description: address,
+          description: `${address}\n📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           className: "bg-orange-50 border-orange-200 text-orange-800"
         });
       }
@@ -58,7 +66,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
     toast
   });
 
-  // تحديث العنوان عند تحريك الخريطة في الوضع اليدوي
+  // تحديث العنوان والإحداثيات عند تحريك الخريطة في الوضع اليدوي
   React.useEffect(() => {
     if (isManualMode) {
       updateAddress(mapCenter[0], mapCenter[1]);
@@ -110,7 +118,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
       onManualPinConfirm={handleManualPinConfirm}
       onManualPinCancel={handleManualPinCancel}
       manualPinAddress={currentAddress}
-      manualPinCoordinates={isManualMode ? mapCenter : null}
+      manualPinCoordinates={currentCoordinates}
     />
   );
 };

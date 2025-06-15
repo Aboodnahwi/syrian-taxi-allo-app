@@ -90,23 +90,31 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
       />
       {manualPinMode && manualPinMode !== 'none' && (
         <>
-          {/* Center Pin */}
+          {/* Center Pin with coordinates display */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full z-[1001] pointer-events-none">
              <MapPin 
                className={`w-10 h-10 drop-shadow-lg ${manualPinMode === 'from' ? 'text-sky-500' : 'text-orange-500'}`} 
                fill="currentColor"
              />
+             {/* Coordinates display below pin */}
+             {manualPinCoordinates && (
+               <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-black/75 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                 {manualPinCoordinates[0].toFixed(6)}, {manualPinCoordinates[1].toFixed(6)}
+               </div>
+             )}
           </div>
           
           {/* Confirmation Panel */}
-          <div className="absolute top-1/2 left-1/2 z-[1002] w-64 -translate-x-1/2 mt-4">
+          <div className="absolute top-1/2 left-1/2 z-[1002] w-80 -translate-x-1/2 mt-4">
             <Card className="shadow-2xl">
               <CardContent className="p-4">
                 <p className="text-sm font-semibold mb-2 text-center">
                   {manualPinMode === 'from' ? 'تحديد نقطة الانطلاق' : 'تحديد الوجهة'}
                 </p>
                 {manualPinAddress ? (
-                  <p className="text-sm text-slate-600 text-center">{manualPinAddress}</p>
+                  <div className="text-sm text-slate-600 text-center whitespace-pre-line">
+                    {manualPinAddress}
+                  </div>
                 ) : (
                   <Skeleton className="h-4 w-full" />
                 )}
