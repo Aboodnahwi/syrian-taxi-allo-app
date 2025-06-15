@@ -1,4 +1,9 @@
 
+/**
+ * Hook: useManualPinModeHandler
+ * للتحكم في نمط "تحديد الدبوس يدويًا" وتحديث حالة الخريطة + إظهار toast مناسب
+ */
+
 import { useCallback } from "react";
 
 interface UseManualPinModeHandlerProps {
@@ -28,6 +33,7 @@ export function useManualPinModeHandler({
   toCoordinates,
   mapCenter,
 }: UseManualPinModeHandlerProps) {
+  // التعامل مع وضع الدبوس للانطلاق
   const handleManualFromPin = useCallback(() => {
     setManualPinMode("from");
     if (fromCoordinates) {
@@ -39,10 +45,9 @@ export function useManualPinModeHandler({
       description: "حرك الخريطة حتى النقطة المطلوبة ثم أكد",
       className: "bg-blue-50 border-blue-200 text-blue-800",
     });
-  }, [
-    setManualPinMode, setMapCenter, setMapZoom, showToast, fromCoordinates
-  ]);
+  }, [setManualPinMode, setMapCenter, setMapZoom, showToast, fromCoordinates]);
 
+  // التعامل مع وضع الدبوس للوجهة
   const handleManualToPin = useCallback(() => {
     setManualPinMode("to");
     if (toCoordinates) {
@@ -54,9 +59,8 @@ export function useManualPinModeHandler({
       description: "حرك الخريطة حتى الوجهة المطلوبة ثم أكد",
       className: "bg-orange-50 border-orange-200 text-orange-800",
     });
-  }, [
-    setManualPinMode, setMapCenter, setMapZoom, showToast, toCoordinates
-  ]);
+  }, [setManualPinMode, setMapCenter, setMapZoom, showToast, toCoordinates]);
 
   return { handleManualFromPin, handleManualToPin };
 }
+

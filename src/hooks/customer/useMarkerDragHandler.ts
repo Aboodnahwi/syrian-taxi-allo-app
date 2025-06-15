@@ -1,4 +1,9 @@
 
+/**
+ * Hook: useMarkerDragHandler
+ * يتحكم في التعامل مع سحب marker (from/to) وتحديث state وtoast وحساب route إذا توفّر.
+ */
+
 import { useCallback } from "react";
 
 interface UseMarkerDragHandlerProps {
@@ -64,3 +69,4 @@ export function useMarkerDragHandler({
 
   return { handleMarkerDrag };
 }
+

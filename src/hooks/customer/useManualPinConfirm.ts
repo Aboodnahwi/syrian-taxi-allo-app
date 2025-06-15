@@ -1,4 +1,9 @@
 
+/**
+ * Hook: useManualPinConfirm
+ * مسؤول عن تنفيذ تأكيد موقع الدبوس اليدوي (from/to) وتحديث الحالة وإظهار toast وتنفيذ calculateRoute إن وُجدت.
+ */
+
 import { useCallback } from "react";
 
 interface UseManualPinConfirmProps {
@@ -24,17 +29,17 @@ export function useManualPinConfirm({
   setManualPinMode,
   setManualConfirmKey,
 }: UseManualPinConfirmProps) {
+  // توليد نص عنوان الإحداثيات بشكل مباشر
   const getManualAddress = (lat: number, lng: number) =>
     `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
+  // عند التأكيد، حدّد الإحداثيات وانقل الدالة للمكان المناسب، وأظهر toast، وفعّل حساب المسار
   const onManualPinConfirm = useCallback(
     async () => {
-      // استخدم mapCenterRef مباشرة بدون تمرير param
       const [lat, lng] = mapCenterRef.current;
       const manualCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
       if (manualPinMode === "from") {
-        // حدّث الإحداثيات أولًا ثم الإغلاق
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
 
@@ -45,7 +50,7 @@ export function useManualPinConfirm({
           description: addressText,
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
-        if(locationHook.toCoordinates) {
+        if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
@@ -59,11 +64,10 @@ export function useManualPinConfirm({
           description: addressText,
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
-        if(locationHook.fromCoordinates) {
+        if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
-      // أخر الإطفاء وإجبار إعادة تسلسل القيم
       setTimeout(() => {
         setManualPinMode("none");
         setManualConfirmKey((k) => k + 1);
@@ -83,3 +87,4 @@ export function useManualPinConfirm({
   );
   return { onManualPinConfirm };
 }
+
