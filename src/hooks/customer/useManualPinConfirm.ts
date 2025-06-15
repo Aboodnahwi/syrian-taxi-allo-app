@@ -40,19 +40,11 @@ export function useManualPinConfirm({
     }
   };
 
-  // عند التأكيد، خذ إحداثيات منتصف الخريطة (الحالية) ومررها
+  // عند التأكيد، جلب إحداثيات منتصف الخريطة وقت الضغط وحفظها
   const onManualPinConfirm = useCallback(
-    async (_lat?: number, _lng?: number) => {
-      // إذا تم تمرير الإحداثيات استخدمها، وإلا استخدم mapCenterRef
-      let coords: [number, number];
-      if (
-        typeof _lat === "number" &&
-        typeof _lng === "number"
-      ) {
-        coords = [_lat, _lng];
-      } else if (mapCenterRef.current) {
-        coords = [mapCenterRef.current[0], mapCenterRef.current[1]];
-      } else {
+    async () => {
+      // دائماً نأخذ الإحداثيات من mapCenterRef وقت التأكيد
+      if (!mapCenterRef.current) {
         toast({
           title: "خطأ",
           description: "تعذر الحصول على إحداثيات الدبوس",
@@ -60,10 +52,13 @@ export function useManualPinConfirm({
         });
         return;
       }
+      const [lat, lng] = mapCenterRef.current;
+      const coords: [number, number] = [lat, lng];
 
-      const [lat, lng] = coords;
-      console.log(`[useManualPinConfirm] تأكيد الدبوس اليدوي لـ ${manualPinMode}: ${lat}, ${lng}`);
+      // سجل الإحداثيات بوضوح لحظة التأكيد
+      console.log(`[useManualPinConfirm] تأكيد الدبوس اليدوي لـ ${manualPinMode}:`, coords);
 
+      // جلب العنوان الحالي
       const addressText = await fetchAddress(lat, lng);
 
       if (manualPinMode === "from") {
@@ -105,7 +100,7 @@ export function useManualPinConfirm({
           }
         }
       }
-      // الخروج من وضع الدبوس اليدوي بعد تأكيده
+      // الخروج من وضع الدبوس اليدوي بعد التأكيد
       setTimeout(() => {
         setManualPinMode("none");
         setManualConfirmKey((k) => k + 1);
