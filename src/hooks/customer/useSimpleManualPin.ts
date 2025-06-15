@@ -14,7 +14,7 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
   const [currentCoordinates, setCurrentCoordinates] = useState<[number, number] | null>(null);
 
   // جلب العنوان مع عرض الإحداثيات
-  const fetchAddress = async (lat: number, lng: number) => {
+  const fetchAddress = useCallback(async (lat: number, lng: number) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
@@ -27,7 +27,7 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
       const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       return { address: coordinates, coordinates };
     }
-  };
+  }, []);
 
   // بدء وضع الدبوس اليدوي
   const startManualMode = useCallback((type: 'from' | 'to') => {
@@ -58,7 +58,7 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
     // جلب العنوان مع الإحداثيات
     const { address } = await fetchAddress(lat, lng);
     setCurrentAddress(`${address}\n📍 ${coordinates}`);
-  }, [isManualMode, currentPinType, onUpdateSearchBox]);
+  }, [isManualMode, currentPinType, onUpdateSearchBox, fetchAddress]);
 
   // تأكيد الموقع وحفظ الإحداثيات في مربع البحث
   const confirmLocation = useCallback(async (lat: number, lng: number) => {
@@ -79,7 +79,7 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
     setCurrentPinType(null);
     setCurrentAddress("");
     setCurrentCoordinates(null);
-  }, [isManualMode, currentCoordinates, currentPinType, onConfirm, toast]);
+  }, [isManualMode, currentCoordinates, currentPinType, onConfirm, toast, fetchAddress]);
 
   // إلغاء الوضع اليدوي
   const cancelManualMode = useCallback(() => {
