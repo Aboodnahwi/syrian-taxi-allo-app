@@ -121,12 +121,6 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
           <div className="rounded bg-white/90 px-3 py-2 text-slate-700 text-xs shadow font-medium border border-slate-200 max-w-full truncate" title={manualPinAddress || ""}>
             {manualPinAddress ? manualPinAddress : "جاري جلب العنوان..."}
           </div>
-          {/* إحداثيات الموقع مباشرة تحت العنوان */}
-          {manualPinCoordinates && (
-            <div className="rounded bg-slate-50 px-3 py-1 mt-1 text-slate-700 text-[11px] shadow border border-slate-200 max-w-full">
-              {`الإحداثيات: ${manualPinCoordinates[0].toFixed(6)}, ${manualPinCoordinates[1].toFixed(6)}`}
-            </div>
-          )}
         </div>
       )}
 
