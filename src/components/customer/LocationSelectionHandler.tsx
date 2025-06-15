@@ -1,4 +1,3 @@
-
 /**
  * Component: LocationSelectionHandler
  * يربط جميع هوكات تحديد/تحريك المواقع، وينظم handlers بوضوح ويرجعها للأب
@@ -77,14 +76,8 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   });
 
   // تحكم بسحب الدبابيس (marker)
-  const { handleMarkerDrag } = useMarkerDragHandler({
-    locationHook,
-    setMapCenter,
-    setMapZoom,
-    toast,
-    calculateRoute: locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute,
-    setManualPinMode
-  });
+  // changed to match function signature
+  const { handleMarkerDrag } = useMarkerDragHandler();
 
   // عند اختيار موقع من الاقتراحات
   const { selectLocation } = useLocationSelectHandler({
@@ -101,7 +94,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     onLocationHandlersReady({
       handleManualFromPin,
       handleManualToPin,
-      handleMarkerDrag,
+      handleMarkerDrag, // now matches expected signature
       selectLocation,
       manualPinMode,
       onManualPinConfirm,
@@ -123,4 +116,3 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
-

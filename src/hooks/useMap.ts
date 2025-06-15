@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { MapProps } from '@/components/map/types';
 import { useMapInitialization } from './map/useMapInitialization';
@@ -34,7 +33,6 @@ export const useMap = ({
     mapInstanceRef,
     mapReady,
     markers,
-    onMarkerDrag,
     toast
   });
 
