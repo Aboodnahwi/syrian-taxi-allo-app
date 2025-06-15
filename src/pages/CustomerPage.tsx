@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -69,6 +68,23 @@ const CustomerPage = () => {
     }
   }, [locationHook]);
 
+  // معالج النقر على الدبوس لتفعيل وضع التحديد اليدوي
+  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
+    console.log(`[CustomerPage] Marker ${type} clicked, activating manual mode`);
+    
+    if (locationHandlers?.handleMarkerDrag) {
+      locationHandlers.handleMarkerDrag(type);
+    } else {
+      console.log("[CustomerPage] locationHandlers.handleMarkerDrag not ready, will retry");
+      // إعادة المحاولة بعد فترة قصيرة إذا لم تكن الـ handlers جاهزة
+      setTimeout(() => {
+        if (locationHandlers?.handleMarkerDrag) {
+          locationHandlers.handleMarkerDrag(type);
+        }
+      }, 100);
+    }
+  }, [locationHandlers]);
+
   // تعيين معالج السحب في النافذة العامة ليتمكن useMapMarkers من الوصول إليه
   useEffect(() => {
     (window as any).onMarkerDrag = handleMarkerDrag;
@@ -104,7 +120,8 @@ const CustomerPage = () => {
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
     manualPinMode: locationHandlers?.manualPinMode,
-    mapCenter
+    mapCenter,
+    onMarkerClick: handleMapMarkerClick
   });
 
   // إذا لم يكن هناك مستخدم لا ترسم شيء
@@ -146,6 +163,7 @@ const CustomerPage = () => {
         mapZoomToRouteRef={mapZoomToRouteRef}
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
+        onMarkerClick={handleMapMarkerClick}
         manualPinAddress={manualPinAddress}
       />
 

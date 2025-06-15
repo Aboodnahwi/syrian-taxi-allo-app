@@ -69,6 +69,14 @@ export const useMapMarkers = ({
         marker.bindPopup(markerData.popup);
       }
 
+      // إضافة معالج النقر إذا كان موجود
+      if (markerData.onClick) {
+        marker.on('click', (e: any) => {
+          console.log(`[useMapMarkers] Marker ${markerData.id} clicked`);
+          markerData.onClick!();
+        });
+      }
+
       // إضافة معالج السحب إذا كان الدبوس قابل للسحب
       if (markerData.draggable) {
         marker.on('dragend', async (e: any) => {

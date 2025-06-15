@@ -1,4 +1,3 @@
-
 import React from "react";
 import Map from "@/components/map/Map";
 
@@ -55,7 +54,14 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
-  }, [markers, route]);
+    console.log("[CustomerMapPanel] onMarkerClick:", onMarkerClick);
+  }, [markers, route, onMarkerClick]);
+
+  // تمرير onMarkerClick للدبابيس
+  const markersWithClick = markers.map(marker => ({
+    ...marker,
+    onClick: () => onMarkerClick?.(marker.id as "from" | "to")
+  }));
 
   // Overlay دبوس ثابت في منتصف الشاشة في manualPinMode فقط
   const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
@@ -89,7 +95,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         className="w-full h-full min-h-screen"
         center={mapCenter}
         zoom={mapZoom}
-        markers={manualPinMode !== "none" ? [] : markers}
+        markers={manualPinMode !== "none" ? [] : markersWithClick}
         route={route}
         toast={toast}
         onLocationSelect={onLocationSelect}
