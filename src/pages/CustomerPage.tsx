@@ -1,5 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
+import { useMarkerClickHandler } from '@/hooks/customer/useMarkerClickHandler';
+import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
+import { useGlobalMarkerDragHandler } from '@/hooks/customer/useGlobalMarkerDragHandler';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
 import CustomerPageHeader from '@/components/customer/CustomerPageHeader';
@@ -35,7 +39,6 @@ const CustomerPage = () => {
     toast
   } = useCustomerPageState();
 
-  // جميع الهوكات يجب أن تكون هنا فوق أي شرط
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
     handleManualToPin: () => void;
@@ -45,105 +48,19 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // معالج سحب الدبابيس - محسن لضمان التحديث الفوري
-  const handleMarkerDrag = useCallback(async (type: "from" | "to", lat: number, lng: number, address: string) => {
-    console.log(`[CustomerPage] Marker ${type} dragged to:`, lat, lng, address);
-    
-    const newCoordinates: [number, number] = [lat, lng];
-    
-    if (type === "from") {
-      console.log(`[CustomerPage] Updating FROM coordinates to:`, newCoordinates);
-      locationHook.setFromCoordinates(newCoordinates);
-      locationHook.setFromLocation(address);
-      
-      // إظهار toast لتأكيد التحديث
-      toast({
-        title: "تم تحديث نقطة الانطلاق",
-        description: address,
-        className: "bg-blue-50 border-blue-200 text-blue-800"
-      });
-      
-      // حساب المسار إذا كانت الوجهة موجودة
-      if (locationHook.toCoordinates) {
-        console.log(`[CustomerPage] Calculating route from ${newCoordinates} to ${locationHook.toCoordinates}`);
-        try {
-          await locationHook.calculateRoute(newCoordinates, locationHook.toCoordinates);
-        } catch (error) {
-          console.error(`[CustomerPage] Error calculating route:`, error);
-        }
-      }
-    } else if (type === "to") {
-      console.log(`[CustomerPage] Updating TO coordinates to:`, newCoordinates);
-      locationHook.setToCoordinates(newCoordinates);
-      locationHook.setToLocation(address);
-      
-      // إظهار toast لتأكيد التحديث
-      toast({
-        title: "تم تحديث الوجهة",
-        description: address,
-        className: "bg-orange-50 border-orange-200 text-orange-800"
-      });
-      
-      // حساب المسار إذا كانت نقطة الانطلاق موجودة
-      if (locationHook.fromCoordinates) {
-        console.log(`[CustomerPage] Calculating route from ${locationHook.fromCoordinates} to ${newCoordinates}`);
-        try {
-          await locationHook.calculateRoute(locationHook.fromCoordinates, newCoordinates);
-        } catch (error) {
-          console.error(`[CustomerPage] Error calculating route:`, error);
-        }
-      }
-    }
-  }, [locationHook, toast]);
+  // Setup global marker drag handler
+  const { handleMarkerDrag } = useGlobalMarkerDragHandler({ locationHook, toast });
 
-  // معالج النقر على الدبوس لتفعيل وضع التحديد اليدوي
-  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
-    console.log(`[CustomerPage] Marker ${type} clicked, activating manual mode`);
-    
-    if (locationHandlers?.handleMarkerDrag) {
-      locationHandlers.handleMarkerDrag(type);
-    } else {
-      console.log("[CustomerPage] locationHandlers.handleMarkerDrag not ready, will retry");
-      // إعادة المحاولة بعد فترة قصيرة إذا لم تكن الـ handlers جاهزة
-      setTimeout(() => {
-        if (locationHandlers?.handleMarkerDrag) {
-          locationHandlers.handleMarkerDrag(type);
-        }
-      }, 100);
-    }
-  }, [locationHandlers]);
+  // Setup marker click handler
+  const { handleMapMarkerClick } = useMarkerClickHandler({ locationHandlers });
 
-  // تعيين معالج السحب في النافذة العامة ليتمكن useMapMarkers من الوصول إليه
-  useEffect(() => {
-    console.log("[CustomerPage] Setting window.handleMarkerDrag");
-    (window as any).handleMarkerDrag = handleMarkerDrag;
-    return () => {
-      console.log("[CustomerPage] Cleaning up window.handleMarkerDrag");
-      delete (window as any).handleMarkerDrag;
-    };
-  }, [handleMarkerDrag]);
+  // Setup manual pin address fetching
+  const { manualPinAddress } = useManualPinAddress({ 
+    mapCenter, 
+    manualPinMode: locationHandlers?.manualPinMode 
+  });
 
-  const [manualPinAddress, setManualPinAddress] = useState<string>("");
-  useEffect(() => {
-    if (!locationHandlers?.manualPinMode || locationHandlers.manualPinMode === "none") {
-      setManualPinAddress("");
-      return;
-    }
-    let isActive = true;
-    const [lat, lng] = mapCenter;
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`)
-      .then(res => res.json())
-      .then(data => {
-        if (isActive) {
-          if (data.display_name) setManualPinAddress(data.display_name);
-          else setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        }
-      })
-      .catch(() => setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`));
-    return () => { isActive = false; };
-  }, [mapCenter, locationHandlers?.manualPinMode]);
-
-  // markers always calculated before any render exit
+  // Calculate markers
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
