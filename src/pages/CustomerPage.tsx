@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -67,7 +68,7 @@ const CustomerPage = () => {
   console.log("[CustomerPage] Rendering with markers:", markers.length, markers);
   console.log("[CustomerPage] Route length:", routingHook.route.length);
 
-  // function to handle clicking on ordinary marker
+  // عند الضغط على الدبوس العادي نفعل وضع التحديد اليدوي مباشرة باستخدام handleMarkerDrag
   const handleMapMarkerClick = (type:"from"|"to") => {
     locationHandlers?.handleMarkerDrag(type);
   };
@@ -94,13 +95,14 @@ const CustomerPage = () => {
         route={routingHook.route}
         toast={toast}
         onLocationSelect={undefined}
-        onMarkerDrag={() => {}}
+        onMarkerDrag={() => {}} // لا يسمح بالسحب التقليدي
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
-        // جديد:
+        // مهم: تمرير الحالة الصحيحة
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
+        // الأهم: إذا ضغط دبوس نفعل التحديد اليدوي لهذا الدبوس بالضبط
         onMarkerClick={handleMapMarkerClick}
       />
       
@@ -155,3 +157,4 @@ const CustomerPage = () => {
 };
 
 export default CustomerPage;
+
