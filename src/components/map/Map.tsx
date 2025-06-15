@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
 
@@ -19,7 +19,6 @@ const Map: React.FC<MapProps> = ({
   mapZoomToRouteRef,
   onMapMove,
 }) => {
-  // استخدم هوك useMap كي تحصل على مراجع الخريطة مباشرة
   const { mapRef, mapInstanceRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
     center,
     zoom,
@@ -29,6 +28,8 @@ const Map: React.FC<MapProps> = ({
     toast,
     onMarkerDrag,
   });
+
+  const moveTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Hooks for parent to control zoom of from/to/route
   useEffect(() => {
@@ -49,22 +50,49 @@ const Map: React.FC<MapProps> = ({
     // eslint-disable-next-line
   }, [mapZoomToFromRef, mapZoomToToRef, mapZoomToRouteRef, markers, zoomToLatLng, zoomToRoute]);
 
+  // Throttled map move handler to improve performance
+  const throttledOnMapMove = useCallback(
+    (center: [number, number]) => {
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
+      }
+      
+      moveTimeoutRef.current = setTimeout(() => {
+        onMapMove?.(center);
+      }, 50); // 50ms throttle for smoother performance
+    },
+    [onMapMove]
+  );
+
   // mapMove live center (for manual pin update)
   useEffect(() => {
-    // استخدم المرجع الصحيح لخريطة leaflet
     if (mapInstanceRef.current && onMapMove) {
       const map = mapInstanceRef.current;
       if (!map || typeof map.on !== "function") return;
+      
       const handleMove = () => {
         const center = map.getCenter();
-        onMapMove([center.lat, center.lng]);
+        throttledOnMapMove([center.lat, center.lng]);
       };
+      
       map.on('move', handleMove);
       return () => {
         map.off('move', handleMove);
+        if (moveTimeoutRef.current) {
+          clearTimeout(moveTimeoutRef.current);
+        }
       };
     }
-  }, [mapInstanceRef, onMapMove]);
+  }, [mapInstanceRef, throttledOnMapMove]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
+      }
+    };
+  }, []);
   
   return (
     <div className={`relative ${className || 'w-full h-96'}`}>
