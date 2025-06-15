@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
@@ -73,6 +72,32 @@ const CustomerPage = () => {
     locationHandlers?.handleMarkerDrag(type);
   };
 
+  // سنضيف عنوان النقطة المختارة حاليًا (في تحديد يدوي)
+  const [manualPinAddress, setManualPinAddress] = useState<string>("");
+
+  // عند التحريك اليدوي للخريطة نضيّف معالج لتحديث العنوان (reverse geocoding)
+  React.useEffect(() => {
+    // لا نستدعي reverse إذا لسنا في وضع التحديد اليدوي أو لا يوجد mapCenter
+    if (!locationHandlers?.manualPinMode || locationHandlers.manualPinMode === "none") {
+      setManualPinAddress("");
+      return;
+    }
+
+    // كلما تغيرت mapCenter في هذا الوضع نحدّث العنوان في المنتصف
+    let isActive = true;
+    const [lat, lng] = mapCenter;
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`)
+      .then(res => res.json())
+      .then(data => {
+        if (isActive) {
+          if (data.display_name) setManualPinAddress(data.display_name);
+          else setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        }
+      })
+      .catch(() => setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`));
+    return () => { isActive = false; };
+  }, [mapCenter, locationHandlers?.manualPinMode]);
+
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
       {/* Location Selection Logic Handler */}
@@ -104,6 +129,7 @@ const CustomerPage = () => {
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
         // الأهم: إذا ضغط دبوس نفعل التحديد اليدوي لهذا الدبوس بالضبط
         onMarkerClick={handleMapMarkerClick}
+        manualPinAddress={manualPinAddress}
       />
       
       {/* Head & notification */}
@@ -157,4 +183,3 @@ const CustomerPage = () => {
 };
 
 export default CustomerPage;
-

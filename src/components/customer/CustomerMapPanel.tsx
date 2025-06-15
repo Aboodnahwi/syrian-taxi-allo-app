@@ -1,4 +1,3 @@
-
 import React from "react";
 import Map from "@/components/map/Map";
 
@@ -33,6 +32,7 @@ interface CustomerMapPanelProps {
   manualPinMode?: "none" | "from" | "to";
   onManualPinConfirm?: (lat: number, lng: number) => void;
   onMarkerClick?: (type: "from" | "to") => void;
+  manualPinAddress?: string;
 }
 
 const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
@@ -48,7 +48,8 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   mapZoomToRouteRef,
   manualPinMode,
   onManualPinConfirm,
-  onMarkerClick
+  onMarkerClick,
+  manualPinAddress
 }) => {
   React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
@@ -124,6 +125,16 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
       {markerButtons}
       {/* دبوس ثابت في منتصف الشاشة عند وضع التحديد اليدوي (Overlay فقط) */}
       {overlayPin}
+
+      {/* عرض العنوان الحالي تحت الدبوس في التحديد اليدوي */}
+      {manualPinMode !== "none" && (
+        <div className="absolute left-1/2 top-[54%] z-[1061] -translate-x-1/2 flex flex-col items-center w-[98vw] max-w-sm mb-1 px-2 text-center">
+          <div className="rounded bg-white/90 px-3 py-2 text-slate-700 text-xs shadow font-medium border border-slate-200 max-w-full truncate" title={manualPinAddress || ""}>
+            {manualPinAddress ? manualPinAddress : "جاري جلب العنوان..."}
+          </div>
+        </div>
+      )}
+
       {/* زر تأكيد الموقع في وضع التحديد اليدوي */}
       {manualPinMode !== "none" && (
         <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
