@@ -9,17 +9,14 @@ interface CustomerMapMarkersProps {
   manualPinMode?: "none" | "from" | "to";
 }
 
-export const useCustomerMapMarkers = ({
+// دائما شغّل جميع الهوكات بدون إرجاع مبكر
+const useCustomerMapMarkers = ({
   fromCoordinates,
   toCoordinates,
   fromLocation,
   toLocation,
   manualPinMode
 }: CustomerMapMarkersProps) => {
-  // إذا كان في وضع البين اليدوي، لا نظهر أي دبوس عادي
-  if (manualPinMode && manualPinMode !== "none") {
-    return [];
-  }
   const markers = React.useMemo(() => [
     ...(fromCoordinates ? [{
       id: "from" as const,
@@ -45,8 +42,12 @@ export const useCustomerMapMarkers = ({
     }] : []),
   ], [fromCoordinates, toCoordinates, fromLocation, toLocation]);
 
+  // بعد الحساب، إذا كنا في وضع البين اليدوي، لا ترجع أي دبوس
+  if (manualPinMode && manualPinMode !== "none") {
+    return [];
+  }
+
   return markers;
 };
 
 export default useCustomerMapMarkers;
-
