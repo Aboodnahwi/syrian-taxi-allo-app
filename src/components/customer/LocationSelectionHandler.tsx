@@ -30,12 +30,13 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   mapZoomToToRef,
   onLocationHandlersReady
 }) => {
+  // التحكم بوضعية تحديد يدوية (من/إلى/لاشيء)
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
 
   const {
     handleManualFromPin: _handleManualFromPinBase,
     handleManualToPin: _handleManualToPinBase,
-    // handleMapClickManual غير مستخدمة بالمنطق الجديد
+    // handleMapClickManual غير مستخدمة هنا
   } = useManualPinMode({
     setManualPinMode,
     setFromCoordinates: locationHook.setFromCoordinates,
@@ -47,33 +48,35 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     showToast: toast,
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
-    mapCenter
+    mapCenter,
   });
 
   const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
   const getManualAddress = (lat: number, lng: number) =>
     `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-  // عند الضغط على زر التفعيل اليدوي: فعل وضع الدبوس فقط واجعل الخريطة على المستخدم
+  // عند الضغط على زر "تعيين الانطلاق يدويًا"
   const handleManualFromPin = React.useCallback(() => {
     _handleManualFromPinBase();
     setManualPinMode("from");
-    // ملاحظة! لا تحدّث إحداثيات الدبوس فورًا (ليظل ثابتًا في مركز الخريطة)
-    // يمكن إظهار دبوس "افتراضي" إذا رغبت بذلك من خلال CustomerMapMarkers (غالبًا كافٍ)
+    // لا تغير من fromCoordinates هنا!
   }, [_handleManualFromPinBase]);
 
+  // عند الضغط على زر "تعيين الوجهة يدويًا"
   const handleManualToPin = React.useCallback(() => {
     _handleManualToPinBase();
     setManualPinMode("to");
+    // لا تغير من toCoordinates هنا!
   }, [_handleManualToPinBase]);
 
-  // عند الضغط زر تأكيد الموقع: خذ موقع (المركز الحالي للخريطة) كموقع الدبوس
+  // زر تأكيد الموقع: يأخذ مركز الخريطة
   const onManualPinConfirm = React.useCallback(
     async (lat: number, lng: number) => {
       const manualCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
 
       if (manualPinMode === "from") {
+        // حدّث نقطة الانطلاق فقط هنا (بعد التأكيد)
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
         setMapCenter(manualCoords);
@@ -88,6 +91,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
+        // حدّث نقطة الوجهة فقط هنا (بعد التأكيد)
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
         setMapCenter(manualCoords);
@@ -102,7 +106,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
-      // سيظهر الدبوس الجديد فورا عن طريق CustomerMapMarkers (تأخذ القيم من fromCoordinates/toCoordinates)
+      // سيظهر الدبوس الجديد فوراً عن طريق CustomerMapMarkers في الموقع الجديد
     },
     [
       manualPinMode,
@@ -114,8 +118,10 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     ]
   );
 
+  // عند سحب الدبوس (الوضع العادي/الوضع اليدوي) - لم تغير هنا
   const handleMarkerDrag = React.useCallback(() => {}, []);
 
+  // اختيار موقع من الاقتراحات كما هو
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
     console.log("[LocationSelectionHandler] Selecting location:", suggestion.name, "for", type);
     if (type === 'from') {
@@ -145,6 +151,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
   }, [locationHook, setMapCenter, setMapZoom, mapZoomToFromRef, mapZoomToToRef, toast]);
 
+  // إبلاغ الأب بجميع المعالجات والحالة
   React.useEffect(() => {
     onLocationHandlersReady({
       handleManualFromPin,
@@ -152,7 +159,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       handleMarkerDrag,
       selectLocation,
       manualPinMode,
-      onManualPinConfirm
+      onManualPinConfirm,
     });
   }, [
     handleManualFromPin,
@@ -161,7 +168,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     selectLocation,
     manualPinMode,
     onManualPinConfirm,
-    onLocationHandlersReady
+    onLocationHandlersReady,
   ]);
 
   return null;
