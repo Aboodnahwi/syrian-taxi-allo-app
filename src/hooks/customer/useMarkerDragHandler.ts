@@ -26,13 +26,25 @@ export function useMarkerDragHandler({
    * عند الضغط على دبوس معين أفعّل وضع manual pin mode له وأجعل مركز الخريطة هو موقعه.
    */
   function handleMarkerDrag(type: MarkerType) {
-    if (manualPinMode !== "none") return; // لا تسمح بتحريك اثنين معًا
+    console.log(`[useMarkerDragHandler] handleMarkerDrag called for ${type}`);
+    console.log(`[useMarkerDragHandler] Current manualPinMode: ${manualPinMode}`);
+    console.log(`[useMarkerDragHandler] fromCoordinates:`, fromCoordinates);
+    console.log(`[useMarkerDragHandler] toCoordinates:`, toCoordinates);
+    
+    if (manualPinMode !== "none") {
+      console.log(`[useMarkerDragHandler] Already in manual mode: ${manualPinMode}, skipping`);
+      return; // لا تسمح بتحريك اثنين معًا
+    }
+    
     if (type === "from" && fromCoordinates) {
+      console.log(`[useMarkerDragHandler] Activating manual mode for FROM marker`);
       setManualPinMode("from");
       setMapCenter(fromCoordinates);
       setMapZoom(17);
     }
+    
     if (type === "to" && toCoordinates) {
+      console.log(`[useMarkerDragHandler] Activating manual mode for TO marker`);
       setManualPinMode("to");
       setMapCenter(toCoordinates);
       setMapZoom(17);

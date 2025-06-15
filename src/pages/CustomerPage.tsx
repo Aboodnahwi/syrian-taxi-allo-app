@@ -36,14 +36,6 @@ const CustomerPage = () => {
     toast
   } = useCustomerPageState();
 
-  // Define handleMapMarkerClick BEFORE using it
-  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
-    console.log(`[CustomerPage] Pin ${type} clicked, activating manual mode`);
-    if (locationHandlers?.handleMarkerDrag) {
-      locationHandlers.handleMarkerDrag(type);
-    }
-  }, []);
-
   // جميع الهوكات يجب أن تكون هنا فوق أي شرط
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
@@ -53,6 +45,26 @@ const CustomerPage = () => {
     manualPinMode?: "none"|"from"|"to";
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
+
+  // Define handleMapMarkerClick with proper error handling
+  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
+    console.log(`[CustomerPage] Pin ${type} clicked, trying to activate manual mode`);
+    console.log('[CustomerPage] locationHandlers available:', !!locationHandlers);
+    
+    if (locationHandlers?.handleMarkerDrag) {
+      console.log(`[CustomerPage] Calling handleMarkerDrag for ${type}`);
+      locationHandlers.handleMarkerDrag(type);
+    } else {
+      console.log('[CustomerPage] locationHandlers or handleMarkerDrag not available yet');
+      // Retry after a short delay if handlers aren't ready yet
+      setTimeout(() => {
+        if (locationHandlers?.handleMarkerDrag) {
+          console.log(`[CustomerPage] Retrying handleMarkerDrag for ${type}`);
+          locationHandlers.handleMarkerDrag(type);
+        }
+      }, 100);
+    }
+  }, [locationHandlers]);
 
   const [manualPinAddress, setManualPinAddress] = useState<string>("");
   useEffect(() => {
