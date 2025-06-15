@@ -62,7 +62,7 @@ export function useManualPinConfirm({
       }
       // إغلاق وضع الدبوس اليدوي
       setManualPinMode("none");
-      setManualConfirmKey((k) => k + 1);
+      setManualConfirmKey(Date.now()); // استخدام timestamp بدلاً من دالة
       // تكبير الخريطة إلى النقطة الجديدة
       setMapCenter([lat, lng]);
       setMapZoom(17);
