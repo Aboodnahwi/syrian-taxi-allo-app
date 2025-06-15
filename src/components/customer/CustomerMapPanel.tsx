@@ -129,6 +129,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
           <button
             onClick={() => {
+              // استخدم دائماً أحدث mapCenter عند الضغط
               if (onManualPinConfirm) onManualPinConfirm(mapCenter[0], mapCenter[1]);
             }}
             className="bg-slate-900/95 text-white px-5 py-2 rounded-xl shadow-md font-bold hover:bg-slate-800 transition focus:outline-none"
