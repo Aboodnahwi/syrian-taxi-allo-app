@@ -46,44 +46,9 @@ const useCustomerMapMarkers = ({
   onMarkerClick
 }: CustomerMapMarkersProps) => {
 
-  // وضع التحديد اليدوي: نثبت الدبوس المطلوب في منتصف الخريطة بنفس الشكل الأصلي
-  if (manualPinMode === "from" && mapCenter) {
-    return [
-      getMarker({
-        id: "from",
-        position: mapCenter,
-        popup: fromLocation || "نقطة الانطلاق",
-        color: "#0ea5e9"
-      }),
-      // تظهر الوجهة الأصلية في مكانها إن وجدت
-      ...(toCoordinates ? [
-        getMarker({
-          id: "to",
-          position: toCoordinates,
-          popup: toLocation || "الوجهة",
-          color: "#f59e42"
-        })
-      ] : [])
-    ];
-  }
-  if (manualPinMode === "to" && mapCenter) {
-    return [
-      // تظهر نقطة الانطلاق الأصلية في مكانها إن وجدت
-      ...(fromCoordinates ? [
-        getMarker({
-          id: "from",
-          position: fromCoordinates,
-          popup: fromLocation || "نقطة الانطلاق",
-          color: "#0ea5e9"
-        })
-      ] : []),
-      getMarker({
-        id: "to",
-        position: mapCenter,
-        popup: toLocation || "الوجهة",
-        color: "#f59e42"
-      })
-    ];
+  // في وضع التحديد اليدوي: لا نرسم أي دبوس عادي على الخريطة (يظهر الدبوس فقط Overlay في منتصف الشاشة)
+  if (manualPinMode === "from" || manualPinMode === "to") {
+    return [];
   }
   // الوضع العادي: دبابيس ثابتة فقط حسب الإحداثيات
   return [
@@ -107,4 +72,3 @@ const useCustomerMapMarkers = ({
 };
 
 export default useCustomerMapMarkers;
-

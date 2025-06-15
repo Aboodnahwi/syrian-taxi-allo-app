@@ -54,8 +54,8 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
-
-  // زر شفاف فوق الدبوس لاختيار تحريكه
+  
+  // زر شفاف فوق الدبوس لاختيار تحريكه (في الوضع العادي فقط)
   const markerButtons = (!manualPinMode || manualPinMode === "none")
     ? markers.map(marker => (
         <button
@@ -64,7 +64,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
           aria-label={`اختر تحريك دبوس ${marker.id === "from" ? "الانطلاق" : "الوجهة"}`}
           className="absolute z-[1100] bg-transparent border-none p-0 m-0"
           style={{
-            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // تقريب حسابي ولا يظهر بدقة عند الاستخدام الواقعي
+            left: `calc(${((marker.position[1] - mapCenter[1]) * 150 + 50)}vw)`, // تقريبي، وليس دقيق واقعيًا
             top: `calc(${((marker.position[0] - mapCenter[0]) * -200 + 50)}vh)`,
             width: 32, height: 42,
             transform: "translate(-50%, -100%)",
@@ -79,6 +79,32 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         />
       ))
     : null;
+
+  // الكود الذي يرسم الدبوس الثابت في منتصف الشاشة في وضع التحديد اليدوي فقط (Overlay فقط! ليس على الخريطة)
+  const overlayPin = (manualPinMode && manualPinMode !== "none") ? (
+    <div
+      className="pointer-events-none absolute left-1/2 top-1/2 z-[1200] transition-transform duration-200"
+      style={{
+        transform: "translate(-50%, -100%)",
+        width: 32, height: 42,
+        filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.3))"
+      }}
+    >
+      {/* الدبوس حسب النوع */}
+      <div
+        className={`flex items-center justify-center font-bold text-lg rounded-b-[20px]`}
+        style={{
+          width: 32,
+          height: 42,
+          borderRadius: "16px 16px 20px 20px",
+          background: manualPinMode === "from" ? "#0ea5e9" : "#f59e42",
+          color: "#fff"
+        }}
+      >
+        {manualPinMode === "from" ? "📍" : "🎯"}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="fixed inset-0 z-0">
@@ -96,7 +122,9 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
       {markerButtons}
-      {/* لا تعرض أي دبوس عائم أثناء التحديد اليدوي */}
+      {/* دبوس ثابت في منتصف الشاشة عند وضع التحديد اليدوي (Overlay فقط) */}
+      {overlayPin}
+      {/* زر تأكيد الموقع في وضع التحديد اليدوي */}
       {manualPinMode !== "none" && (
         <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
           <button
