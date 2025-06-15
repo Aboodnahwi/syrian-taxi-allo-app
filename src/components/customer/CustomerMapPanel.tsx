@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import Map from "@/components/map/Map";
 
 interface Marker {
@@ -49,7 +49,6 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   manualPinMode,
   onManualPinConfirm,
 }) => {
-  // مراقبة التغيرات لأغراض التصحيح
   React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
@@ -70,23 +69,28 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
       />
-      {/* دبوس ثابت في المنتصف */}
+      {/* دبوس وزر عائم دائما فوق كل شيء عند اختيار الموقع يدويًا */}
       {manualPinMode !== "none" && (
         <>
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1010] -translate-x-1/2 -translate-y-full transition-all select-none">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1050] -translate-x-1/2 -translate-y-full transition-all select-none">
             {manualPinMode === "from" ? (
               <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>📍</span>
             ) : (
               <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>🎯</span>
             )}
           </div>
-          <div className="absolute left-1/2 top-[55%] z-[1020] -translate-x-1/2 mt-4 flex items-center">
+          <div className="absolute left-1/2 top-[56%] z-[1060] -translate-x-1/2 mt-4 flex items-center">
             <button
               onClick={() => {
                 if (onManualPinConfirm) onManualPinConfirm(mapCenter[0], mapCenter[1]);
               }}
               className="bg-slate-900/95 text-white px-5 py-2 rounded-xl shadow-md font-bold hover:bg-slate-800 transition focus:outline-none"
-              style={{ minWidth: 160 }}
+              style={{
+                minWidth: 160,
+                fontSize: 18,
+                zIndex: 1070,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+              }}
             >
               تأكيد الموقع الحالي
             </button>

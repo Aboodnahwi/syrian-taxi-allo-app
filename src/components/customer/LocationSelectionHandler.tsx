@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -69,7 +70,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       const addressText = getManualAddress(lat, lng);
 
       if (manualPinMode === "from") {
-        // 1. حفظ الإحداثيات الجديدة وموقع النص
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
         setMapCenter(manualCoords);
@@ -84,9 +84,9 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
         // 2. إذا كان هناك وجهة، ارسم المسار فورًا باستخدام القيم الصحيحة
         if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
-          setManualPinMode("none");
+          // أعطي وقتًا صغيرًا لتحديث إحداثيات الدبابيس ثم أخفي وضع اليدوي
+          setTimeout(() => setManualPinMode("none"), 400);
         } else {
-          // إذا لا يوجد وجهة، نبقي الدبوس
           setManualPinMode("from");
         }
       } else if (manualPinMode === "to") {
@@ -103,7 +103,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 
         if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
-          setManualPinMode("none");
+          setTimeout(() => setManualPinMode("none"), 400);
         } else {
           setManualPinMode("to");
         }
@@ -173,3 +173,4 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
+
