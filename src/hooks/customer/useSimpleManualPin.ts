@@ -3,11 +3,13 @@ import { useState, useCallback } from 'react';
 
 interface UseSimpleManualPinProps {
   onConfirm: (lat: number, lng: number, address: string) => void;
+  onUpdateSearchBox?: (lat: number, lng: number, type: 'from' | 'to') => void;
   toast: (opts: any) => void;
 }
 
-export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps) => {
+export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseSimpleManualPinProps) => {
   const [isManualMode, setIsManualMode] = useState(false);
+  const [currentPinType, setCurrentPinType] = useState<'from' | 'to' | null>(null);
   const [currentAddress, setCurrentAddress] = useState<string>("");
   const [currentCoordinates, setCurrentCoordinates] = useState<[number, number] | null>(null);
 
@@ -30,6 +32,7 @@ export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps
   // بدء وضع الدبوس اليدوي
   const startManualMode = useCallback((type: 'from' | 'to') => {
     setIsManualMode(true);
+    setCurrentPinType(type);
     setCurrentAddress("");
     setCurrentCoordinates(null);
     toast({
@@ -41,19 +44,25 @@ export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps
 
   // تحديث العنوان والإحداثيات أثناء تحريك الخريطة
   const updateAddress = useCallback(async (lat: number, lng: number) => {
-    if (!isManualMode) return;
+    if (!isManualMode || !currentPinType) return;
     
     // تحديث الإحداثيات فوراً للاستجابة السريعة
     setCurrentCoordinates([lat, lng]);
     
+    // عرض الإحداثيات في مربع البحث فوراً
+    const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    if (onUpdateSearchBox) {
+      onUpdateSearchBox(lat, lng, currentPinType);
+    }
+    
     // جلب العنوان مع الإحداثيات
-    const { address, coordinates } = await fetchAddress(lat, lng);
+    const { address } = await fetchAddress(lat, lng);
     setCurrentAddress(`${address}\n📍 ${coordinates}`);
-  }, [isManualMode]);
+  }, [isManualMode, currentPinType, onUpdateSearchBox]);
 
   // تأكيد الموقع وحفظ الإحداثيات في مربع البحث
   const confirmLocation = useCallback(async (lat: number, lng: number) => {
-    if (!isManualMode || !currentCoordinates) return;
+    if (!isManualMode || !currentCoordinates || !currentPinType) return;
     
     const { address } = await fetchAddress(lat, lng);
     
@@ -67,19 +76,22 @@ export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps
     });
     
     setIsManualMode(false);
+    setCurrentPinType(null);
     setCurrentAddress("");
     setCurrentCoordinates(null);
-  }, [isManualMode, currentCoordinates, onConfirm, toast]);
+  }, [isManualMode, currentCoordinates, currentPinType, onConfirm, toast]);
 
   // إلغاء الوضع اليدوي
   const cancelManualMode = useCallback(() => {
     setIsManualMode(false);
+    setCurrentPinType(null);
     setCurrentAddress("");
     setCurrentCoordinates(null);
   }, []);
 
   return {
     isManualMode,
+    currentPinType,
     currentAddress,
     currentCoordinates,
     startManualMode,

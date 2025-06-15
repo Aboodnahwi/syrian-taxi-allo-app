@@ -63,6 +63,15 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
       }
       onPinTypeChange(null);
     },
+    onUpdateSearchBox: (lat, lng, type) => {
+      // تحديث مربع البحث بالإحداثيات أثناء تحريك الخريطة
+      const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      if (type === 'from') {
+        locationHook.setFromLocation(coordinates);
+      } else if (type === 'to') {
+        locationHook.setToLocation(coordinates);
+      }
+    },
     toast
   });
 
