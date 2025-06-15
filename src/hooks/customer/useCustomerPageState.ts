@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useVehiclePricing } from '@/hooks/useVehiclePricing';
@@ -37,6 +36,9 @@ export const useCustomerPageState = () => {
     toast,
     mapZoomToRouteRef
   });
+
+  // إضافة calculateRoute إلى locationHook
+  locationHook.calculateRoute = routingHook.calculateRoute;
 
   const rideHook = useCustomerRide({
     userId: user?.id || '',

@@ -72,7 +72,8 @@ const CustomerPage = () => {
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
     manualPinMode: locationHandlers?.manualPinMode,
-    mapCenter
+    mapCenter,
+    onMarkerClick: handleMapMarkerClick // إضافة معالج النقر
   });
 
   // إذا لم يكن هناك مستخدم لا ترسم شيء
@@ -88,6 +89,7 @@ const CustomerPage = () => {
 
   // دائمًا نمُكن دخول وضع التحديد اليدوي عند الضغط على أي دبوس
   const handleMapMarkerClick = (type: "from" | "to") => {
+    console.log(`[CustomerPage] Pin ${type} clicked, activating manual mode`);
     if (locationHandlers?.handleMarkerDrag) {
       locationHandlers.handleMarkerDrag(type);
     }
