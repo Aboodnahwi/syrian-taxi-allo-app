@@ -115,11 +115,11 @@ const CustomerPage = () => {
 
   // تعيين معالج السحب في النافذة العامة ليتمكن useMapMarkers من الوصول إليه
   useEffect(() => {
-    console.log("[CustomerPage] Setting window.onMarkerDrag");
-    (window as any).onMarkerDrag = handleMarkerDrag;
+    console.log("[CustomerPage] Setting window.handleMarkerDrag");
+    (window as any).handleMarkerDrag = handleMarkerDrag;
     return () => {
-      console.log("[CustomerPage] Cleaning up window.onMarkerDrag");
-      delete (window as any).onMarkerDrag;
+      console.log("[CustomerPage] Cleaning up window.handleMarkerDrag");
+      delete (window as any).handleMarkerDrag;
     };
   }, [handleMarkerDrag]);
 

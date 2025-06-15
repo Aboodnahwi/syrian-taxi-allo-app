@@ -87,12 +87,12 @@ export const useMapMarkers = ({
           
           console.log(`[useMapMarkers] Marker ${markerData.id} dragged to:`, lat, lng, address);
           
-          // البحث عن معالج السحب في النافذة العامة والاستدعاء مباشرة
-          if ((window as any).onMarkerDrag) {
-            console.log(`[useMapMarkers] Calling window.onMarkerDrag for ${markerData.id}`);
-            (window as any).onMarkerDrag(markerData.id, lat, lng, address);
+          // استدعاء معالج السحب العالمي مباشرة
+          if ((window as any).handleMarkerDrag) {
+            console.log(`[useMapMarkers] Calling window.handleMarkerDrag for ${markerData.id}`);
+            (window as any).handleMarkerDrag(markerData.id as 'from' | 'to', lat, lng, address);
           } else {
-            console.error(`[useMapMarkers] window.onMarkerDrag not found!`);
+            console.error(`[useMapMarkers] window.handleMarkerDrag not found!`);
           }
         });
 
