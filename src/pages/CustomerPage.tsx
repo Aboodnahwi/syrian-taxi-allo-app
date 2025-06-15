@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
@@ -34,6 +35,14 @@ const CustomerPage = () => {
     rideHook,
     toast
   } = useCustomerPageState();
+
+  // Define handleMapMarkerClick BEFORE using it
+  const handleMapMarkerClick = useCallback((type: "from" | "to") => {
+    console.log(`[CustomerPage] Pin ${type} clicked, activating manual mode`);
+    if (locationHandlers?.handleMarkerDrag) {
+      locationHandlers.handleMarkerDrag(type);
+    }
+  }, []);
 
   // جميع الهوكات يجب أن تكون هنا فوق أي شرط
   const [locationHandlers, setLocationHandlers] = useState<{
@@ -73,7 +82,7 @@ const CustomerPage = () => {
     toLocation: locationHook.toLocation,
     manualPinMode: locationHandlers?.manualPinMode,
     mapCenter,
-    onMarkerClick: handleMapMarkerClick // إضافة معالج النقر
+    onMarkerClick: handleMapMarkerClick
   });
 
   // إذا لم يكن هناك مستخدم لا ترسم شيء
@@ -86,14 +95,6 @@ const CustomerPage = () => {
     icon: getVehicleIcon(p.vehicle_type),
     color: getVehicleColor(p.vehicle_type)
   }));
-
-  // دائمًا نمُكن دخول وضع التحديد اليدوي عند الضغط على أي دبوس
-  const handleMapMarkerClick = (type: "from" | "to") => {
-    console.log(`[CustomerPage] Pin ${type} clicked, activating manual mode`);
-    if (locationHandlers?.handleMarkerDrag) {
-      locationHandlers.handleMarkerDrag(type);
-    }
-  };
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -123,7 +124,7 @@ const CustomerPage = () => {
         mapZoomToRouteRef={mapZoomToRouteRef}
         manualPinMode={locationHandlers?.manualPinMode}
         onManualPinConfirm={locationHandlers?.onManualPinConfirm}
-        onMarkerClick={handleMapMarkerClick} // <-- هنا التمرير
+        onMarkerClick={handleMapMarkerClick}
         manualPinAddress={manualPinAddress}
       />
 
