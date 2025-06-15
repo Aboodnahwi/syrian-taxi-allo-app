@@ -57,9 +57,7 @@ export const useCustomerRouting = ({
     
     if (fromStr === lastCalculatedRef.current.from && toStr === lastCalculatedRef.current.to) {
       console.log(`[useCustomerRouting] Same coordinates, skipping duplicate calculation`);
-      if (route.length > 0) {
-        zoomToBothPoints();
-      }
+      zoomToBothPoints();
       return;
     }
 
@@ -104,7 +102,7 @@ export const useCustomerRouting = ({
         zoomToBothPoints();
       }, 500);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, route]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
   // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات (فقط للتحديثات التلقائية)
   useEffect(() => {
