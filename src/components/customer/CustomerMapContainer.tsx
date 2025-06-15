@@ -64,7 +64,7 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
       onPinTypeChange(null);
     },
     onUpdateSearchBox: (lat, lng, type) => {
-      // تحديث مربع البحث بالإحداثيات في الوقت الفعلي
+      // تحديث مربع البحث بالإحداثيات في الوقت الفعلي عند كل حركة
       const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       if (type === 'from') {
         locationHook.setFromLocation(coordinates);
@@ -75,9 +75,9 @@ const CustomerMapContainer: React.FC<CustomerMapContainerProps> = ({
     toast
   });
 
-  // تحديث الإحداثيات في الوقت الفعلي عند تحريك الخريطة
+  // تحديث الإحداثيات في الوقت الفعلي عند كل حركة للخريطة
   React.useEffect(() => {
-    if (isManualMode && mapCenter) {
+    if (isManualMode && mapCenter && mapCenter.length === 2) {
       updateAddress(mapCenter[0], mapCenter[1]);
     }
   }, [mapCenter, isManualMode, updateAddress]);

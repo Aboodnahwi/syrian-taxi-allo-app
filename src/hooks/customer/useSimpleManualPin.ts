@@ -43,7 +43,7 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
   }, [toast]);
 
   // تحديث الإحداثيات والعنوان في الوقت الفعلي
-  const updateAddress = useCallback(async (lat: number, lng: number) => {
+  const updateAddress = useCallback((lat: number, lng: number) => {
     if (!isManualMode || !currentPinType) return;
     
     // تحديث الإحداثيات فوراً
@@ -55,13 +55,12 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
       onUpdateSearchBox(lat, lng, currentPinType);
     }
     
-    // جلب العنوان للعرض في لوحة التأكيد
-    try {
-      const { address } = await fetchAddress(lat, lng);
+    // جلب العنوان للعرض في لوحة التأكيد (async بدون await لعدم إبطاء التحديث)
+    fetchAddress(lat, lng).then(({ address }) => {
       setCurrentAddress(`${address}\n📍 ${coordinates}`);
-    } catch {
+    }).catch(() => {
       setCurrentAddress(`📍 ${coordinates}`);
-    }
+    });
   }, [isManualMode, currentPinType, onUpdateSearchBox, fetchAddress]);
 
   // تأكيد الموقع وحفظ الإحداثيات في مربع البحث
