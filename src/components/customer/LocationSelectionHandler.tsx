@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -63,41 +64,41 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
+  // إعادة الصياغة هنا: تحديث كل شيء فورياً ثم رسم المسار متى ما توفر الطرف الآخر
   const onManualPinConfirm = React.useCallback(
     async (lat: number, lng: number) => {
       const manualCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
 
       if (manualPinMode === "from") {
+        // حدّث نقطة الانطلاق فورا
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
         setMapCenter(manualCoords);
         setMapZoom(17);
         setManualPinMode("none");
-
         toast({
           title: "تم تحديد نقطة الانطلاق يدويًا",
           description: addressText,
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
-
-        // 2. إذا كان هناك وجهة، ارسم المسار فورًا باستخدام القيم الصحيحة
+        // بعد تحديث الانطلاق، إذا وُجدت وجهة ارسم المسار فوراً
         if (locationHook.toCoordinates) {
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
+        // حدّث نقطة الوجهة فورا
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
         setMapCenter(manualCoords);
         setMapZoom(17);
         setManualPinMode("none");
-
         toast({
           title: "تم تحديد الوجهة يدويًا",
           description: addressText,
           className: "bg-orange-50 border-orange-200 text-orange-800",
         });
-
+        // بعد تحديث الوجهة، إذا وُجدت نقطة انطلاق ارسم المسار فوراً
         if (locationHook.fromCoordinates) {
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
@@ -167,3 +168,4 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
+
