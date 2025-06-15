@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -35,6 +36,7 @@ const CustomerPage = () => {
     toast
   } = useCustomerPageState();
 
+  // HOOKS MUST GO BEFORE ANY CONDITIONAL RETURNS!
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
     handleManualToPin: () => void;
@@ -44,7 +46,30 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // تمرير manualPinMode و mapCenter إلى useCustomerMapMarkers
+  // Track address under center-pin for manual mode
+  const [manualPinAddress, setManualPinAddress] = useState<string>("");
+
+  // update address under pin on map move in manual pin mode
+  useEffect(() => {
+    if (!locationHandlers?.manualPinMode || locationHandlers.manualPinMode === "none") {
+      setManualPinAddress("");
+      return;
+    }
+    let isActive = true;
+    const [lat, lng] = mapCenter;
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`)
+      .then(res => res.json())
+      .then(data => {
+        if (isActive) {
+          if (data.display_name) setManualPinAddress(data.display_name);
+          else setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        }
+      })
+      .catch(() => setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`));
+    return () => { isActive = false; };
+  }, [mapCenter, locationHandlers?.manualPinMode]);
+
+  // Call all external hooks above any conditional return
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
@@ -71,32 +96,6 @@ const CustomerPage = () => {
   const handleMapMarkerClick = (type:"from"|"to") => {
     locationHandlers?.handleMarkerDrag(type);
   };
-
-  // سنضيف عنوان النقطة المختارة حاليًا (في تحديد يدوي)
-  const [manualPinAddress, setManualPinAddress] = useState<string>("");
-
-  // عند التحريك اليدوي للخريطة نضيّف معالج لتحديث العنوان (reverse geocoding)
-  React.useEffect(() => {
-    // لا نستدعي reverse إذا لسنا في وضع التحديد اليدوي أو لا يوجد mapCenter
-    if (!locationHandlers?.manualPinMode || locationHandlers.manualPinMode === "none") {
-      setManualPinAddress("");
-      return;
-    }
-
-    // كلما تغيرت mapCenter في هذا الوضع نحدّث العنوان في المنتصف
-    let isActive = true;
-    const [lat, lng] = mapCenter;
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`)
-      .then(res => res.json())
-      .then(data => {
-        if (isActive) {
-          if (data.display_name) setManualPinAddress(data.display_name);
-          else setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        }
-      })
-      .catch(() => setManualPinAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`));
-    return () => { isActive = false; };
-  }, [mapCenter, locationHandlers?.manualPinMode]);
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
