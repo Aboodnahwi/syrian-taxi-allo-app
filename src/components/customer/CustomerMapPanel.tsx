@@ -148,7 +148,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps & { onMapMove?: (center: 
               boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
             }}
           >
-            تأكيد الموقع الحالي
+            تأكيد
           </button>
         </div>
       )}
