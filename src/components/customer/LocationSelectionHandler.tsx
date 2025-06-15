@@ -69,17 +69,22 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     // لا تغير من toCoordinates هنا!
   }, [_handleManualToPinBase]);
 
-  // زر تأكيد الموقع: يأخذ مركز الخريطة
+  /**
+   * الإصلاح: اجعل مركز الخريطة هو المرجع الدقيق للـ Pin
+   * لا تستخدم أي lat/lng قادم من الخارج. يجب أخذ lat/lng من mapCenter فقط
+   */
   const onManualPinConfirm = React.useCallback(
-    async (lat: number, lng: number) => {
+    async (_lat: number, _lng: number) => {
+      // دائماً أستخدم mapCenter لأن الدبوس العائم ثابت في المركز
+      const lat = mapCenter[0];
+      const lng = mapCenter[1];
       const manualCoords: [number, number] = [lat, lng];
       const addressText = getManualAddress(lat, lng);
 
       if (manualPinMode === "from") {
-        // حدّث نقطة الانطلاق فقط هنا (بعد التأكيد)
         locationHook.setFromCoordinates(manualCoords);
         locationHook.setFromLocation(addressText);
-        setMapCenter(manualCoords);
+        setMapCenter(manualCoords); // optional, just for extra alignment
         setMapZoom(17);
         setManualPinMode("none");
         toast({
@@ -91,7 +96,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           await calculateRoute?.(manualCoords, locationHook.toCoordinates);
         }
       } else if (manualPinMode === "to") {
-        // حدّث نقطة الوجهة فقط هنا (بعد التأكيد)
         locationHook.setToCoordinates(manualCoords);
         locationHook.setToLocation(addressText);
         setMapCenter(manualCoords);
@@ -106,7 +110,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
         }
       }
-      // سيظهر الدبوس الجديد فوراً عن طريق CustomerMapMarkers في الموقع الجديد
+      // سيظهر الدبوس الجديد فوراً عن طريق CustomerMapMarkers في الموقع الجديد وسيتم رسم المسار تلقائيًا.
     },
     [
       manualPinMode,
@@ -115,6 +119,8 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setMapZoom,
       toast,
       calculateRoute,
+      mapCenter,
+      getManualAddress,
     ]
   );
 
