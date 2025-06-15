@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
@@ -44,13 +45,14 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
-  // تمرير manualPinMode إلى useCustomerMapMarkers
+  // تمرير manualPinMode و mapCenter إلى useCustomerMapMarkers
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
     fromLocation: locationHook.fromLocation,
     toLocation: locationHook.toLocation,
-    manualPinMode: locationHandlers?.manualPinMode
+    manualPinMode: locationHandlers?.manualPinMode,
+    mapCenter // إضافة هنا!
   });
 
   if (!user) return null;

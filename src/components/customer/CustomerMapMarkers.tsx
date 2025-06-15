@@ -7,6 +7,7 @@ interface CustomerMapMarkersProps {
   fromLocation: string;
   toLocation: string;
   manualPinMode?: "none" | "from" | "to";
+  mapCenter?: [number, number]; // إضافة mapCenter هنا
 }
 
 // دائما شغّل جميع الهوكات بدون إرجاع مبكر
@@ -15,20 +16,15 @@ const useCustomerMapMarkers = ({
   toCoordinates,
   fromLocation,
   toLocation,
-  manualPinMode
+  manualPinMode,
+  mapCenter
 }: CustomerMapMarkersProps) => {
   const markers = React.useMemo(() => {
-    // في وضع تحديد الدبوس اليدوي، الدبوس الذي يتم تحديده فقط يكون draggable
-    const isManualFrom = manualPinMode === "from";
-    const isManualTo = manualPinMode === "to";
-
-    const showMarkers = manualPinMode === "none" || manualPinMode === undefined;
-
-    // في وضع اليدوي، فقط دبوس واحد ظاهر وقابل للسحب (لا نخفيه حتى يتأكد)
-    if (manualPinMode === "from" && fromCoordinates) {
+    // في وضع تحديد الدبوس اليدوي، يجب أن يكون الدبوس دائماً في مركز الخريطة
+    if (manualPinMode === "from" && mapCenter) {
       return [{
         id: "from" as const,
-        position: fromCoordinates,
+        position: mapCenter, // مركز الخريطة فور كل تصيير
         popup: fromLocation || "نقطة الانطلاق",
         draggable: true,
         icon: {
@@ -39,10 +35,10 @@ const useCustomerMapMarkers = ({
       }];
     }
 
-    if (manualPinMode === "to" && toCoordinates) {
+    if (manualPinMode === "to" && mapCenter) {
       return [{
         id: "to" as const,
-        position: toCoordinates,
+        position: mapCenter, // مركز الخريطة فور كل تصيير
         popup: toLocation || "الوجهة",
         draggable: true,
         icon: {
@@ -78,7 +74,7 @@ const useCustomerMapMarkers = ({
         }
       }] : []),
     ];
-  }, [fromCoordinates, toCoordinates, fromLocation, toLocation, manualPinMode]);
+  }, [fromCoordinates, toCoordinates, fromLocation, toLocation, manualPinMode, mapCenter]);
 
   return markers;
 };
