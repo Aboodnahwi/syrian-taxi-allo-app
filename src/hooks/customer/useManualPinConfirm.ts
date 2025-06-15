@@ -1,5 +1,5 @@
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * Hook: useManualPinConfirm
@@ -29,6 +29,10 @@ export function useManualPinConfirm({
   setManualPinMode,
   setManualConfirmKey,
 }: UseManualPinConfirmProps) {
+  // NEW: حالة لتخزين آخر إحداثيات مؤكدة
+  const [confirmedCoords, setConfirmedCoords] = useState<[number, number] | null>(null);
+  const [confirmedAddress, setConfirmedAddress] = useState<string>("");
+
   // دالة لجلب العنوان من الإحداثيات
   const fetchAddress = async (lat: number, lng: number) => {
     try {
@@ -43,7 +47,6 @@ export function useManualPinConfirm({
   // عند التأكيد، جلب إحداثيات منتصف الخريطة وقت الضغط وحفظها
   const onManualPinConfirm = useCallback(
     async () => {
-      // دائماً نأخذ الإحداثيات من mapCenterRef وقت التأكيد
       if (!mapCenterRef.current) {
         toast({
           title: "خطأ",
@@ -56,10 +59,14 @@ export function useManualPinConfirm({
       const coords: [number, number] = [lat, lng];
 
       // سجل الإحداثيات بوضوح لحظة التأكيد
-      console.log(`[useManualPinConfirm] تأكيد الدبوس اليدوي لـ ${manualPinMode}:`, coords);
+      console.log(`[useManualPinConfirm] تم تأكيد الدبوس اليدوي لـ ${manualPinMode}:`, coords);
+
+      // حفظ الإحداثيات المؤكدة لتظهر مباشرة للواجهة
+      setConfirmedCoords(coords);
 
       // جلب العنوان الحالي
       const addressText = await fetchAddress(lat, lng);
+      setConfirmedAddress(addressText);
 
       if (manualPinMode === "from") {
         locationHook.setFromCoordinates(coords);
@@ -120,5 +127,6 @@ export function useManualPinConfirm({
     ]
   );
 
-  return { onManualPinConfirm };
+  // نوفر آخر إحداثيات/عنوان مؤكدة ليتم عرضها في الواجهة بعد التأكيد
+  return { onManualPinConfirm, confirmedCoords, confirmedAddress };
 }
