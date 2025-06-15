@@ -1,7 +1,7 @@
 
 import React from "react";
 import Map from "@/components/map/Map";
-import { MapPin } from 'lucide-react';
+import { MapPin, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -114,6 +114,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
                   onClick={handleConfirm}
                   disabled={!manualPinCoordinates}
                 >
+                  <Check className="w-4 h-4" />
                   تأكيد الموقع
                 </Button>
               </CardFooter>

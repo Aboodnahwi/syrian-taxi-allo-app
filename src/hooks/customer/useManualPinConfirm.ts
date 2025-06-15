@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 
 interface UseManualPinConfirmProps {
@@ -8,7 +7,6 @@ interface UseManualPinConfirmProps {
   setMapCenter: (coords: [number, number]) => void;
   setMapZoom: (zoom: number) => void;
   toast: (opts: any) => void;
-  calculateRoute: () => void;
   setManualPinMode: (mode: "none" | "from" | "to") => void;
   setManualConfirmKey: (k: number) => void;
 }
@@ -20,7 +18,6 @@ export function useManualPinConfirm({
   setMapCenter,
   setMapZoom,
   toast,
-  calculateRoute,
   setManualPinMode,
   setManualConfirmKey,
 }: UseManualPinConfirmProps) {
@@ -66,10 +63,7 @@ export function useManualPinConfirm({
       // تكبير الخريطة إلى النقطة الجديدة
       setMapCenter([lat, lng]);
       setMapZoom(17);
-      // حساب ورسم خط السير
-      setTimeout(() => {
-        calculateRoute();
-      }, 200);
+      // سيتم حساب المسار تلقائيًا عبر useEffect في useCustomerRouting
     },
     [
       manualPinMode,
@@ -79,7 +73,6 @@ export function useManualPinConfirm({
       setMapCenter,
       setMapZoom,
       toast,
-      calculateRoute,
     ]
   );
 

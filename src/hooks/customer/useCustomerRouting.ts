@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseCustomerRoutingProps {
   fromCoordinates: [number, number] | null;
@@ -16,8 +15,7 @@ export const useCustomerRouting = ({
 }: UseCustomerRoutingProps) => {
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [routeDistance, setRouteDistance] = useState(0);
-  const [lastCalculatedFrom, setLastCalculatedFrom] = useState<[number, number] | null>(null);
-  const [lastCalculatedTo, setLastCalculatedTo] = useState<[number, number] | null>(null);
+  const lastCalculatedRef = useRef<{ from: string | null; to: string | null }>({ from: null, to: null });
 
   const calculateDirectDistance = useCallback((from: [number, number], to: [number, number]) => {
     const R = 6371;
@@ -56,19 +54,19 @@ export const useCustomerRouting = ({
     // منع الحساب المتكرر للنفس الإحداثيات
     const fromStr = `${from[0]},${from[1]}`;
     const toStr = `${to[0]},${to[1]}`;
-    const lastFromStr = lastCalculatedFrom ? `${lastCalculatedFrom[0]},${lastCalculatedFrom[1]}` : '';
-    const lastToStr = lastCalculatedTo ? `${lastCalculatedTo[0]},${lastCalculatedTo[1]}` : '';
     
-    if (fromStr === lastFromStr && toStr === lastToStr) {
+    if (fromStr === lastCalculatedRef.current.from && toStr === lastCalculatedRef.current.to) {
       console.log(`[useCustomerRouting] Same coordinates, skipping duplicate calculation`);
+      if (route.length > 0) {
+        zoomToBothPoints();
+      }
       return;
     }
 
-    // تسجيل الإحداثيات الجديدة مباشرة
-    setLastCalculatedFrom([...from]);
-    setLastCalculatedTo([...to]);
-
     console.log(`[useCustomerRouting] Starting route calculation from:`, from, `to:`, to);
+    
+    // تسجيل الإحداثيات الجديدة مباشرة
+    lastCalculatedRef.current = { from: fromStr, to: toStr };
 
     try {
       const response = await fetch(
@@ -100,33 +98,25 @@ export const useCustomerRouting = ({
       setRouteDistance(distance);
       setRoute([from, to]);
       console.log(`[useCustomerRouting] Using direct distance: ${distance}km`);
+      // Reset last calculated to allow retry
+      lastCalculatedRef.current = { from: null, to: null };
       setTimeout(() => {
         zoomToBothPoints();
       }, 500);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, lastCalculatedFrom, lastCalculatedTo]);
+  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints, route]);
 
   // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات (فقط للتحديثات التلقائية)
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
-      // التأكد من أن هذه ليست نفس الإحداثيات المحسوبة مسبقاً
-      const fromStr = `${fromCoordinates[0]},${fromCoordinates[1]}`;
-      const toStr = `${toCoordinates[0]},${toCoordinates[1]}`;
-      const lastFromStr = lastCalculatedFrom ? `${lastCalculatedFrom[0]},${lastCalculatedFrom[1]}` : '';
-      const lastToStr = lastCalculatedTo ? `${lastCalculatedTo[0]},${lastCalculatedTo[1]}` : '';
-      
-      if (fromStr !== lastFromStr || toStr !== lastToStr) {
-        console.log(`[useCustomerRouting] Auto-calculating route due to coordinate change`);
-        calculateRoute();
-      }
+      calculateRoute();
     } else {
       // إذا لم تكن هناك إحداثيات كاملة، امسح المسار
       setRoute([]);
       setRouteDistance(0);
-      setLastCalculatedFrom(null);
-      setLastCalculatedTo(null);
+      lastCalculatedRef.current = { from: null, to: null };
     }
-  }, [fromCoordinates, toCoordinates]);
+  }, [fromCoordinates, toCoordinates, calculateRoute]);
 
   return {
     route,
