@@ -1,7 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
-import { useMarkerClickHandler } from '@/hooks/customer/useMarkerClickHandler';
 import { useGlobalMarkerDragHandler } from '@/hooks/customer/useGlobalMarkerDragHandler';
 import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
@@ -14,6 +12,19 @@ import {
   getVehicleIcon,
   getVehicleColor,
 } from '@/utils/vehicleUtils';
+
+// A simple debounce utility
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 const CustomerPage = () => {
   const {
@@ -50,8 +61,37 @@ const CustomerPage = () => {
   // Setup global marker drag handler
   const { handleMarkerDrag } = useGlobalMarkerDragHandler({ locationHook, toast });
 
-  // Setup marker click handler
-  const { handleMapMarkerClick } = useMarkerClickHandler({ locationHandlers });
+  const debouncedSetFromCoordinates = useCallback(debounce(locationHook.setFromCoordinates, 300), [locationHook.setFromCoordinates]);
+  const debouncedSetToCoordinates = useCallback(debounce(locationHook.setToCoordinates, 300), [locationHook.setToCoordinates]);
+
+  React.useEffect(() => {
+    const handleMarkerDragMove = (type: 'from' | 'to', lat: number, lng: number) => {
+      if (type === 'from') {
+        debouncedSetFromCoordinates([lat, lng]);
+      } else {
+        debouncedSetToCoordinates([lat, lng]);
+      }
+    };
+
+    const handleMarkerDragEnd = (type: 'from' | 'to', lat: number, lng: number, address: string) => {
+      if (type === 'from') {
+        locationHook.setFromCoordinates([lat, lng]);
+        locationHook.setFromLocation(address);
+      } else {
+        locationHook.setToCoordinates([lat, lng]);
+        locationHook.setToLocation(address);
+      }
+    };
+    
+    (window as any).handleMarkerDrag = handleMarkerDragEnd;
+    (window as any).handleMarkerDragMove = handleMarkerDragMove;
+    
+    return () => {
+      delete (window as any).handleMarkerDrag;
+      delete (window as any).handleMarkerDragMove;
+    }
+  }, [locationHook, debouncedSetFromCoordinates, debouncedSetToCoordinates]);
+  
 
   // Calculate markers
   const markers = useCustomerMapMarkers({
@@ -61,7 +101,6 @@ const CustomerPage = () => {
     toLocation: locationHook.toLocation,
     manualPinMode: "none", // دائماً none لأننا لا نستخدم الوضع اليدوي
     mapCenter,
-    onMarkerClick: handleMapMarkerClick
   });
 
   // إذا لم يكن هناك مستخدم لا ترسم شيء
@@ -101,7 +140,6 @@ const CustomerPage = () => {
         mapZoomToFromRef={mapZoomToFromRef}
         mapZoomToToRef={mapZoomToToRef}
         mapZoomToRouteRef={mapZoomToRouteRef}
-        onMarkerClick={handleMapMarkerClick}
       />
 
       {/* Head & notification */}

@@ -8,7 +8,6 @@ interface CustomerMapMarkersProps {
   toLocation: string;
   manualPinMode?: "none" | "from" | "to";
   mapCenter?: [number, number];
-  onMarkerClick?: (type: "from" | "to") => void;
 }
 
 // Helper: get marker data for "from" or "to"
@@ -17,13 +16,11 @@ function getMarker({
   position,
   popup,
   color,
-  onMarkerClick,
 }: {
   id: "from" | "to";
   position: [number, number];
   popup: string;
   color: string;
-  onMarkerClick?: (type: "from" | "to") => void;
 }) {
   return {
     id,
@@ -35,7 +32,6 @@ function getMarker({
       iconSize: [32, 42] as [number, number],
       iconAnchor: [16, 40] as [number, number]
     },
-    onClick: () => onMarkerClick?.(id)
   };
 }
 
@@ -45,8 +41,6 @@ const useCustomerMapMarkers = ({
   fromLocation,
   toLocation,
   manualPinMode,
-  mapCenter,
-  onMarkerClick
 }: CustomerMapMarkersProps) => {
 
   // في وضع التحديد اليدوي: لا نرسم أي دبوس عادي على الخريطة (يظهر الدبوس فقط Overlay في منتصف الشاشة)
@@ -62,7 +56,6 @@ const useCustomerMapMarkers = ({
         position: fromCoordinates,
         popup: fromLocation || "نقطة الانطلاق",
         color: "#0ea5e9",
-        onMarkerClick
       })
     ] : []),
     ...(toCoordinates ? [
@@ -71,7 +64,6 @@ const useCustomerMapMarkers = ({
         position: toCoordinates,
         popup: toLocation || "الوجهة",
         color: "#f59e42",
-        onMarkerClick
       })
     ] : []),
   ];
