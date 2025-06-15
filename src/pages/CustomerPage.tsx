@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
-import { useCustomerMapMarkers } from '@/components/customer/CustomerMapMarkers';
+import useCustomerMapMarkers from '@/components/customer/CustomerMapMarkers';
 import LocationSelectionHandler from '@/components/customer/LocationSelectionHandler';
 import CustomerPageHeader from '@/components/customer/CustomerPageHeader';
 import LocationInputs from '@/components/customer/LocationInputs';
@@ -45,11 +44,13 @@ const CustomerPage = () => {
     onManualPinConfirm?: (lat:number,lng:number)=>void;
   } | null>(null);
 
+  // تمرير manualPinMode إلى useCustomerMapMarkers
   const markers = useCustomerMapMarkers({
     fromCoordinates: locationHook.fromCoordinates,
     toCoordinates: locationHook.toCoordinates,
     fromLocation: locationHook.fromLocation,
-    toLocation: locationHook.toLocation
+    toLocation: locationHook.toLocation,
+    manualPinMode: locationHandlers?.manualPinMode
   });
 
   if (!user) return null;

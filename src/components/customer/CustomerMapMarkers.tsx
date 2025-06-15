@@ -6,15 +6,20 @@ interface CustomerMapMarkersProps {
   toCoordinates: [number, number] | null;
   fromLocation: string;
   toLocation: string;
+  manualPinMode?: "none" | "from" | "to";
 }
 
-// جميع الدبابيس غير قابلة للسحب في هذا الوضع
 export const useCustomerMapMarkers = ({
   fromCoordinates,
   toCoordinates,
   fromLocation,
-  toLocation
+  toLocation,
+  manualPinMode
 }: CustomerMapMarkersProps) => {
+  // إذا كان في وضع البين اليدوي، لا نظهر أي دبوس عادي
+  if (manualPinMode && manualPinMode !== "none") {
+    return [];
+  }
   const markers = React.useMemo(() => [
     ...(fromCoordinates ? [{
       id: "from" as const,

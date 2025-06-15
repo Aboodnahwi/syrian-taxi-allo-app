@@ -50,7 +50,7 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
   onManualPinConfirm,
 }) => {
   // مراقبة التغيرات لأغراض التصحيح
-  useEffect(() => {
+  React.useEffect(() => {
     console.log("[CustomerMapPanel] Incoming markers:", markers);
     console.log("[CustomerMapPanel] Incoming route:", route);
   }, [markers, route]);
@@ -73,14 +73,14 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
       {/* دبوس ثابت في المنتصف */}
       {manualPinMode !== "none" && (
         <>
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[998] -translate-x-1/2 -translate-y-full transition-all select-none">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1010] -translate-x-1/2 -translate-y-full transition-all select-none">
             {manualPinMode === "from" ? (
-              <span style={{ fontSize: 44 }} className="drop-shadow-[0_3px_8px_rgba(0,0,0,0.18)]">📍</span>
+              <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>📍</span>
             ) : (
-              <span style={{ fontSize: 44 }} className="drop-shadow-[0_3px_8px_rgba(0,0,0,0.18)]">🎯</span>
+              <span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.28))' }}>🎯</span>
             )}
           </div>
-          <div className="absolute left-1/2 top-[55%] z-[999] -translate-x-1/2 mt-4 flex items-center">
+          <div className="absolute left-1/2 top-[55%] z-[1020] -translate-x-1/2 mt-4 flex items-center">
             <button
               onClick={() => {
                 if (onManualPinConfirm) onManualPinConfirm(mapCenter[0], mapCenter[1]);
@@ -98,3 +98,4 @@ const CustomerMapPanel: React.FC<CustomerMapPanelProps> = ({
 };
 
 export default CustomerMapPanel;
+
