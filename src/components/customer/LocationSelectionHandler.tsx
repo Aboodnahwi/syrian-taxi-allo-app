@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
 
@@ -93,7 +92,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
           className: "bg-blue-50 border-blue-200 text-blue-800",
         });
 
-        // نؤجل تعطيل وضع manual حتى تتحدث الستيت لضمان إعادة التصيير بصورة صحيحة
         setTimeout(() => {
           setManualPinMode("none");
         }, 0);
@@ -136,8 +134,52 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     ]
   );
 
-  // عند سحب الدبوس (الوضع العادي/الوضع اليدوي) - لم تغير هنا
-  const handleMarkerDrag = React.useCallback(() => {}, []);
+  // عند سحب الدبوس (الوضع اليدوي/الدبوس العائم) أو الدبوس العادي القابل للسحب، حدّث الإحداثيات وكذلك الموقع
+  const handleMarkerDrag = React.useCallback(
+    (type: "from" | "to", lat: number, lng: number, address: string) => {
+      // استخدم العنوان المرسل من الخريطة إن وجد وإلا استخدم الإحداثيات كنص
+      const locationText = address || getManualAddress(lat, lng);
+      if (type === "from") {
+        locationHook.setFromCoordinates([lat, lng]);
+        locationHook.setFromLocation(locationText);
+        setMapCenter([lat, lng]);
+        setMapZoom(17);
+        toast({
+          title: "تم تحديث نقطة الانطلاق بواسطة السحب",
+          description: locationText,
+          className: "bg-blue-50 border-blue-200 text-blue-800"
+        });
+        if (locationHook.toCoordinates) {
+          calculateRoute?.([lat, lng], locationHook.toCoordinates);
+        }
+      } else if (type === "to") {
+        locationHook.setToCoordinates([lat, lng]);
+        locationHook.setToLocation(locationText);
+        setMapCenter([lat, lng]);
+        setMapZoom(17);
+        toast({
+          title: "تم تحديث الوجهة بواسطة السحب",
+          description: locationText,
+          className: "bg-orange-50 border-orange-200 text-orange-800"
+        });
+        if (locationHook.fromCoordinates) {
+          calculateRoute?.(locationHook.fromCoordinates, [lat, lng]);
+        }
+      }
+      // إذا كنت في وضع وضع يدوي، بعد السحب اضبطه إلى none
+      setTimeout(() => {
+        setManualPinMode("none");
+      }, 300);
+    },
+    [
+      locationHook,
+      setMapCenter,
+      setMapZoom,
+      toast,
+      calculateRoute,
+      getManualAddress,
+    ]
+  );
 
   // اختيار موقع من الاقتراحات كما هو
   const selectLocation = React.useCallback((suggestion: any, type: 'from' | 'to') => {
@@ -193,4 +235,3 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
 };
 
 export default LocationSelectionHandler;
-
