@@ -1,5 +1,6 @@
 import React from 'react';
 import { useManualPinMode } from "@/hooks/useManualPinMode";
+import { useManualPinConfirm } from "@/hooks/customer/useManualPinConfirm";
 
 interface LocationSelectionHandlerProps {
   locationHook: any;
@@ -29,16 +30,12 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   mapZoomToToRef,
   onLocationHandlersReady
 }) => {
-  // للتحكم بأحدث mapCenter دون تعليق stale closure:
   const mapCenterRef = React.useRef(mapCenter);
   React.useEffect(() => {
     mapCenterRef.current = mapCenter;
   }, [mapCenter]);
 
-  // التحكم بوضعية تحديد يدوية (من/إلى/لاشيء)
   const [manualPinMode, setManualPinMode] = React.useState<"none"|"from"|"to">("none");
-
-  // --- [NEW: معرف لجعل كل تأكيد دبوس فريدًا] ---
   const [manualConfirmKey, setManualConfirmKey] = React.useState(0);
 
   const {
@@ -59,99 +56,33 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
   });
 
   const calculateRoute = locationHook.calculateRoute ?? locationHook?.routingHook?.calculateRoute;
-  const getManualAddress = (lat: number, lng: number) =>
-    `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-  // عند الضغط على زر "تعيين الانطلاق يدويًا"
   const handleManualFromPin = React.useCallback(() => {
     _handleManualFromPinBase();
     setManualPinMode("from");
   }, [_handleManualFromPinBase]);
 
-  // عند الضغط على زر "تعيين الوجهة يدويًا"
   const handleManualToPin = React.useCallback(() => {
     _handleManualToPinBase();
     setManualPinMode("to");
   }, [_handleManualToPinBase]);
 
-  /**
-   * الإصلاح: استخدم دومًا أحدث مركز للخريطة عند التأكيد!
-   */
-  const onManualPinConfirm = React.useCallback(
-    async (_lat: number, _lng: number) => {
-      // استخدم دومًا القيمة المرجعية المحدثة وليس فقط prop mapCenter
-      const [lat, lng] = mapCenterRef.current;
-      const manualCoords: [number, number] = [lat, lng];
-      const addressText = getManualAddress(lat, lng);
+  // استخدم الهوك الجديد
+  const { onManualPinConfirm } = useManualPinConfirm({
+    manualPinMode,
+    mapCenterRef,
+    locationHook,
+    setMapCenter,
+    setMapZoom,
+    toast,
+    calculateRoute,
+    setManualPinMode,
+    setManualConfirmKey,
+  });
 
-      // اطبع الإحداثيات للمراجعة
-      console.log("[onManualPinConfirm] تأكيد دبوس يدوي! mapCenterRef.current:", mapCenterRef.current, "manualPinMode:", manualPinMode);
-
-      if (manualPinMode === "from") {
-        locationHook.setFromCoordinates(manualCoords);
-        locationHook.setFromLocation(addressText);
-
-        setMapCenter(manualCoords);
-        setMapZoom(17);
-
-        // إضافة تأخير بسيط ليضمن التحديث الكامل قبل إطفاء manualPinMode
-        setTimeout(() => {
-          setManualPinMode("none");
-          setManualConfirmKey((k) => k + 1); // Force re-render/cycle
-          console.log("[onManualPinConfirm] manualPinMode set to none بعد التحديث");
-        }, 200);
-
-        toast({
-          title: "تم تحديد نقطة الانطلاق يدويًا",
-          description: addressText,
-          className: "bg-blue-50 border-blue-200 text-blue-800",
-        });
-
-        if (locationHook.toCoordinates) {
-          await calculateRoute?.(manualCoords, locationHook.toCoordinates);
-        }
-      } else if (manualPinMode === "to") {
-        locationHook.setToCoordinates(manualCoords);
-        locationHook.setToLocation(addressText);
-
-        setMapCenter(manualCoords);
-        setMapZoom(17);
-
-        setTimeout(() => {
-          setManualPinMode("none");
-          setManualConfirmKey((k) => k + 1); // Force re-render/cycle
-          console.log("[onManualPinConfirm] manualPinMode set to none بعد التحديث");
-        }, 200);
-
-        toast({
-          title: "تم تحديد الوجهة يدويًا",
-          description: addressText,
-          className: "bg-orange-50 border-orange-200 text-orange-800",
-        });
-
-        if (locationHook.fromCoordinates) {
-          await calculateRoute?.(locationHook.fromCoordinates, manualCoords);
-        }
-      }
-      setTimeout(() => {
-        console.log("[onManualPinConfirm] after-confirm fromCoordinates:", locationHook.fromCoordinates, "toCoordinates:", locationHook.toCoordinates, "manualPinMode:", manualPinMode);
-      }, 300);
-    },
-    [
-      manualPinMode,
-      locationHook,
-      setMapCenter,
-      setMapZoom,
-      toast,
-      calculateRoute,
-      getManualAddress
-    ]
-  );
-
-  // عند سحب الدبوس (الوضع اليدوي/الدبوس العائم) أو الدبوس العادي القابل للسحب، حدّث الإحداثيات وكذلك الموقع
   const handleMarkerDrag = React.useCallback(
     (type: "from" | "to", lat: number, lng: number, address: string) => {
-      const locationText = address || getManualAddress(lat, lng);
+      const locationText = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       if (type === "from") {
         locationHook.setFromCoordinates([lat, lng]);
         locationHook.setFromLocation(locationText);
@@ -188,8 +119,7 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
       setMapCenter,
       setMapZoom,
       toast,
-      calculateRoute,
-      getManualAddress
+      calculateRoute
     ]
   );
 
@@ -222,7 +152,6 @@ const LocationSelectionHandler: React.FC<LocationSelectionHandlerProps> = ({
     }
   }, [locationHook, setMapCenter, setMapZoom, mapZoomToFromRef, mapZoomToToRef, toast]);
 
-  // React.useEffect: في حالة تغير manualConfirmKey نجبر التحديث
   React.useEffect(() => {
     onLocationHandlersReady({
       handleManualFromPin,
