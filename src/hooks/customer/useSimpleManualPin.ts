@@ -3,18 +3,16 @@ import { useState, useCallback } from 'react';
 
 interface UseSimpleManualPinProps {
   onConfirm: (lat: number, lng: number, address: string) => void;
-  onUpdateSearchBox?: (lat: number, lng: number, type: 'from' | 'to') => void;
   toast: (opts: any) => void;
 }
 
-export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseSimpleManualPinProps) => {
+export const useSimpleManualPin = ({ onConfirm, toast }: UseSimpleManualPinProps) => {
   const [isManualMode, setIsManualMode] = useState(false);
-  const [currentPinType, setCurrentPinType] = useState<'from' | 'to' | null>(null);
   const [currentAddress, setCurrentAddress] = useState<string>("");
   const [currentCoordinates, setCurrentCoordinates] = useState<[number, number] | null>(null);
 
   // جلب العنوان مع عرض الإحداثيات
-  const fetchAddress = useCallback(async (lat: number, lng: number) => {
+  const fetchAddress = async (lat: number, lng: number) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
@@ -27,12 +25,11 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
       const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       return { address: coordinates, coordinates };
     }
-  }, []);
+  };
 
   // بدء وضع الدبوس اليدوي
   const startManualMode = useCallback((type: 'from' | 'to') => {
     setIsManualMode(true);
-    setCurrentPinType(type);
     setCurrentAddress("");
     setCurrentCoordinates(null);
     toast({
@@ -42,31 +39,21 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
     });
   }, [toast]);
 
-  // تحديث الإحداثيات والعنوان في الوقت الفعلي
+  // تحديث العنوان والإحداثيات أثناء تحريك الخريطة
   const updateAddress = useCallback(async (lat: number, lng: number) => {
-    if (!isManualMode || !currentPinType) return;
+    if (!isManualMode) return;
     
-    // تحديث الإحداثيات فوراً
+    // تحديث الإحداثيات فوراً للاستجابة السريعة
     setCurrentCoordinates([lat, lng]);
     
-    // عرض الإحداثيات في مربع البحث فوراً (في الوقت الفعلي)
-    const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    if (onUpdateSearchBox) {
-      onUpdateSearchBox(lat, lng, currentPinType);
-    }
-    
-    // جلب العنوان للعرض في لوحة التأكيد
-    try {
-      const { address } = await fetchAddress(lat, lng);
-      setCurrentAddress(`${address}\n📍 ${coordinates}`);
-    } catch {
-      setCurrentAddress(`📍 ${coordinates}`);
-    }
-  }, [isManualMode, currentPinType, onUpdateSearchBox, fetchAddress]);
+    // جلب العنوان مع الإحداثيات
+    const { address, coordinates } = await fetchAddress(lat, lng);
+    setCurrentAddress(`${address}\n📍 ${coordinates}`);
+  }, [isManualMode]);
 
   // تأكيد الموقع وحفظ الإحداثيات في مربع البحث
   const confirmLocation = useCallback(async (lat: number, lng: number) => {
-    if (!isManualMode || !currentCoordinates || !currentPinType) return;
+    if (!isManualMode || !currentCoordinates) return;
     
     const { address } = await fetchAddress(lat, lng);
     
@@ -80,22 +67,19 @@ export const useSimpleManualPin = ({ onConfirm, onUpdateSearchBox, toast }: UseS
     });
     
     setIsManualMode(false);
-    setCurrentPinType(null);
     setCurrentAddress("");
     setCurrentCoordinates(null);
-  }, [isManualMode, currentCoordinates, currentPinType, onConfirm, toast, fetchAddress]);
+  }, [isManualMode, currentCoordinates, onConfirm, toast]);
 
   // إلغاء الوضع اليدوي
   const cancelManualMode = useCallback(() => {
     setIsManualMode(false);
-    setCurrentPinType(null);
     setCurrentAddress("");
     setCurrentCoordinates(null);
   }, []);
 
   return {
     isManualMode,
-    currentPinType,
     currentAddress,
     currentCoordinates,
     startManualMode,
