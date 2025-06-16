@@ -4,7 +4,7 @@ import RideRequestCard from './RideRequestCard';
 interface RideRequestListProps {
   rideRequests: any[];
   acceptRide: (request: any) => void;
-  rejectRide: (requestId: string) => void;
+  rejectRide: (requestId: number) => void;
 }
 
 const RideRequestList = ({ rideRequests, acceptRide, rejectRide }: RideRequestListProps) => {

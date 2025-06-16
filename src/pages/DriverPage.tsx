@@ -1,16 +1,40 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { useRealTimeTrips } from '@/hooks/useRealTime';
-import { useVehiclePricing } from '@/hooks/useVehiclePricing';
 import Map from '@/components/map/Map';
 import DriverHeader from '@/components/driver/DriverHeader';
 import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
 import ActiveRideCard from '@/components/driver/ActiveRideCard';
-import RideRequestDrawer from '@/components/driver/RideRequestDrawer';
-import RideMeter from '@/components/driver/RideMeter';
+import RideRequestList from '@/components/driver/RideRequestList';
 import DriverPageMessages from '@/components/driver/DriverPageMessages';
+
+// طلبات الرحلات التجريبية
+const mockRideRequests = [
+  {
+    id: 1,
+    customerName: 'أحمد محمد',
+    from: 'المزة',
+    to: 'الصالحية',
+    distance: '5.2 كم',
+    price: 2500,
+    vehicleType: 'سيارة مكيفة',
+    estimatedTime: '15 دقيقة',
+    customerLocation: [33.5138, 36.2765],
+    urgent: false
+  },
+  {
+    id: 2,
+    customerName: 'فاطمة علي',
+    from: 'جرمانا',
+    to: 'باب توما',
+    distance: '8.1 كم',
+    price: 3200,
+    vehicleType: 'سيارة VIP',
+    estimatedTime: '22 دقيقة',
+    customerLocation: [33.5023, 36.3012],
+    urgent: true
+  }
+];
 
 const DriverPage = () => {
   const navigate = useNavigate();
@@ -19,16 +43,10 @@ const DriverPage = () => {
   const [user, setUser] = useState<any>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
+  const [rideRequests, setRideRequests] = useState(mockRideRequests);
   const [activeRide, setActiveRide] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
-
-  // استخدام البيانات الحقيقية
-  const { trips: rideRequests, loading: tripsLoading } = useRealTimeTrips('driver', user?.id);
-  const { pricing, calculatePrice } = useVehiclePricing();
-
-  // فلترة الرحلات للحصول على الطلبات المتاحة فقط
-  const availableRequests = rideRequests.filter(trip => trip.status === 'pending' && !trip.driver_id);
 
   // التحقق من تسجيل الدخول
   useEffect(() => {
@@ -89,26 +107,24 @@ const DriverPage = () => {
     }
     
     // إضافة علامات طلبات الرحلات
-    if (isOnline && !activeRide && availableRequests.length > 0) {
-      availableRequests.forEach((request) => {
-        if (request.from_coordinates) {
-          markers.push({
-            id: `request-${request.id}`,
-            position: request.from_coordinates,
-            popup: `<div class="font-tajawal"><strong>طلب رحلة</strong><br>من: ${request.from_location}<br>إلى: ${request.to_location}</div>`,
-            icon: {
-              html: `<div class="bg-taxi-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v3c0 .6.4 1 1 1h2"></path><path d="M7 17H5c-.6 0-1 .4-1 1v2c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-2c0-.6-.4-1-1-1Z"></path><path d="M19 17h2c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1h-2c-.6 0-1-.4-1-1v-2c0-.6.4-1 1-1Z"></path><path d="M12 17H7"></path><path d="M17 17h-5"></path><path d="M12 5v12"></path><circle cx="12" cy="3" r="1"></circle></svg></div>`,
-              iconSize: [30, 30],
-              iconAnchor: [15, 15],
-              className: 'custom-div-icon'
-            }
-          });
-        }
+    if (isOnline && !activeRide) {
+      rideRequests.forEach((request) => {
+        markers.push({
+          id: `request-${request.id}`,
+          position: request.customerLocation,
+          popup: `<div class="font-tajawal"><strong>${request.customerName}</strong><br>من: ${request.from}<br>إلى: ${request.to}</div>`,
+          icon: {
+            html: `<div class="bg-taxi-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v3c0 .6.4 1 1 1h2"></path><path d="M7 17H5c-.6 0-1 .4-1 1v2c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-2c0-.6-.4-1-1-1Z"></path><path d="M19 17h2c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1h-2c-.6 0-1-.4-1-1v-2c0-.6.4-1 1-1Z"></path><path d="M12 17H7"></path><path d="M17 17h-5"></path><path d="M12 5v12"></path><circle cx="12" cy="3" r="1"></circle></svg></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            className: 'custom-div-icon'
+          }
+        });
       });
     }
     
     setMapMarkers(markers);
-  }, [isOnline, availableRequests, currentLocation, activeRide]);
+  }, [isOnline, rideRequests, currentLocation, activeRide]);
 
   // تبديل حالة السائق
   const toggleOnlineStatus = () => {
@@ -124,16 +140,18 @@ const DriverPage = () => {
   const acceptRide = (request: any) => {
     setActiveRide(request);
     setRideStatus('accepted');
+    setRideRequests(rideRequests.filter(r => r.id !== request.id));
     
     toast({
       title: "تم قبول الرحلة",
-      description: `رحلة من ${request.from_location} إلى ${request.to_location}`,
+      description: `رحلة ${request.customerName} من ${request.from} إلى ${request.to}`,
       className: "bg-green-50 border-green-200 text-green-800"
     });
   };
 
   // رفض طلب الرحلة
-  const rejectRide = (requestId: string) => {
+  const rejectRide = (requestId: number) => {
+    setRideRequests(rideRequests.filter(r => r.id !== requestId));
     toast({
       title: "تم رفض الرحلة",
       description: "تم رفض طلب الرحلة",
@@ -163,12 +181,6 @@ const DriverPage = () => {
     }
   };
 
-  // إنهاء الرحلة مع بيانات العداد
-  const handleRideComplete = (distance: number, totalPrice: number) => {
-    console.log(`تم إنهاء الرحلة - المسافة: ${distance} كم، السعر النهائي: ${totalPrice} ل.س`);
-    updateRideStatus('completed');
-  };
-
   // تسجيل الخروج
   const logout = () => {
     localStorage.removeItem('user');
@@ -176,9 +188,6 @@ const DriverPage = () => {
   };
 
   if (!user) return null;
-
-  // الحصول على بيانات التسعير للرحلة النشطة
-  const currentVehiclePricing = pricing.find(p => p.vehicle_type === activeRide?.vehicle_type) || pricing[0];
 
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
@@ -199,24 +208,15 @@ const DriverPage = () => {
 
       <DriverStatusBadge isOnline={isOnline} />
 
-      {rideStatus === 'started' && currentVehiclePricing && (
-        <RideMeter
-          isActive={true}
-          basePrice={currentVehiclePricing.base_price}
-          pricePerKm={currentVehiclePricing.price_per_km}
-          onRideComplete={handleRideComplete}
-        />
-      )}
-
       <ActiveRideCard 
         activeRide={activeRide}
         rideStatus={rideStatus}
         updateRideStatus={updateRideStatus}
       />
 
-      {!activeRide && isOnline && (
-        <RideRequestDrawer 
-          rideRequests={availableRequests}
+      {!activeRide && isOnline && rideRequests.length > 0 && (
+        <RideRequestList 
+          rideRequests={rideRequests}
           acceptRide={acceptRide}
           rejectRide={rejectRide}
         />
@@ -225,7 +225,7 @@ const DriverPage = () => {
       <DriverPageMessages 
         activeRide={activeRide}
         isOnline={isOnline}
-        rideRequestsCount={availableRequests.length}
+        rideRequestsCount={rideRequests.length}
         toggleOnlineStatus={toggleOnlineStatus}
       />
     </div>
