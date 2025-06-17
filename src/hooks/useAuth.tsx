@@ -50,14 +50,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     loading,
     signUp,
-    signIn: async (phone: string): Promise<boolean> => {
-      const result = await signIn(phone);
-      return result.success;
-    },
-    verifyOtp: async (phone: string, code: string): Promise<boolean> => {
-      const result = await verifyOtp(phone, code);
-      return result.success;
-    },
+    signIn,
+    verifyOtp,
     signOut
   };
 
