@@ -57,9 +57,9 @@ export const useCustomerRide = ({
       return;
     }
 
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // التحقق من المستخدم المصادق عليه محلياً
+    const authenticatedUser = localStorage.getItem('authenticated_user');
+    if (!authenticatedUser) {
       toast({
         title: "خطأ في المصادقة",
         description: "يرجى تسجيل الدخول أولاً",
@@ -69,6 +69,7 @@ export const useCustomerRide = ({
     }
 
     try {
+      const user = JSON.parse(authenticatedUser);
       const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       const price = calculatePrice(distance, selectedVehicle);
@@ -78,7 +79,7 @@ export const useCustomerRide = ({
       const { data, error } = await supabase
         .from('trips')
         .insert({
-          customer_id: user.id, // Use authenticated user ID
+          customer_id: user.id,
           from_location: fromLocation,
           to_location: toLocation,
           from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,

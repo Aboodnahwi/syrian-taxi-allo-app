@@ -57,6 +57,22 @@ export const authService = {
       }
 
       // تسجيل دخول مباشر بدون OTP للمستخدمين الموجودين
+      // إنشاء جلسة مزيفة للمستخدم
+      const authUser = {
+        id: profile.id,
+        email: `${profile.phone}@temp.com`,
+        phone: profile.phone,
+        user_metadata: profile,
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: profile.created_at,
+        role: 'authenticated'
+      };
+
+      // تخزين معلومات المستخدم
+      localStorage.setItem('supabase.auth.user', JSON.stringify(authUser));
+      localStorage.setItem('authenticated_user', JSON.stringify(profile));
+
       toast({
         title: "تم تسجيل الدخول بنجاح",
         description: "مرحباً بك في ألو تكسي",
@@ -122,6 +138,21 @@ export const authService = {
             finalUser = profile;
             isNewUser = true;
             localStorage.removeItem('pendingRegistration');
+
+            // إنشاء جلسة للمستخدم الجديد
+            const authUser = {
+              id: profile.id,
+              email: `${profile.phone}@temp.com`,
+              phone: profile.phone,
+              user_metadata: profile,
+              app_metadata: {},
+              aud: 'authenticated',
+              created_at: profile.created_at,
+              role: 'authenticated'
+            };
+
+            localStorage.setItem('supabase.auth.user', JSON.stringify(authUser));
+            localStorage.setItem('authenticated_user', JSON.stringify(profile));
           } else {
             if ("error" in data && (data as any).error && (data as any).error.includes("مستخدم مسبقًا")) {
               toast({
@@ -141,7 +172,6 @@ export const authService = {
           }
         }
       } else {
-        // هذا المسار لن يتم استخدامه لأن تسجيل الدخول لا يتطلب OTP
         return { success: false, user: null };
       }
 
