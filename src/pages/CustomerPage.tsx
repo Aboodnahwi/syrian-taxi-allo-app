@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import { useGlobalMarkerDragHandler } from '@/hooks/customer/useGlobalMarkerDragHandler';
@@ -8,11 +9,7 @@ import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
 import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
-import {
-  getVehicleName,
-  getVehicleIcon,
-  getVehicleColor,
-} from '@/utils/vehicleUtils';
+import { useVehicleTypes } from '@/hooks/useVehicleTypes';
 
 // A simple debounce utility
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -49,6 +46,9 @@ const CustomerPage = () => {
     rideHook,
     toast
   } = useCustomerPageState();
+
+  // استخدام وسائل النقل الجديدة
+  const { vehicleTypes: availableVehicleTypes } = useVehicleTypes();
 
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
@@ -116,14 +116,6 @@ const CustomerPage = () => {
   // إذا لم يكن هناك مستخدم لا ترسم شيء
   if (!user) return null;
 
-  const vehicleTypes = pricing.map(p => ({
-    id: p.vehicle_type,
-    name: getVehicleName(p.vehicle_type),
-    price: p.base_price,
-    icon: getVehicleIcon(p.vehicle_type),
-    color: getVehicleColor(p.vehicle_type)
-  }));
-
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
       {/* Location Selection Handler */}
@@ -188,7 +180,7 @@ const CustomerPage = () => {
       <OrderPanel
         orderOpen={orderOpen}
         setOrderOpen={setOrderOpen}
-        vehicleTypes={vehicleTypes}
+        vehicleTypes={availableVehicleTypes}
         selectedVehicle={selectedVehicle}
         setSelectedVehicle={setSelectedVehicle}
         fromLocation={locationHook.fromLocation}

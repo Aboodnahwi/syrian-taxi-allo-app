@@ -19,7 +19,6 @@ const AuthPage = () => {
   const [verificationMode, setVerificationMode] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [currentPhone, setCurrentPhone] = useState('');
-  const [isNewUser, setIsNewUser] = useState(false);
   
   const [registerData, setRegisterData] = useState({
     name: '',
@@ -49,7 +48,6 @@ const AuthPage = () => {
     const success = await signUp(registerData);
     if (success) {
       setCurrentPhone(registerData.phone);
-      setIsNewUser(true);
       setVerificationMode(true);
     }
   };
@@ -61,7 +59,6 @@ const AuthPage = () => {
 
     const result = await signIn(loginPhone);
     if (result.success && result.user) {
-      // تسجيل دخول مباشر بدون تحقق للمستخدمين الموجودين
       const userRole = result.user.role;
       switch (userRole) {
         case 'customer':
@@ -82,7 +79,6 @@ const AuthPage = () => {
   const handleVerification = async () => {
     const result = await verifyOtp(currentPhone, verificationCode);
     if (result.success && result.user) {
-      // توجيه حسب نوع المستخدم المسجل فعلياً
       const userRole = result.user.role;
       switch (userRole) {
         case 'customer':
