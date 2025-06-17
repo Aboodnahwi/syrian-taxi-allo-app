@@ -56,16 +56,11 @@ export const authService = {
         return { success: false, user: null };
       }
 
-      // إرسال رمز OTP للتحقق
-      const { data: otpData, error: otpError } = await supabase
-        .rpc('generate_otp', { p_phone: phone });
-
-      if (otpError) throw otpError;
-
+      // تسجيل دخول مباشر بدون OTP للمستخدمين الموجودين
       toast({
-        title: "تم إرسال رمز التحقق",
-        description: `رمز التحقق: ${otpData} (للتجربة فقط)`,
-        className: "bg-blue-50 border-blue-200 text-blue-800"
+        title: "تم تسجيل الدخول بنجاح",
+        description: "مرحباً بك في ألو تكسي",
+        className: "bg-green-50 border-green-200 text-green-800"
       });
 
       return { success: true, user: profile };
@@ -146,46 +141,13 @@ export const authService = {
           }
         }
       } else {
-        // تسجيل دخول مستخدم موجود
-        const { data: isValidOtp, error: otpError } = await supabase
-          .rpc('verify_otp', { p_phone: phone, p_code: code });
-
-        if (otpError || !isValidOtp) {
-          toast({
-            title: "رمز التحقق خاطئ",
-            description: "يرجى إدخال الرمز الصحيح",
-            variant: "destructive"
-          });
-          return { success: false, user: null };
-        }
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('phone', phone)
-          .single();
-
-        if (profileError || !profile) {
-          toast({
-            title: "خطأ أثناء جلب الملف الشخصي",
-            description: "تعذر جلب بيانات الحساب",
-            variant: "destructive"
-          });
-          return { success: false, user: null };
-        }
-
-        finalUser = profile;
+        // هذا المسار لن يتم استخدامه لأن تسجيل الدخول لا يتطلب OTP
+        return { success: false, user: null };
       }
 
       if (isNewUser) {
         toast({
           title: "تم التسجيل بنجاح",
-          description: "مرحباً بك في ألو تكسي",
-          className: "bg-green-50 border-green-200 text-green-800"
-        });
-      } else {
-        toast({
-          title: "تم تسجيل الدخول بنجاح",
           description: "مرحباً بك في ألو تكسي",
           className: "bg-green-50 border-green-200 text-green-800"
         });

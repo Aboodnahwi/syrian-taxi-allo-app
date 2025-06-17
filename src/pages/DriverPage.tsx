@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import Map from '@/components/map/Map';
 import DriverHeader from '@/components/driver/DriverHeader';
-import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
 import ActiveRideCard from '@/components/driver/ActiveRideCard';
 import RideRequestDrawer from '@/components/driver/RideRequestDrawer';
 import RideTrackingDisplay from '@/components/driver/RideTrackingDisplay';
+import DriverPageMessages from '@/components/driver/DriverPageMessages';
 import { useActiveRideTracking } from '@/hooks/driver/useActiveRideTracking';
 import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
@@ -265,9 +265,10 @@ const DriverPage = () => {
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-slate-900 relative overflow-hidden">
+    <div className="h-screen w-full relative overflow-hidden bg-slate-900">
+      {/* الخريطة - ملء الشاشة كاملة */}
       <Map
-        className="absolute inset-0 z-10"
+        className="absolute inset-0 w-full h-full z-0"
         markers={mapMarkers}
         route={mapRoute}
         center={currentLocation || [33.5138, 36.2765]}
@@ -275,7 +276,8 @@ const DriverPage = () => {
         toast={toast}
       />
 
-      <div className="absolute top-0 left-0 right-0 z-30">
+      {/* الواجهة العلوية - فوق الخريطة */}
+      <div className="absolute inset-x-0 top-0 z-50">
         <DriverHeader 
           user={user}
           isOnline={isOnline}
@@ -284,14 +286,12 @@ const DriverPage = () => {
         />
       </div>
 
-      <div className="absolute top-20 left-4 z-30">
-        <DriverStatusBadge isOnline={isOnline} />
-      </div>
-
+      {/* عرض بيانات التتبع */}
       <RideTrackingDisplay trackingData={trackingData} />
 
+      {/* بطاقة الرحلة النشطة */}
       {activeRide && (
-        <div className="absolute top-4 right-4 z-30 max-w-sm">
+        <div className="absolute top-24 right-4 z-40 max-w-sm">
           <ActiveRideCard 
             activeRide={activeRide}
             rideStatus={rideStatus}
@@ -300,6 +300,15 @@ const DriverPage = () => {
         </div>
       )}
 
+      {/* رسائل الحالة */}
+      <DriverPageMessages 
+        activeRide={activeRide}
+        isOnline={isOnline}
+        rideRequestsCount={rideRequests.length}
+        toggleOnlineStatus={toggleOnlineStatus}
+      />
+
+      {/* درج طلبات الرحلات */}
       {!activeRide && isOnline && (
         <RideRequestDrawer 
           rideRequests={rideRequests}

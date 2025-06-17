@@ -14,18 +14,17 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUp, signIn, verifyOtp } = useAuth();
-  const userType = searchParams.get('type') || 'customer';
   
   const [isLogin, setIsLogin] = useState(true);
   const [verificationMode, setVerificationMode] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [currentPhone, setCurrentPhone] = useState('');
-  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
   
   const [registerData, setRegisterData] = useState({
     name: '',
     phone: '',
-    role: userType,
+    role: 'customer',
     governorate: ''
   });
   
@@ -42,14 +41,6 @@ const AuthPage = () => {
     { value: 'admin', label: 'إدارة', icon: Shield, color: 'from-violet-500 to-violet-600' }
   ];
 
-  const currentRole = roles.find(role => role.value === userType);
-
-  useEffect(() => {
-    if (userType) {
-      setRegisterData(prev => ({ ...prev, role: userType }));
-    }
-  }, [userType]);
-
   const handleRegister = async () => {
     if (!registerData.name || !registerData.phone || !registerData.governorate) {
       return;
@@ -58,7 +49,7 @@ const AuthPage = () => {
     const success = await signUp(registerData);
     if (success) {
       setCurrentPhone(registerData.phone);
-      setPendingUser(registerData);
+      setIsNewUser(true);
       setVerificationMode(true);
     }
   };
@@ -70,16 +61,28 @@ const AuthPage = () => {
 
     const result = await signIn(loginPhone);
     if (result.success && result.user) {
-      setCurrentPhone(loginPhone);
-      setPendingUser(result.user);
-      setVerificationMode(true);
+      // تسجيل دخول مباشر بدون تحقق للمستخدمين الموجودين
+      const userRole = result.user.role;
+      switch (userRole) {
+        case 'customer':
+          navigate('/customer');
+          break;
+        case 'driver':
+          navigate('/driver');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/customer');
+      }
     }
   };
 
   const handleVerification = async () => {
     const result = await verifyOtp(currentPhone, verificationCode);
     if (result.success && result.user) {
-      // توجيه حسب نوع المستخدم المسجل فعلياً وليس حسب URL
+      // توجيه حسب نوع المستخدم المسجل فعلياً
       const userRole = result.user.role;
       switch (userRole) {
         case 'customer':
@@ -102,8 +105,8 @@ const AuthPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-emerald-900 flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20">
           <CardHeader className="text-center">
-            <div className={`bg-gradient-to-r ${currentRole?.color} p-4 rounded-2xl mx-auto w-fit mb-4`}>
-              {currentRole?.icon && <currentRole.icon className="w-12 h-12 text-white" />}
+            <div className="bg-gradient-to-r from-emerald-500 to-taxi-500 p-4 rounded-2xl mx-auto w-fit mb-4">
+              <Car className="w-12 h-12 text-white" />
             </div>
             <CardTitle className="text-2xl font-bold text-white font-cairo">تحقق من الهاتف</CardTitle>
             <CardDescription className="text-slate-300 font-tajawal">
