@@ -20,8 +20,8 @@ const AuthPage = () => {
   const [verificationMode, setVerificationMode] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [currentPhone, setCurrentPhone] = useState('');
+  const [pendingUser, setPendingUser] = useState<any>(null);
   
-  // بيانات التسجيل
   const [registerData, setRegisterData] = useState({
     name: '',
     phone: '',
@@ -29,7 +29,6 @@ const AuthPage = () => {
     governorate: ''
   });
   
-  // بيانات تسجيل الدخول
   const [loginPhone, setLoginPhone] = useState('');
 
   const governorates = [
@@ -59,6 +58,7 @@ const AuthPage = () => {
     const success = await signUp(registerData);
     if (success) {
       setCurrentPhone(registerData.phone);
+      setPendingUser(registerData);
       setVerificationMode(true);
     }
   };
@@ -68,30 +68,20 @@ const AuthPage = () => {
       return;
     }
 
-    const success = await signIn(loginPhone);
-    if (success) {
-      // توجيه حسب نوع المستخدم بعد تسجيل الدخول الناجح
-      switch (userType) {
-        case 'customer':
-          navigate('/customer');
-          break;
-        case 'driver':
-          navigate('/driver');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          navigate('/customer');
-      }
+    const result = await signIn(loginPhone);
+    if (result.success && result.user) {
+      setCurrentPhone(loginPhone);
+      setPendingUser(result.user);
+      setVerificationMode(true);
     }
   };
 
   const handleVerification = async () => {
-    const success = await verifyOtp(currentPhone, verificationCode);
-    if (success) {
-      // توجيه حسب نوع المستخدم
-      switch (userType) {
+    const result = await verifyOtp(currentPhone, verificationCode);
+    if (result.success && result.user) {
+      // توجيه حسب نوع المستخدم المسجل فعلياً وليس حسب URL
+      const userRole = result.user.role;
+      switch (userRole) {
         case 'customer':
           navigate('/customer');
           break;
@@ -171,11 +161,11 @@ const AuthPage = () => {
 
         <Card className="bg-white/10 backdrop-blur-lg border-white/20">
           <CardHeader className="text-center">
-            <div className={`bg-gradient-to-r ${currentRole?.color} p-4 rounded-2xl mx-auto w-fit mb-4`}>
-              {currentRole?.icon && <currentRole.icon className="w-12 h-12 text-white" />}
+            <div className="bg-gradient-to-r from-emerald-500 to-taxi-500 p-4 rounded-2xl mx-auto w-fit mb-4">
+              <Car className="w-12 h-12 text-white" />
             </div>
             <CardTitle className="text-2xl font-bold text-white font-cairo">
-              {currentRole?.label} - ألو تكسي
+              ألو تكسي
             </CardTitle>
             <CardDescription className="text-slate-300 font-tajawal">
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}

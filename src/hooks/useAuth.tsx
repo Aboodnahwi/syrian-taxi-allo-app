@@ -11,11 +11,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // التحقق من المستخدم المحفوظ محلياً
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
       } catch (error) {
         localStorage.removeItem('user');
       }
@@ -27,27 +27,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return await authService.signUp(userData, toast);
   };
 
-  const signIn = async (phone: string): Promise<boolean> => {
-    const result = await authService.signIn(phone, toast);
-    if (result.success && result.user) {
-      setUser(result.user);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: `مرحباً بك مجدداً, ${result.user.name}`,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-    }
-    return result.success;
+  const signIn = async (phone: string): Promise<{ success: boolean; user: User | null }> => {
+    return await authService.signIn(phone, toast);
   };
 
-  const verifyOtp = async (phone: string, code: string): Promise<boolean> => {
+  const verifyOtp = async (phone: string, code: string): Promise<{ success: boolean; user: User | null }> => {
     const result = await authService.verifyOtp(phone, code, toast);
     if (result.success && result.user) {
       setUser(result.user);
       localStorage.setItem('user', JSON.stringify(result.user));
     }
-    return result.success;
+    return result;
   };
 
   const signOut = async () => {
@@ -60,8 +50,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     loading,
     signUp,
-    signIn,
-    verifyOtp,
+    signIn: async (phone: string): Promise<boolean> => {
+      const result = await signIn(phone);
+      return result.success;
+    },
+    verifyOtp: async (phone: string, code: string): Promise<boolean> => {
+      const result = await verifyOtp(phone, code);
+      return result.success;
+    },
     signOut
   };
 

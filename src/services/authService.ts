@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types/auth';
 
@@ -29,6 +30,7 @@ export const authService = {
 
   async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> {
     try {
+      // البحث عن المستخدم في قاعدة البيانات
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -54,6 +56,18 @@ export const authService = {
         return { success: false, user: null };
       }
 
+      // إرسال رمز OTP للتحقق
+      const { data: otpData, error: otpError } = await supabase
+        .rpc('generate_otp', { p_phone: phone });
+
+      if (otpError) throw otpError;
+
+      toast({
+        title: "تم إرسال رمز التحقق",
+        description: `رمز التحقق: ${otpData} (للتجربة فقط)`,
+        className: "bg-blue-50 border-blue-200 text-blue-800"
+      });
+
       return { success: true, user: profile };
     } catch (error: any) {
       toast({
@@ -74,17 +88,15 @@ export const authService = {
       }
 
       let finalUser: User | null = null;
-      let isNewUser = false; // Flag to check for new user
+      let isNewUser = false;
 
       if (userData) {
+        // تسجيل مستخدم جديد
         const { data, error } = await supabase.rpc('verify_otp_and_create_user', {
           p_phone: userData.phone,
           p_code: code,
           p_user_data: userData
         });
-
-        // لوج للاختبار
-        console.log('verify_otp_and_create_user result:', data, error);
 
         if (error) {
           toast({
@@ -95,13 +107,8 @@ export const authService = {
           return { success: false, user: null };
         }
 
-        if (
-          typeof data === "object" &&
-          data !== null &&
-          "success" in data
-        ) {
+        if (typeof data === "object" && data !== null && "success" in data) {
           if ((data as any).success) {
-            // تم انشاء المستخدم - جلب البيانات
             const userId = (data as any).user_id;
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
@@ -118,17 +125,15 @@ export const authService = {
               return { success: false, user: null };
             }
             finalUser = profile;
-            isNewUser = true; // Set flag for new user
+            isNewUser = true;
             localStorage.removeItem('pendingRegistration');
           } else {
-            // لو كان الخطأ "هذا الرقم مستخدم مسبقًا"
             if ("error" in data && (data as any).error && (data as any).error.includes("مستخدم مسبقًا")) {
               toast({
                 title: "الرقم مستخدم من قبل",
                 description: "هذا الرقم مسجّل مسبقًا. الرجاء استخدام تسجيل الدخول.",
                 variant: "destructive"
               });
-              // إزالة بيانات التسجيل المعلقة حتى لا يعيد المحاولة بنفس الخطأ
               localStorage.removeItem('pendingRegistration');
             } else {
               toast({
@@ -139,16 +144,9 @@ export const authService = {
             }
             return { success: false, user: null };
           }
-        } else {
-          toast({
-            title: "فشل التحقق",
-            description: typeof data === "object" && data !== null && "error" in data ? (data as any).error : "حدث خطأ أثناء إنشاء الحساب",
-            variant: "destructive"
-          });
-          return { success: false, user: null };
         }
       } else {
-        // مستخدم حالي - تحقق رمز OTP القديم
+        // تسجيل دخول مستخدم موجود
         const { data: isValidOtp, error: otpError } = await supabase
           .rpc('verify_otp', { p_phone: phone, p_code: code });
 
@@ -161,7 +159,6 @@ export const authService = {
           return { success: false, user: null };
         }
 
-        // جلب الملف الشخصي
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')

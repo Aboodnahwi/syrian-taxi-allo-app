@@ -25,27 +25,24 @@ const DriverPage = () => {
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapRoute, setMapRoute] = useState<[number, number][] | undefined>();
 
-  // استخدام hooks للتتبع والطلبات
   const { trackingData, startTracking, stopTracking, isTracking } = useActiveRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
   const { trips } = useRealTimeTrips('driver', user?.id);
 
-  // التحقق من تسجيل الدخول
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (!userData) {
-      navigate('/auth?type=driver');
+      navigate('/auth');
       return;
     }
     const parsedUser = JSON.parse(userData);
     if (parsedUser.role !== 'driver') {
-      navigate('/auth?type=driver');
+      navigate('/auth');
       return;
     }
     setUser(parsedUser);
   }, [navigate]);
 
-  // الحصول على الموقع الحالي للسائق
   useEffect(() => {
     const getCurrentLocation = () => {
       if (navigator.geolocation) {
@@ -69,7 +66,6 @@ const DriverPage = () => {
     getCurrentLocation();
   }, [toast]);
 
-  // البحث عن الرحلة النشطة
   useEffect(() => {
     if (!user?.id) return;
     
@@ -85,11 +81,9 @@ const DriverPage = () => {
     }
   }, [trips, user?.id, activeRide]);
 
-  // تجهيز العلامات والمسار للخريطة
   useEffect(() => {
     const markers = [];
     
-    // إضافة علامة السائق
     if (currentLocation) {
       markers.push({
         id: 'driver',
@@ -104,7 +98,6 @@ const DriverPage = () => {
       });
     }
     
-    // إضافة علامات طلبات الرحلات (فقط إذا كان السائق متصل وليس لديه رحلة نشطة)
     if (isOnline && !activeRide && !isTracking) {
       rideRequests.forEach((request) => {
         markers.push({
@@ -121,7 +114,6 @@ const DriverPage = () => {
       });
     }
 
-    // إضافة علامات للرحلة النشطة
     if (activeRide) {
       if (activeRide.from_coordinates) {
         markers.push({
@@ -152,7 +144,6 @@ const DriverPage = () => {
     
     setMapMarkers(markers);
 
-    // تحديث المسار
     if (isTracking && trackingData?.path) {
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
     } else if (activeRide?.from_coordinates && activeRide?.to_coordinates && !isTracking) {
@@ -162,7 +153,6 @@ const DriverPage = () => {
     }
   }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData]);
 
-  // تبديل حالة السائق
   const toggleOnlineStatus = () => {
     setIsOnline(!isOnline);
     toast({
@@ -172,7 +162,6 @@ const DriverPage = () => {
     });
   };
 
-  // قبول طلب الرحلة
   const acceptRide = async (request: any) => {
     try {
       const { error } = await supabase
@@ -204,7 +193,6 @@ const DriverPage = () => {
     }
   };
 
-  // رفض طلب الرحلة
   const rejectRide = (requestId: string) => {
     toast({
       title: "تم رفض الرحلة",
@@ -213,7 +201,6 @@ const DriverPage = () => {
     });
   };
 
-  // تحديث حالة الرحلة
   const updateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
     if (!activeRide) return;
 
@@ -224,7 +211,7 @@ const DriverPage = () => {
         updateData.arrived_at = new Date().toISOString();
       } else if (status === 'started') {
         updateData.started_at = new Date().toISOString();
-        startTracking(); // بدء التتبع
+        startTracking();
       } else if (status === 'completed') {
         updateData.completed_at = new Date().toISOString();
         if (trackingData) {
@@ -232,7 +219,7 @@ const DriverPage = () => {
           updateData.distance_km = trackingData.totalDistance;
           updateData.price = trackingData.totalFare;
         }
-        await stopTracking(); // إنهاء التتبع
+        await stopTracking();
       }
 
       const { error } = await supabase
@@ -270,7 +257,6 @@ const DriverPage = () => {
     }
   };
 
-  // تسجيل الخروج
   const logout = () => {
     localStorage.removeItem('user');
     navigate('/');
@@ -280,7 +266,6 @@ const DriverPage = () => {
 
   return (
     <div className="h-screen bg-slate-900 relative overflow-hidden">
-      {/* الخريطة ملء الشاشة */}
       <Map
         className="absolute inset-0 z-10"
         markers={mapMarkers}
@@ -290,7 +275,6 @@ const DriverPage = () => {
         toast={toast}
       />
 
-      {/* هيدر شفاف */}
       <div className="absolute top-0 left-0 right-0 z-30">
         <DriverHeader 
           user={user}
@@ -300,15 +284,12 @@ const DriverPage = () => {
         />
       </div>
 
-      {/* شارة الحالة */}
       <div className="absolute top-20 left-4 z-30">
         <DriverStatusBadge isOnline={isOnline} />
       </div>
 
-      {/* عرض معلومات التتبع */}
       <RideTrackingDisplay trackingData={trackingData} />
 
-      {/* كارد الرحلة النشطة */}
       {activeRide && (
         <div className="absolute top-4 right-4 z-30 max-w-sm">
           <ActiveRideCard 
@@ -319,7 +300,6 @@ const DriverPage = () => {
         </div>
       )}
 
-      {/* درج طلبات الرحلات */}
       {!activeRide && isOnline && (
         <RideRequestDrawer 
           rideRequests={rideRequests}
