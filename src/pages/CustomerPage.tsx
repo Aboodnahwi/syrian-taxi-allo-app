@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useCustomerPageState } from '@/hooks/customer/useCustomerPageState';
 import { useGlobalMarkerDragHandler } from '@/hooks/customer/useGlobalMarkerDragHandler';
@@ -9,7 +8,11 @@ import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
 import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
-import { useVehicleTypes } from '@/hooks/useVehicleTypes';
+import {
+  getVehicleName,
+  getVehicleIcon,
+  getVehicleColor,
+} from '@/utils/vehicleUtils';
 
 // A simple debounce utility
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -28,6 +31,7 @@ const CustomerPage = () => {
   const {
     user,
     signOut,
+    pricing,
     selectedVehicle,
     setSelectedVehicle,
     estimatedPrice,
@@ -45,8 +49,6 @@ const CustomerPage = () => {
     rideHook,
     toast
   } = useCustomerPageState();
-
-  const { vehicleTypes, loading: vehicleTypesLoading } = useVehicleTypes();
 
   const [locationHandlers, setLocationHandlers] = useState<{
     handleManualFromPin: () => void;
@@ -114,31 +116,13 @@ const CustomerPage = () => {
   // إذا لم يكن هناك مستخدم لا ترسم شيء
   if (!user) return null;
 
-  // If vehicle types are loading, show default types
-  const displayVehicleTypes = vehicleTypesLoading ? 
-    [
-      {
-        id: 'sedan',
-        name: 'سيارة عادية',
-        price: 1000,
-        icon: '🚗',
-        color: 'from-blue-500 to-blue-600'
-      },
-      {
-        id: 'taxi',
-        name: 'تكسي عادي',
-        price: 800,
-        icon: '🚕',
-        color: 'from-yellow-500 to-yellow-600'
-      }
-    ] :
-    vehicleTypes.map(vt => ({
-      id: vt.id,
-      name: vt.name,
-      price: vt.base_price,
-      icon: vt.icon,
-      color: vt.color
-    }));
+  const vehicleTypes = pricing.map(p => ({
+    id: p.vehicle_type,
+    name: getVehicleName(p.vehicle_type),
+    price: p.base_price,
+    icon: getVehicleIcon(p.vehicle_type),
+    color: getVehicleColor(p.vehicle_type)
+  }));
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
@@ -204,7 +188,7 @@ const CustomerPage = () => {
       <OrderPanel
         orderOpen={orderOpen}
         setOrderOpen={setOrderOpen}
-        vehicleTypes={displayVehicleTypes}
+        vehicleTypes={vehicleTypes}
         selectedVehicle={selectedVehicle}
         setSelectedVehicle={setSelectedVehicle}
         fromLocation={locationHook.fromLocation}
