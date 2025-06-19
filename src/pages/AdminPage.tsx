@@ -93,30 +93,41 @@ const AdminPage = () => {
     }
   }, [user, toast]);
 
-  // تحضير البيانات للخريطة
+  // تحضير البيانات للخريطة - تصحيح تحويل الإحداثيات
   const mapMarkers = trips
     .filter(trip => trip.from_coordinates && trip.to_coordinates)
     .map(trip => {
-      // تحويل النقاط من تنسيق PostgreSQL point إلى إحداثيات
-      const fromCoords = trip.from_coordinates.replace(/[()]/g, '').split(',').map(Number);
-      const toCoords = trip.to_coordinates.replace(/[()]/g, '').split(',').map(Number);
-      
-      return {
-        id: trip.id,
-        position: [fromCoords[0], fromCoords[1]] as [number, number],
-        popup: `${trip.customer?.name || 'غير محدد'} - ${trip.status === 'completed' ? 'مكتملة' : trip.status === 'pending' ? 'قيد الانتظار' : trip.status === 'in_progress' ? 'جارية' : 'ملغية'}`,
-        icon: {
-          html: `<div class="w-6 h-6 rounded-full ${trip.status === 'completed' ? 'bg-green-500' : trip.status === 'in_progress' ? 'bg-blue-500' : 'bg-yellow-500'} border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>`,
-          className: 'custom-marker',
-          iconSize: [24, 24] as [number, number],
-          iconAnchor: [12, 12] as [number, number]
+      try {
+        // تحويل النقاط من تنسيق PostgreSQL point إلى إحداثيات
+        const fromCoords = trip.from_coordinates.replace(/[()]/g, '').split(',').map(Number);
+        const toCoords = trip.to_coordinates.replace(/[()]/g, '').split(',').map(Number);
+        
+        // التأكد من صحة الإحداثيات
+        if (fromCoords.length !== 2 || toCoords.length !== 2) {
+          console.warn('Invalid coordinates for trip:', trip.id);
+          return null;
         }
-      };
-    });
+        
+        return {
+          id: trip.id,
+          position: [fromCoords[0], fromCoords[1]] as [number, number],
+          popup: `${trip.customer?.name || 'غير محدد'} - ${trip.status === 'completed' ? 'مكتملة' : trip.status === 'pending' ? 'قيد الانتظار' : trip.status === 'in_progress' ? 'جارية' : 'ملغية'}`,
+          icon: {
+            html: `<div class="w-6 h-6 rounded-full ${trip.status === 'completed' ? 'bg-green-500' : trip.status === 'in_progress' ? 'bg-blue-500' : 'bg-yellow-500'} border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>`,
+            className: 'custom-marker',
+            iconSize: [24, 24] as [number, number],
+            iconAnchor: [12, 12] as [number, number]
+          }
+        };
+      } catch (error) {
+        console.error('Error processing trip coordinates:', trip.id, error);
+        return null;
+      }
+    })
+    .filter(marker => marker !== null);
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
   };
 
   if (!user || user.role !== 'admin') {

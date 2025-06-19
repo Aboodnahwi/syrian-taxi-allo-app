@@ -28,7 +28,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (phone: string): Promise<{ success: boolean; user: User | null }> => {
-    return await authService.signIn(phone, toast);
+    const result = await authService.signIn(phone, toast);
+    if (result.success && result.user) {
+      setUser(result.user);
+      localStorage.setItem('user', JSON.stringify(result.user));
+    }
+    return result;
   };
 
   const verifyOtp = async (phone: string, code: string): Promise<{ success: boolean; user: User | null }> => {
@@ -44,8 +49,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('pendingRegistration');
-    // إعادة التوجيه إلى الصفحة الرئيسية بدلاً من ترك المستخدم في شاشة سوداء
-    window.location.href = '/';
+    // التأكد من إعادة التوجيه بطريقة صحيحة
+    window.location.replace('/');
   };
 
   const contextValue: AuthContextType = {

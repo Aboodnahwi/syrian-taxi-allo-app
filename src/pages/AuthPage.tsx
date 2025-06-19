@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signUp, signIn, verifyOtp } = useAuth();
+  const { user, signUp, signIn, verifyOtp } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [verificationMode, setVerificationMode] = useState(false);
@@ -28,6 +28,26 @@ const AuthPage = () => {
   });
   
   const [loginPhone, setLoginPhone] = useState('');
+
+  // إعادة توجيه المستخدم المسجل إلى الصفحة المناسبة
+  useEffect(() => {
+    if (user) {
+      console.log('User authenticated, redirecting...', user);
+      switch (user.role) {
+        case 'customer':
+          navigate('/customer', { replace: true });
+          break;
+        case 'driver':
+          navigate('/driver', { replace: true });
+          break;
+        case 'admin':
+          navigate('/admin', { replace: true });
+          break;
+        default:
+          navigate('/customer', { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const governorates = [
     'دمشق', 'ريف دمشق', 'حلب', 'حمص', 'حماة', 'اللاذقية', 'طرطوس',
@@ -59,40 +79,16 @@ const AuthPage = () => {
 
     const result = await signIn(loginPhone);
     if (result.success && result.user) {
-      const userRole = result.user.role;
-      switch (userRole) {
-        case 'customer':
-          navigate('/customer');
-          break;
-        case 'driver':
-          navigate('/driver');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          navigate('/customer');
-      }
+      // التنقل سيتم تلقائياً عبر useEffect
+      console.log('Login successful, user will be redirected');
     }
   };
 
   const handleVerification = async () => {
     const result = await verifyOtp(currentPhone, verificationCode);
     if (result.success && result.user) {
-      const userRole = result.user.role;
-      switch (userRole) {
-        case 'customer':
-          navigate('/customer');
-          break;
-        case 'driver':
-          navigate('/driver');
-          break;
-        case 'admin':
-          navigate('/admin');
-          break;
-        default:
-          navigate('/customer');
-      }
+      // التنقل سيتم تلقائياً عبر useEffect
+      console.log('Verification successful, user will be redirected');
     }
   };
 
@@ -164,10 +160,10 @@ const AuthPage = () => {
               <Car className="w-12 h-12 text-white" />
             </div>
             <CardTitle className="text-2xl font-bold text-white font-cairo">
-              ألو تكسي
+              ألو تكسي - دخول موحد
             </CardTitle>
             <CardDescription className="text-slate-300 font-tajawal">
-              {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
+              {isLogin ? 'تسجيل الدخول للمستخدمين الحاليين' : 'إنشاء حساب جديد'}
             </CardDescription>
           </CardHeader>
           
@@ -179,7 +175,7 @@ const AuthPage = () => {
                   onClick={() => setIsLogin(true)}
                   className="text-white data-[state=active]:bg-white/20"
                 >
-                  تسجيل دخول
+                  دخول
                 </TabsTrigger>
                 <TabsTrigger 
                   value="register" 
@@ -209,6 +205,7 @@ const AuthPage = () => {
                 <Button 
                   onClick={handleLogin}
                   className="w-full btn-taxi text-lg py-3"
+                  disabled={!loginPhone}
                 >
                   تسجيل الدخول
                 </Button>
@@ -283,6 +280,7 @@ const AuthPage = () => {
                 <Button 
                   onClick={handleRegister}
                   className="w-full btn-taxi text-lg py-3"
+                  disabled={!registerData.name || !registerData.phone || !registerData.governorate}
                 >
                   إنشاء الحساب
                 </Button>

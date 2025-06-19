@@ -10,6 +10,8 @@ import OrderPanel from '@/components/customer/OrderPanel';
 import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
 import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
 import { useVehicleTypes } from '@/hooks/useVehicleTypes';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 // A simple debounce utility
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -25,8 +27,23 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (..
 }
 
 const CustomerPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // التحقق من صلاحية الوصول
+  React.useEffect(() => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    
+    if (user.role !== 'customer') {
+      navigate('/auth');
+      return;
+    }
+  }, [user, navigate]);
+
   const {
-    user,
     signOut,
     pricing,
     selectedVehicle,
@@ -113,8 +130,8 @@ const CustomerPage = () => {
     mapCenter,
   });
 
-  // إذا لم يكن هناك مستخدم لا ترسم شيء
-  if (!user) return null;
+  // إذا لم يكن هناك مستخدم أو ليس زبون لا ترسم شيء
+  if (!user || user.role !== 'customer') return null;
 
   return (
     <div className="relative w-full h-screen min-h-screen bg-slate-900 overflow-hidden">
