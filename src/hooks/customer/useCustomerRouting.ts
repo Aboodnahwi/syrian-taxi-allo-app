@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseCustomerRoutingProps {
@@ -36,7 +37,6 @@ export const useCustomerRouting = ({
     }
   }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
 
-  // تحديث دالة calculateRoute لتتعامل مع التحديثات الفورية
   const calculateRoute = useCallback(async (
     passedFromCoordinates?: [number, number] | null,
     passedToCoordinates?: [number, number] | null
@@ -51,7 +51,6 @@ export const useCustomerRouting = ({
       return;
     }
 
-    // منع الحساب المتكرر للنفس الإحداثيات
     const fromStr = `${from[0]},${from[1]}`;
     const toStr = `${to[0]},${to[1]}`;
     
@@ -62,18 +61,32 @@ export const useCustomerRouting = ({
     }
 
     console.log(`[useCustomerRouting] Starting route calculation from:`, from, `to:`, to);
-    
-    // تسجيل الإحداثيات الجديدة مباشرة
     lastCalculatedRef.current = { from: fromStr, to: toStr };
 
     try {
+      // إضافة timeout للطلب لتجنب التعليق
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 ثوان
+
       const response = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e12d4b05e23f4f36be3b1b7f7c69a82a&start=${from[1]},${from[0]}&end=${to[1]},${to[0]}`
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e12d4b05e23f4f36be3b1b7f7c69a82a&start=${from[1]},${from[0]}&end=${to[1]},${to[0]}`,
+        { 
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
       );
-      const data = await response.json();
+
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      
       if (data.features && data.features[0]) {
         const coordinates = data.features[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
@@ -84,32 +97,42 @@ export const useCustomerRouting = ({
         setTimeout(() => {
           zoomToBothPoints();
         }, 500);
+      } else {
+        throw new Error('No route data received');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[useCustomerRouting] Error calculating route:', error);
-      toast({
-        title: "خطأ في حساب المسار",
-        description: "تعذر الحصول على مسار الرحلة. سيتم الاعتماد على المسافة المباشرة.",
-        variant: "destructive"
-      });
+      
+      // إذا كان الخطأ بسبب الإلغاء (timeout)، لا نعرض رسالة خطأ
+      if (error.name === 'AbortError') {
+        console.log('[useCustomerRouting] Route calculation timed out');
+      } else {
+        toast({
+          title: "تعذر حساب المسار",
+          description: "سيتم الاعتماد على المسافة المباشرة",
+          variant: "destructive"
+        });
+      }
+      
+      // استخدام المسافة المباشرة كخطة بديلة
       const distance = calculateDirectDistance(from, to);
       setRouteDistance(distance);
       setRoute([from, to]);
       console.log(`[useCustomerRouting] Using direct distance: ${distance}km`);
-      // Reset last calculated to allow retry
+      
+      // إعادة تعيين للسماح بالمحاولة مرة أخرى
       lastCalculatedRef.current = { from: null, to: null };
+      
       setTimeout(() => {
         zoomToBothPoints();
       }, 500);
     }
   }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
 
-  // تشغيل تلقائي لحساب المسار عند تغيير الإحداثيات (فقط للتحديثات التلقائية)
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
       calculateRoute();
     } else {
-      // إذا لم تكن هناك إحداثيات كاملة، امسح المسار
       setRoute([]);
       setRouteDistance(0);
       lastCalculatedRef.current = { from: null, to: null };

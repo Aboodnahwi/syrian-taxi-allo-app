@@ -11,46 +11,80 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
+    const initAuth = async () => {
       try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            console.log('[AuthProvider] Found saved user:', parsedUser);
+            setUser(parsedUser);
+          } catch (error) {
+            console.error('[AuthProvider] Error parsing saved user:', error);
+            localStorage.removeItem('user');
+          }
+        }
       } catch (error) {
-        localStorage.removeItem('user');
+        console.error('[AuthProvider] Error initializing auth:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const signUp = async (userData: any): Promise<boolean> => {
-    return await authService.signUp(userData, toast);
+    try {
+      return await authService.signUp(userData, toast);
+    } catch (error) {
+      console.error('[AuthProvider] SignUp error:', error);
+      return false;
+    }
   };
 
   const signIn = async (phone: string): Promise<{ success: boolean; user: User | null }> => {
-    const result = await authService.signIn(phone, toast);
-    if (result.success && result.user) {
-      setUser(result.user);
-      localStorage.setItem('user', JSON.stringify(result.user));
+    try {
+      const result = await authService.signIn(phone, toast);
+      if (result.success && result.user) {
+        console.log('[AuthProvider] SignIn successful, setting user:', result.user);
+        setUser(result.user);
+        localStorage.setItem('user', JSON.stringify(result.user));
+      }
+      return result;
+    } catch (error) {
+      console.error('[AuthProvider] SignIn error:', error);
+      return { success: false, user: null };
     }
-    return result;
   };
 
   const verifyOtp = async (phone: string, code: string): Promise<{ success: boolean; user: User | null }> => {
-    const result = await authService.verifyOtp(phone, code, toast);
-    if (result.success && result.user) {
-      setUser(result.user);
-      localStorage.setItem('user', JSON.stringify(result.user));
+    try {
+      const result = await authService.verifyOtp(phone, code, toast);
+      if (result.success && result.user) {
+        console.log('[AuthProvider] OTP verification successful, setting user:', result.user);
+        setUser(result.user);
+        localStorage.setItem('user', JSON.stringify(result.user));
+      }
+      return result;
+    } catch (error) {
+      console.error('[AuthProvider] VerifyOTP error:', error);
+      return { success: false, user: null };
     }
-    return result;
   };
 
   const signOut = async () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('pendingRegistration');
-    // التأكد من إعادة التوجيه بطريقة صحيحة
-    window.location.replace('/');
+    try {
+      console.log('[AuthProvider] Signing out user');
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('pendingRegistration');
+      
+      // استخدام window.location.href بدلاً من replace لضمان التنقل الصحيح
+      window.location.href = '/';
+    } catch (error) {
+      console.error('[AuthProvider] SignOut error:', error);
+    }
   };
 
   const contextValue: AuthContextType = {

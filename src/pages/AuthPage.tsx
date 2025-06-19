@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Car, Users, Shield, Phone, User } from 'lucide-react';
+import { Car, Users, Shield, Phone, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signUp, signIn, verifyOtp } = useAuth();
+  const { user, signUp, signIn, verifyOtp, loading } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [verificationMode, setVerificationMode] = useState(false);
@@ -31,8 +31,8 @@ const AuthPage = () => {
 
   // إعادة توجيه المستخدم المسجل إلى الصفحة المناسبة
   useEffect(() => {
-    if (user) {
-      console.log('User authenticated, redirecting...', user);
+    if (!loading && user) {
+      console.log('[AuthPage] User authenticated, redirecting...', user);
       switch (user.role) {
         case 'customer':
           navigate('/customer', { replace: true });
@@ -47,7 +47,7 @@ const AuthPage = () => {
           navigate('/customer', { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   const governorates = [
     'دمشق', 'ريف دمشق', 'حلب', 'حمص', 'حماة', 'اللاذقية', 'طرطوس',
@@ -65,6 +65,7 @@ const AuthPage = () => {
       return;
     }
 
+    console.log('[AuthPage] Starting registration for:', registerData);
     const success = await signUp(registerData);
     if (success) {
       setCurrentPhone(registerData.phone);
@@ -77,20 +78,34 @@ const AuthPage = () => {
       return;
     }
 
+    console.log('[AuthPage] Starting login for phone:', loginPhone);
     const result = await signIn(loginPhone);
     if (result.success && result.user) {
-      // التنقل سيتم تلقائياً عبر useEffect
-      console.log('Login successful, user will be redirected');
+      console.log('[AuthPage] Login successful, user will be redirected');
     }
   };
 
   const handleVerification = async () => {
+    console.log('[AuthPage] Starting verification for phone:', currentPhone, 'code:', verificationCode);
     const result = await verifyOtp(currentPhone, verificationCode);
     if (result.success && result.user) {
-      // التنقل سيتم تلقائياً عبر useEffect
-      console.log('Verification successful, user will be redirected');
+      console.log('[AuthPage] Verification successful, user will be redirected');
     }
   };
+
+  // عرض شاشة التحميل أثناء فحص حالة المصادقة
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-emerald-900 flex items-center justify-center">
+        <div className="text-white text-xl font-tajawal">جاري التحميل...</div>
+      </div>
+    );
+  }
+
+  // إذا كان المستخدم مسجلاً، لا تعرض الصفحة (سيتم إعادة التوجيه)
+  if (user) {
+    return null;
+  }
 
   if (verificationMode) {
     return (
@@ -145,25 +160,16 @@ const AuthPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-emerald-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/')}
-          className="mb-6 text-white hover:bg-white/10"
-        >
-          <ArrowLeft className="ml-2 h-4 w-4" />
-          العودة للرئيسية
-        </Button>
-
         <Card className="bg-white/10 backdrop-blur-lg border-white/20">
           <CardHeader className="text-center">
             <div className="bg-gradient-to-r from-emerald-500 to-taxi-500 p-4 rounded-2xl mx-auto w-fit mb-4">
               <Car className="w-12 h-12 text-white" />
             </div>
             <CardTitle className="text-2xl font-bold text-white font-cairo">
-              ألو تكسي - دخول موحد
+              ألو تكسي
             </CardTitle>
             <CardDescription className="text-slate-300 font-tajawal">
-              {isLogin ? 'تسجيل الدخول للمستخدمين الحاليين' : 'إنشاء حساب جديد'}
+              {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
             </CardDescription>
           </CardHeader>
           
@@ -248,7 +254,7 @@ const AuthPage = () => {
                     <SelectTrigger className="bg-white/10 border-white/20 text-white">
                       <SelectValue placeholder="اختر المحافظة" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectContent className="bg-slate-800 border-slave-700">
                       {governorates.map((gov) => (
                         <SelectItem key={gov} value={gov} className="text-white hover:bg-slate-700">
                           {gov}

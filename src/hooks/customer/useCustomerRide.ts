@@ -40,7 +40,21 @@ export const useCustomerRide = ({
   const [scheduleTime, setScheduleTime] = useState('');
 
   const requestRide = useCallback(async () => {
+    console.log('[useCustomerRide] Starting ride request...');
+    console.log('[useCustomerRide] Data:', {
+      userId,
+      fromLocation,
+      toLocation,
+      fromCoordinates,
+      toCoordinates,
+      selectedVehicle,
+      isScheduled,
+      scheduleDate,
+      scheduleTime
+    });
+
     if (!fromLocation || !toLocation || !fromCoordinates || !toCoordinates) {
+      console.log('[useCustomerRide] Missing location data');
       toast({
         title: "بيانات ناقصة",
         description: "يرجى تحديد نقطة الانطلاق والوجهة",
@@ -48,7 +62,9 @@ export const useCustomerRide = ({
       });
       return;
     }
+
     if (isScheduled && (!scheduleDate || !scheduleTime)) {
+      console.log('[useCustomerRide] Missing schedule data');
       toast({
         title: "بيانات ناقصة",
         description: "يرجى تحديد تاريخ ووقت الرحلة المجدولة",
@@ -57,8 +73,8 @@ export const useCustomerRide = ({
       return;
     }
 
-    // استخدم userId الممرر من المكون الأب بدلاً من التحقق من المصادقة مرة أخرى
     if (!userId) {
+      console.log('[useCustomerRide] Missing user ID');
       toast({
         title: "خطأ في المصادقة",
         description: "يرجى تسجيل الدخول أولاً",
@@ -72,30 +88,38 @@ export const useCustomerRide = ({
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       const price = calculatePrice(distance, selectedVehicle);
 
-      console.log("[useCustomerRide] Creating trip with user_id:", userId);
+      console.log('[useCustomerRide] Calculated data:', {
+        distance,
+        price,
+        scheduledTime
+      });
+
+      const tripData = {
+        customer_id: userId,
+        from_location: fromLocation,
+        to_location: toLocation,
+        from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
+        to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
+        vehicle_type: selectedVehicle,
+        distance_km: distance,
+        price: price,
+        scheduled_time: scheduledTime,
+        status: scheduledTime ? 'scheduled' : 'pending'
+      };
+
+      console.log('[useCustomerRide] Inserting trip data:', tripData);
 
       const { data, error } = await supabase
         .from('trips')
-        .insert({
-          customer_id: userId, // استخدم userId الممرر
-          from_location: fromLocation,
-          to_location: toLocation,
-          from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
-          to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
-          vehicle_type: selectedVehicle,
-          distance_km: distance,
-          price: price,
-          scheduled_time: scheduledTime,
-          status: scheduledTime ? 'scheduled' : 'pending'
-        })
+        .insert(tripData)
         .select();
 
       if (error) {
-        console.error("[useCustomerRide] Error creating trip:", error);
-        throw error;
+        console.error('[useCustomerRide] Database error:', error);
+        throw new Error(`خطأ في قاعدة البيانات: ${error.message}`);
       }
 
-      console.log("[useCustomerRide] Trip created successfully:", data);
+      console.log('[useCustomerRide] Trip created successfully:', data);
 
       toast({
         title: "تم إرسال طلب الرحلة",
@@ -103,20 +127,31 @@ export const useCustomerRide = ({
         className: "bg-green-50 border-green-200 text-green-800"
       });
 
+      // إعادة تعيين البيانات
       setFromLocation('');
       setToLocation('');
       setFromCoordinates(null);
       setToCoordinates(null);
       setRoute([]);
+      
     } catch (error: any) {
-      console.error("[useCustomerRide] Error in requestRide:", error);
+      console.error('[useCustomerRide] Full error details:', error);
+      
+      let errorMessage = "حدث خطأ غير متوقع";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code) {
+        errorMessage = `خطأ في النظام (${error.code})`;
+      }
+      
       toast({
         title: "خطأ في إرسال الطلب",
-        description: error.message || "حدث خطأ غير متوقع",
+        description: errorMessage,
         variant: "destructive"
       });
     }
   }, [
+    userId,
     fromLocation,
     toLocation,
     fromCoordinates,
@@ -132,8 +167,7 @@ export const useCustomerRide = ({
     setToLocation,
     setFromCoordinates,
     setToCoordinates,
-    setRoute,
-    userId
+    setRoute
   ]);
 
   return {
