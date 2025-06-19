@@ -1,6 +1,4 @@
 
-// ... imports ...
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
@@ -52,6 +50,15 @@ const OrderPanel = ({
   setScheduleTime,
   requestRide
 }: OrderPanelProps) => {
+  
+  // الحصول على التاريخ الحالي لتعيين الحد الأدنى
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  // الحصول على الوقت الحالي لتعيين الحد الأدنى إذا كان التاريخ اليوم
+  const currentTime = today.toTimeString().slice(0, 5);
+  const minTime = scheduleDate === todayString ? currentTime : "00:00";
+
   return (
     <Collapsible open={orderOpen} onOpenChange={setOrderOpen} className="absolute left-0 right-0 bottom-0 z-50">
       <CollapsibleTrigger
@@ -124,15 +131,52 @@ const OrderPanel = ({
               </Button>
             </div>
             {isScheduled && (
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="bg-white border-slate-200 rounded px-2 py-1" />
-                <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="bg-white border-slate-200 rounded px-2 py-1" />
+              <div className="space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800 font-tajawal mb-2">اختر تاريخ ووقت الرحلة:</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-600 mb-1 font-tajawal">التاريخ</label>
+                      <input 
+                        type="date" 
+                        value={scheduleDate} 
+                        onChange={e => setScheduleDate(e.target.value)}
+                        min={todayString}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-600 mb-1 font-tajawal">الوقت</label>
+                      <input 
+                        type="time" 
+                        value={scheduleTime} 
+                        onChange={e => setScheduleTime(e.target.value)}
+                        min={minTime}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        required
+                      />
+                    </div>
+                  </div>
+                  {scheduleDate && scheduleTime && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800 font-tajawal">
+                      ✓ موعد الرحلة: {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleDateString('ar-SY', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <Button
               onClick={requestRide}
               className="w-full btn-taxi text-lg py-4"
-              disabled={!fromLocation || !toLocation}
+              disabled={!fromLocation || !toLocation || (isScheduled && (!scheduleDate || !scheduleTime))}
             >
               {isScheduled ? "جدولة الرحلة" : "طلب الرحلة"}
             </Button>

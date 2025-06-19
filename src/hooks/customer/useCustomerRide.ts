@@ -84,6 +84,19 @@ export const useCustomerRide = ({
     }
 
     try {
+      // التحقق من جلسة المستخدم الحالية
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('[useCustomerRide] Session error:', sessionError);
+        toast({
+          title: "خطأ في المصادقة",
+          description: "يرجى تسجيل الدخول مرة أخرى",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       const price = calculatePrice(distance, selectedVehicle);
@@ -91,11 +104,12 @@ export const useCustomerRide = ({
       console.log('[useCustomerRide] Calculated data:', {
         distance,
         price,
-        scheduledTime
+        scheduledTime,
+        sessionUserId: session.user.id
       });
 
       const tripData = {
-        customer_id: userId,
+        customer_id: session.user.id, // استخدام معرف المستخدم من الجلسة
         from_location: fromLocation,
         to_location: toLocation,
         from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
@@ -116,14 +130,27 @@ export const useCustomerRide = ({
 
       if (error) {
         console.error('[useCustomerRide] Database error:', error);
-        throw new Error(`خطأ في قاعدة البيانات: ${error.message}`);
+        if (error.code === '42501') {
+          toast({
+            title: "خطأ في الصلاحيات",
+            description: "ليس لديك صلاحية لإنشاء رحلة. يرجى المحاولة مرة أخرى.",
+            variant: "destructive"
+          });
+        } else {
+          throw new Error(`خطأ في قاعدة البيانات: ${error.message}`);
+        }
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('لم يتم إنشاء الرحلة بنجاح');
       }
 
       console.log('[useCustomerRide] Trip created successfully:', data);
 
       toast({
         title: "تم إرسال طلب الرحلة",
-        description: "سيتم إشعارك عند العثور على سائق مناسب",
+        description: isScheduled ? "تم جدولة رحلتك بنجاح" : "سيتم إشعارك عند العثور على سائق مناسب",
         className: "bg-green-50 border-green-200 text-green-800"
       });
 
@@ -133,6 +160,9 @@ export const useCustomerRide = ({
       setFromCoordinates(null);
       setToCoordinates(null);
       setRoute([]);
+      setIsScheduled(false);
+      setScheduleDate('');
+      setScheduleTime('');
       
     } catch (error: any) {
       console.error('[useCustomerRide] Full error details:', error);
