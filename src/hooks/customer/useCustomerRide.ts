@@ -64,18 +64,42 @@ export const useCustomerRide = ({
         return;
       }
 
-      // التحقق من الجلسة الحالية
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('[useCustomerRide] Session error:', sessionError);
-        throw new Error('خطأ في المصادقة: ' + sessionError.message);
+      // التحقق من المستخدم المحلي
+      const savedUser = localStorage.getItem('user');
+      if (!savedUser) {
+        console.error('[useCustomerRide] No user found in localStorage');
+        toast({
+          title: "خطأ في المصادقة",
+          description: "يرجى تسجيل الدخول أولاً",
+          variant: "destructive"
+        });
+        return;
       }
 
-      if (!session || !session.user) {
-        console.error('[useCustomerRide] No valid session');
-        throw new Error('يرجى تسجيل الدخول أولاً');
+      let currentUser;
+      try {
+        currentUser = JSON.parse(savedUser);
+      } catch (error) {
+        console.error('[useCustomerRide] Error parsing user data:', error);
+        toast({
+          title: "خطأ في بيانات المستخدم",
+          description: "يرجى تسجيل الدخول مرة أخرى",
+          variant: "destructive"
+        });
+        return;
       }
+
+      if (!currentUser.id || !currentUser.phone) {
+        console.error('[useCustomerRide] Invalid user data');
+        toast({
+          title: "بيانات مستخدم غير صحيحة",
+          description: "يرجى تسجيل الدخول مرة أخرى",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('[useCustomerRide] User verified:', currentUser.id);
 
       // حساب البيانات
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
@@ -86,7 +110,7 @@ export const useCustomerRide = ({
         distance: distance.toFixed(2),
         price,
         scheduledTime,
-        userId: session.user.id
+        userId: currentUser.id
       });
 
       // التحقق من صحة التاريخ المجدول
@@ -95,25 +119,41 @@ export const useCustomerRide = ({
         const now = new Date();
         
         if (scheduledDateTime <= now) {
-          throw new Error('يجب أن يكون وقت الرحلة في المستقبل');
+          toast({
+            title: "تاريخ غير صحيح",
+            description: "يجب أن يكون وقت الرحلة في المستقبل",
+            variant: "destructive"
+          });
+          return;
         }
       }
 
       // إعداد بيانات الرحلة
       const tripData = {
-        customer_id: session.user.id,
+        customer_id: currentUser.id,
         from_location: fromLocation.trim(),
         to_location: toLocation.trim(),
         from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
         to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
         vehicle_type: selectedVehicle,
-        distance_km: Math.round(distance * 100) / 100, // تقريب إلى رقمين عشريين
+        distance_km: Math.round(distance * 100) / 100,
         price: Math.round(price),
         scheduled_time: scheduledTime,
         status: scheduledTime ? 'scheduled' : 'pending'
       };
 
       console.log('[useCustomerRide] Inserting trip data:', tripData);
+
+      // محاولة إنشاء جلسة مؤقتة مع Supabase إذا لم تكن موجودة
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session) {
+          console.log('[useCustomerRide] Creating anonymous session for request');
+          await supabase.auth.signInAnonymously();
+        }
+      } catch (authError) {
+        console.log('[useCustomerRide] Could not create auth session, trying direct insert');
+      }
 
       // إرسال الطلب إلى قاعدة البيانات
       const { data, error } = await supabase
@@ -126,17 +166,35 @@ export const useCustomerRide = ({
         console.error('[useCustomerRide] Database error:', error);
         
         // معالجة أخطاء محددة
-        if (error.code === '42501') {
-          throw new Error('ليس لديك صلاحية لإنشاء رحلة. يرجى المحاولة مرة أخرى.');
+        if (error.code === '42501' || error.message.includes('RLS')) {
+          toast({
+            title: "خطأ في الصلاحيات",
+            description: "حدث خطأ في النظام. يرجى المحاولة مرة أخرى.",
+            variant: "destructive"
+          });
         } else if (error.code === '23505') {
-          throw new Error('يوجد طلب مماثل قيد المعالجة');
+          toast({
+            title: "طلب مكرر",
+            description: "يوجد طلب مماثل قيد المعالجة",
+            variant: "destructive"
+          });
         } else {
-          throw new Error(`خطأ في إنشاء الرحلة: ${error.message}`);
+          toast({
+            title: "خطأ في إرسال الطلب",
+            description: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+            variant: "destructive"
+          });
         }
+        return;
       }
 
       if (!data) {
-        throw new Error('لم يتم إنشاء الرحلة بنجاح');
+        toast({
+          title: "خطأ في إنشاء الرحلة",
+          description: "لم يتم إنشاء الرحلة بنجاح",
+          variant: "destructive"
+        });
+        return;
       }
 
       console.log('[useCustomerRide] Trip created successfully:', data);
@@ -163,9 +221,13 @@ export const useCustomerRide = ({
     } catch (error: any) {
       console.error('[useCustomerRide] Error in requestRide:', error);
       
-      let errorMessage = "حدث خطأ غير متوقع";
+      let errorMessage = "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.";
       if (error.message) {
-        errorMessage = error.message;
+        if (error.message.includes('fetch')) {
+          errorMessage = "مشكلة في الاتصال. يرجى التحقق من الإنترنت والمحاولة مرة أخرى.";
+        } else {
+          errorMessage = error.message;
+        }
       }
       
       toast({

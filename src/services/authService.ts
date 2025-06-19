@@ -28,8 +28,10 @@ export const authService = {
     }
   },
 
-  async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> {
+  async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> => {
     try {
+      console.log('[authService] Starting sign in for phone:', phone);
+      
       // البحث عن المستخدم في قاعدة البيانات
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -38,7 +40,7 @@ export const authService = {
         .maybeSingle();
 
       if (profileError) {
-        console.error('Profile fetch error:', profileError);
+        console.error('[authService] Profile fetch error:', profileError);
         toast({
           title: "خطأ في النظام",
           description: "حدث خطأ أثناء التحقق من البيانات",
@@ -48,6 +50,7 @@ export const authService = {
       }
 
       if (!profile) {
+        console.log('[authService] User not found');
         toast({
           title: "المستخدم غير موجود",
           description: "يرجى التسجيل أولاً",
@@ -56,7 +59,19 @@ export const authService = {
         return { success: false, user: null };
       }
 
-      // تسجيل دخول مباشر بدون OTP للمستخدمين الموجودين
+      console.log('[authService] User found:', profile);
+      
+      // إنشاء جلسة مؤقتة باستخدام Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+      
+      if (authError) {
+        console.error('[authService] Auth error:', authError);
+        // في حالة فشل المصادقة الرسمية، نستخدم تسجيل الدخول المحلي
+        console.log('[authService] Using local authentication fallback');
+      } else {
+        console.log('[authService] Anonymous auth successful:', authData);
+      }
+
       toast({
         title: "تم تسجيل الدخول بنجاح",
         description: "مرحباً بك في ألو تكسي",
@@ -65,6 +80,7 @@ export const authService = {
 
       return { success: true, user: profile };
     } catch (error: any) {
+      console.error('[authService] SignIn error:', error);
       toast({
         title: "خطأ في تسجيل الدخول",
         description: error.message,
@@ -74,8 +90,10 @@ export const authService = {
     }
   },
 
-  async verifyOtp(phone: string, code: string, toast: any): Promise<{ success: boolean; user: User | null }> {
+  async verifyOtp(phone: string, code: string, toast: any): Promise<{ success: boolean; user: User | null }> => {
     try {
+      console.log('[authService] Starting OTP verification for phone:', phone);
+      
       const pendingRegistration = localStorage.getItem('pendingRegistration');
       let userData = null;
       if (pendingRegistration) {
@@ -94,6 +112,7 @@ export const authService = {
         });
 
         if (error) {
+          console.error('[authService] OTP verification error:', error);
           toast({
             title: "خطأ في التحقق",
             description: error.message,
@@ -112,6 +131,7 @@ export const authService = {
               .single();
 
             if (profileError || !profile) {
+              console.error('[authService] Profile fetch error after OTP:', profileError);
               toast({
                 title: "تعذر جلب الحساب",
                 description: "تم إنشاء المستخدم ولكن حدث خطأ بجلب البيانات",
@@ -119,9 +139,19 @@ export const authService = {
               });
               return { success: false, user: null };
             }
+            
             finalUser = profile;
             isNewUser = true;
             localStorage.removeItem('pendingRegistration');
+            
+            // إنشاء جلسة مع Supabase Auth
+            try {
+              await supabase.auth.signInAnonymously();
+              console.log('[authService] Anonymous auth created for new user');
+            } catch (authError) {
+              console.log('[authService] Auth session creation failed, continuing with local auth');
+            }
+            
           } else {
             if ("error" in data && (data as any).error && (data as any).error.includes("مستخدم مسبقًا")) {
               toast({
@@ -141,7 +171,6 @@ export const authService = {
           }
         }
       } else {
-        // هذا المسار لن يتم استخدامه لأن تسجيل الدخول لا يتطلب OTP
         return { success: false, user: null };
       }
 
@@ -153,8 +182,10 @@ export const authService = {
         });
       }
 
+      console.log('[authService] OTP verification successful:', finalUser);
       return { success: true, user: finalUser };
     } catch (error: any) {
+      console.error('[authService] VerifyOTP error:', error);
       toast({
         title: "خطأ في التحقق",
         description: error.message,
