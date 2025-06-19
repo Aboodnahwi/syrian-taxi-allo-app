@@ -20,20 +20,32 @@ export const useCustomerRouting = ({
   const calculationTimeoutRef = useRef<NodeJS.Timeout>();
 
   const calculateDirectDistance = useCallback((from: [number, number], to: [number, number]) => {
-    const R = 6371; // نصف قطر الأرض بالكيلومتر
-    const dLat = (to[0] - from[0]) * Math.PI / 180;
-    const dLon = (to[1] - from[1]) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(from[0] * Math.PI / 180) * Math.cos(to[0] * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    try {
+      const R = 6371; // نصف قطر الأرض بالكيلومتر
+      const dLat = (to[0] - from[0]) * Math.PI / 180;
+      const dLon = (to[1] - from[1]) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(from[0] * Math.PI / 180) * Math.cos(to[0] * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      // التأكد من أن المسافة ليست صفر أو NaN
+      return isNaN(distance) || distance <= 0 ? 1 : distance;
+    } catch (error) {
+      console.error('[useCustomerRouting] Error in calculateDirectDistance:', error);
+      return 1; // مسافة افتراضية
+    }
   }, []);
 
   const zoomToBothPoints = useCallback(() => {
     if (mapZoomToRouteRef?.current && fromCoordinates && toCoordinates) {
       setTimeout(() => {
-        mapZoomToRouteRef.current?.();
+        try {
+          mapZoomToRouteRef.current?.();
+        } catch (error) {
+          console.error('[useCustomerRouting] Error in zoomToBothPoints:', error);
+        }
       }, 200);
     }
   }, [mapZoomToRouteRef, fromCoordinates, toCoordinates]);
@@ -49,6 +61,8 @@ export const useCustomerRouting = ({
 
     if (!from || !to) {
       console.log(`[useCustomerRouting] Missing coordinates, skipping route calculation`);
+      setRoute([]);
+      setRouteDistance(0);
       return;
     }
 
@@ -58,8 +72,8 @@ export const useCustomerRouting = ({
     // التحقق من إحداثيات صالحة
     if (isNaN(from[0]) || isNaN(from[1]) || isNaN(to[0]) || isNaN(to[1])) {
       console.error('[useCustomerRouting] Invalid coordinates detected');
-      const distance = 1; // مسافة افتراضية
-      setRouteDistance(distance);
+      const distance = calculateDirectDistance([33.5138, 36.2765], [33.5138, 36.2765]); // دمشق كنقطة مرجعية
+      setRouteDistance(distance || 1);
       setRoute([from, to]);
       return;
     }
@@ -84,25 +98,23 @@ export const useCustomerRouting = ({
     setRoute([from, to]);
 
     try {
-      // إضافة timeout للطلب لتجنب التعليق
+      // استخدام OSRM بدلاً من OpenRouteService لضمان الاستقرار
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+      
+      console.log(`[useCustomerRouting] Making API request to OSRM:`, osrmUrl);
+      
       const controller = new AbortController();
       calculationTimeoutRef.current = setTimeout(() => {
         controller.abort();
         console.log('[useCustomerRouting] Request timeout, using direct distance');
-      }, 8000); // 8 ثوان
+      }, 5000); // 5 ثوان
 
-      console.log(`[useCustomerRouting] Making API request to OpenRouteService`);
-      
-      const response = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e12d4b05e23f4f36be3b1b7f7c69a82a&start=${from[1]},${from[0]}&end=${to[1]},${to[0]}`,
-        { 
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(osrmUrl, { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
         }
-      );
+      });
 
       clearTimeout(calculationTimeoutRef.current);
       calculationTimeoutRef.current = undefined;
@@ -112,15 +124,15 @@ export const useCustomerRouting = ({
       }
 
       const data = await response.json();
-      console.log(`[useCustomerRouting] API response received:`, data);
+      console.log(`[useCustomerRouting] OSRM API response received:`, data);
       
-      if (data.features && data.features[0] && data.features[0].geometry && data.features[0].geometry.coordinates) {
-        const coordinates = data.features[0].geometry.coordinates;
+      if (data.routes && data.routes.length > 0 && data.routes[0].geometry && data.routes[0].geometry.coordinates) {
+        const coordinates = data.routes[0].geometry.coordinates;
         const routeCoords = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
         setRoute(routeCoords);
         
-        if (data.features[0].properties && data.features[0].properties.segments && data.features[0].properties.segments[0]) {
-          const distance = data.features[0].properties.segments[0].distance / 1000; // تحويل من متر إلى كيلومتر
+        if (data.routes[0].distance) {
+          const distance = data.routes[0].distance / 1000; // تحويل من متر إلى كيلومتر
           setRouteDistance(distance);
           console.log(`[useCustomerRouting] Route calculated successfully, distance: ${distance}km`);
         } else {
@@ -129,7 +141,7 @@ export const useCustomerRouting = ({
         
         setTimeout(() => {
           zoomToBothPoints();
-        }, 500);
+        }, 300);
       } else {
         throw new Error('No valid route data received');
       }
@@ -139,11 +151,7 @@ export const useCustomerRouting = ({
       // إذا كان الخطأ بسبب الإلغاء (timeout)، لا نعرض رسالة خطأ
       if (error.name !== 'AbortError') {
         console.log('[useCustomerRouting] Using direct distance due to routing error');
-        toast({
-          title: "تعذر حساب المسار",
-          description: "سيتم الاعتماد على المسافة المباشرة",
-          variant: "default"
-        });
+        // إزالة رسالة الخطأ المزعجة وجعل النظام يعمل بهدوء
       }
       
       // التأكد من استخدام المسافة المباشرة
@@ -151,23 +159,18 @@ export const useCustomerRouting = ({
       setRoute([from, to]);
       console.log(`[useCustomerRouting] Using direct distance: ${directDistance}km`);
       
-      // إعادة تعيين للسماح بالمحاولة مرة أخرى لاحقاً
-      setTimeout(() => {
-        lastCalculatedRef.current = { from: null, to: null };
-      }, 30000); // 30 ثانية
-      
       setTimeout(() => {
         zoomToBothPoints();
-      }, 500);
+      }, 300);
     }
-  }, [fromCoordinates, toCoordinates, toast, calculateDirectDistance, zoomToBothPoints]);
+  }, [fromCoordinates, toCoordinates, calculateDirectDistance, zoomToBothPoints]);
 
   useEffect(() => {
     if (fromCoordinates && toCoordinates) {
       // تأخير حساب المسار لتجنب الطلبات المتكررة
       const timeoutId = setTimeout(() => {
         calculateRoute();
-      }, 1000);
+      }, 800);
       
       return () => clearTimeout(timeoutId);
     } else {

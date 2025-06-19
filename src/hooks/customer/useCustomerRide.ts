@@ -41,116 +41,112 @@ export const useCustomerRide = ({
 
   const requestRide = useCallback(async () => {
     console.log('[useCustomerRide] Starting ride request...');
-    console.log('[useCustomerRide] Data:', {
-      userId,
-      fromLocation,
-      toLocation,
-      fromCoordinates,
-      toCoordinates,
-      selectedVehicle,
-      isScheduled,
-      scheduleDate,
-      scheduleTime
-    });
-
-    if (!fromLocation || !toLocation || !fromCoordinates || !toCoordinates) {
-      console.log('[useCustomerRide] Missing location data');
-      toast({
-        title: "بيانات ناقصة",
-        description: "يرجى تحديد نقطة الانطلاق والوجهة",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (isScheduled && (!scheduleDate || !scheduleTime)) {
-      console.log('[useCustomerRide] Missing schedule data');
-      toast({
-        title: "بيانات ناقصة",
-        description: "يرجى تحديد تاريخ ووقت الرحلة المجدولة",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!userId) {
-      console.log('[useCustomerRide] Missing user ID');
-      toast({
-        title: "خطأ في المصادقة",
-        description: "يرجى تسجيل الدخول أولاً",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    
     try {
-      // التحقق من جلسة المستخدم الحالية
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.error('[useCustomerRide] Session error:', sessionError);
+      // التحقق من البيانات المطلوبة
+      if (!fromLocation || !toLocation || !fromCoordinates || !toCoordinates) {
+        console.log('[useCustomerRide] Missing location data');
         toast({
-          title: "خطأ في المصادقة",
-          description: "يرجى تسجيل الدخول مرة أخرى",
+          title: "بيانات ناقصة",
+          description: "يرجى تحديد نقطة الانطلاق والوجهة",
           variant: "destructive"
         });
         return;
       }
 
-      const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
+      if (isScheduled && (!scheduleDate || !scheduleTime)) {
+        console.log('[useCustomerRide] Missing schedule data');
+        toast({
+          title: "بيانات ناقصة",
+          description: "يرجى تحديد تاريخ ووقت الرحلة المجدولة",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // التحقق من الجلسة الحالية
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[useCustomerRide] Session error:', sessionError);
+        throw new Error('خطأ في المصادقة: ' + sessionError.message);
+      }
+
+      if (!session || !session.user) {
+        console.error('[useCustomerRide] No valid session');
+        throw new Error('يرجى تسجيل الدخول أولاً');
+      }
+
+      // حساب البيانات
       const distance = calculateDirectDistance(fromCoordinates, toCoordinates);
       const price = calculatePrice(distance, selectedVehicle);
+      const scheduledTime = isScheduled ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString() : null;
 
       console.log('[useCustomerRide] Calculated data:', {
-        distance,
+        distance: distance.toFixed(2),
         price,
         scheduledTime,
-        sessionUserId: session.user.id
+        userId: session.user.id
       });
 
+      // التحقق من صحة التاريخ المجدول
+      if (scheduledTime) {
+        const scheduledDateTime = new Date(scheduledTime);
+        const now = new Date();
+        
+        if (scheduledDateTime <= now) {
+          throw new Error('يجب أن يكون وقت الرحلة في المستقبل');
+        }
+      }
+
+      // إعداد بيانات الرحلة
       const tripData = {
-        customer_id: session.user.id, // استخدام معرف المستخدم من الجلسة
-        from_location: fromLocation,
-        to_location: toLocation,
+        customer_id: session.user.id,
+        from_location: fromLocation.trim(),
+        to_location: toLocation.trim(),
         from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
         to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
         vehicle_type: selectedVehicle,
-        distance_km: distance,
-        price: price,
+        distance_km: Math.round(distance * 100) / 100, // تقريب إلى رقمين عشريين
+        price: Math.round(price),
         scheduled_time: scheduledTime,
         status: scheduledTime ? 'scheduled' : 'pending'
       };
 
       console.log('[useCustomerRide] Inserting trip data:', tripData);
 
+      // إرسال الطلب إلى قاعدة البيانات
       const { data, error } = await supabase
         .from('trips')
         .insert(tripData)
-        .select();
+        .select()
+        .single();
 
       if (error) {
         console.error('[useCustomerRide] Database error:', error);
+        
+        // معالجة أخطاء محددة
         if (error.code === '42501') {
-          toast({
-            title: "خطأ في الصلاحيات",
-            description: "ليس لديك صلاحية لإنشاء رحلة. يرجى المحاولة مرة أخرى.",
-            variant: "destructive"
-          });
+          throw new Error('ليس لديك صلاحية لإنشاء رحلة. يرجى المحاولة مرة أخرى.');
+        } else if (error.code === '23505') {
+          throw new Error('يوجد طلب مماثل قيد المعالجة');
         } else {
-          throw new Error(`خطأ في قاعدة البيانات: ${error.message}`);
+          throw new Error(`خطأ في إنشاء الرحلة: ${error.message}`);
         }
-        return;
       }
 
-      if (!data || data.length === 0) {
+      if (!data) {
         throw new Error('لم يتم إنشاء الرحلة بنجاح');
       }
 
       console.log('[useCustomerRide] Trip created successfully:', data);
 
+      // عرض رسالة نجاح
       toast({
-        title: "تم إرسال طلب الرحلة",
-        description: isScheduled ? "تم جدولة رحلتك بنجاح" : "سيتم إشعارك عند العثور على سائق مناسب",
+        title: "تم إرسال طلب الرحلة بنجاح ✅",
+        description: isScheduled 
+          ? `تم جدولة رحلتك لـ ${new Date(scheduledTime!).toLocaleDateString('ar-SY')} في ${new Date(scheduledTime!).toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`
+          : "سيتم إشعارك عند العثور على سائق مناسب",
         className: "bg-green-50 border-green-200 text-green-800"
       });
 
@@ -165,13 +161,11 @@ export const useCustomerRide = ({
       setScheduleTime('');
       
     } catch (error: any) {
-      console.error('[useCustomerRide] Full error details:', error);
+      console.error('[useCustomerRide] Error in requestRide:', error);
       
       let errorMessage = "حدث خطأ غير متوقع";
       if (error.message) {
         errorMessage = error.message;
-      } else if (error.code) {
-        errorMessage = `خطأ في النظام (${error.code})`;
       }
       
       toast({

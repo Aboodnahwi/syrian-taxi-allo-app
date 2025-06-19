@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import React from "react";
 
@@ -51,13 +51,47 @@ const OrderPanel = ({
   requestRide
 }: OrderPanelProps) => {
   
-  // الحصول على التاريخ الحالي لتعيين الحد الأدنى
-  const today = new Date();
-  const todayString = today.toISOString().split('T')[0];
+  // الحصول على التاريخ والوقت الحالي
+  const now = new Date();
+  const todayString = now.toISOString().split('T')[0];
+  const currentTime = now.toTimeString().slice(0, 5);
   
-  // الحصول على الوقت الحالي لتعيين الحد الأدنى إذا كان التاريخ اليوم
-  const currentTime = today.toTimeString().slice(0, 5);
+  // تحديد الحد الأدنى للوقت
   const minTime = scheduleDate === todayString ? currentTime : "00:00";
+
+  // تنسيق عرض التاريخ والوقت المحدد
+  const formatScheduledDateTime = () => {
+    if (!scheduleDate || !scheduleTime) return null;
+    
+    try {
+      const scheduledDate = new Date(`${scheduleDate}T${scheduleTime}`);
+      const isToday = scheduleDate === todayString;
+      const isTomorrow = scheduleDate === new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      let dayText = '';
+      if (isToday) {
+        dayText = 'اليوم';
+      } else if (isTomorrow) {
+        dayText = 'غداً';
+      } else {
+        dayText = scheduledDate.toLocaleDateString('ar-SY', { 
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long'
+        });
+      }
+      
+      const timeText = scheduledDate.toLocaleTimeString('ar-SY', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      return `${dayText} في ${timeText}`;
+    } catch (error) {
+      return 'تاريخ غير صحيح';
+    }
+  };
 
   return (
     <Collapsible open={orderOpen} onOpenChange={setOrderOpen} className="absolute left-0 right-0 bottom-0 z-50">
@@ -109,6 +143,7 @@ const OrderPanel = ({
                 </div>
               ))}
             </div>
+            
             {fromLocation && toLocation && routeDistance > 0 && (
               <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between items-center">
@@ -121,64 +156,88 @@ const OrderPanel = ({
                 </div>
               </div>
             )}
+            
             <div className="flex gap-2">
-              <Button variant={!isScheduled ? "default" : "outline"} onClick={() => setIsScheduled(false)} className="flex-1">
+              <Button 
+                variant={!isScheduled ? "default" : "outline"} 
+                onClick={() => setIsScheduled(false)} 
+                className="flex-1"
+              >
                 اطلب الآن
               </Button>
-              <Button variant={isScheduled ? "default" : "outline"} onClick={() => setIsScheduled(true)} className="flex-1">
+              <Button 
+                variant={isScheduled ? "default" : "outline"} 
+                onClick={() => setIsScheduled(true)} 
+                className="flex-1"
+              >
                 <Calendar className="w-4 h-4 ml-2" />
                 جدولة الرحلة
               </Button>
             </div>
+            
             {isScheduled && (
-              <div className="space-y-3">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-800 font-tajawal mb-2">اختر تاريخ ووقت الرحلة:</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-slate-600 mb-1 font-tajawal">التاريخ</label>
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-blue-800 font-semibold font-tajawal">حدد موعد الرحلة</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-blue-700 font-tajawal">
+                        📅 التاريخ
+                      </label>
                       <input 
                         type="date" 
                         value={scheduleDate} 
                         onChange={e => setScheduleDate(e.target.value)}
                         min={todayString}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        className="w-full bg-white border-2 border-blue-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" 
                         required
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-slate-600 mb-1 font-tajawal">الوقت</label>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-blue-700 font-tajawal">
+                        🕐 الوقت
+                      </label>
                       <input 
                         type="time" 
                         value={scheduleTime} 
                         onChange={e => setScheduleTime(e.target.value)}
                         min={minTime}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        className="w-full bg-white border-2 border-blue-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" 
                         required
                       />
                     </div>
                   </div>
+                  
                   {scheduleDate && scheduleTime && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800 font-tajawal">
-                      ✓ موعد الرحلة: {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleDateString('ar-SY', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                    <div className="mt-4 p-3 bg-green-50 border-2 border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-semibold text-green-800 font-tajawal">
+                            موعد الرحلة المحدد:
+                          </p>
+                          <p className="text-lg font-bold text-green-700 font-cairo">
+                            {formatScheduledDateTime()}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             )}
+            
             <Button
               onClick={requestRide}
-              className="w-full btn-taxi text-lg py-4"
+              className="w-full btn-taxi text-lg py-4 font-semibold"
               disabled={!fromLocation || !toLocation || (isScheduled && (!scheduleDate || !scheduleTime))}
             >
-              {isScheduled ? "جدولة الرحلة" : "طلب الرحلة"}
+              {isScheduled ? "📅 جدولة الرحلة" : "🚗 طلب الرحلة الآن"}
             </Button>
           </CardContent>
         </Card>
