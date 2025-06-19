@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -102,12 +103,14 @@ const AdminPage = () => {
       
       return {
         id: trip.id,
-        from: [fromCoords[0], fromCoords[1]] as [number, number],
-        to: [toCoords[0], toCoords[1]] as [number, number],
-        status: trip.status,
-        customer: trip.customer?.name || 'غير محدد',
-        driver: trip.driver?.name || 'لا يوجد سائق',
-        created_at: trip.created_at
+        position: [fromCoords[0], fromCoords[1]] as [number, number],
+        popup: `${trip.customer?.name || 'غير محدد'} - ${trip.status === 'completed' ? 'مكتملة' : trip.status === 'pending' ? 'قيد الانتظار' : trip.status === 'in_progress' ? 'جارية' : 'ملغية'}`,
+        icon: {
+          html: `<div class="w-6 h-6 rounded-full ${trip.status === 'completed' ? 'bg-green-500' : trip.status === 'in_progress' ? 'bg-blue-500' : 'bg-yellow-500'} border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>`,
+          className: 'custom-marker',
+          iconSize: [24, 24] as [number, number],
+          iconAnchor: [12, 12] as [number, number]
+        }
       };
     });
 
@@ -252,20 +255,7 @@ const AdminPage = () => {
                 <Map
                   center={[33.5138, 36.2765]} // دمشق
                   zoom={11}
-                  markers={mapMarkers.map(marker => ({
-                    id: marker.id,
-                    position: marker.from,
-                    type: 'pickup',
-                    title: `من: ${marker.customer}`,
-                    description: `الحالة: ${marker.status}`
-                  }))}
-                  routes={mapMarkers.map(marker => ({
-                    id: marker.id,
-                    from: marker.from,
-                    to: marker.to,
-                    color: marker.status === 'completed' ? '#10b981' : 
-                           marker.status === 'in_progress' ? '#3b82f6' : '#eab308'
-                  }))}
+                  markers={mapMarkers}
                   className="w-full h-full"
                 />
               </div>
