@@ -9,6 +9,9 @@ import LocationInputs from '@/components/customer/LocationInputs';
 import OrderPanel from '@/components/customer/OrderPanel';
 import CustomerMapPanel from '@/components/customer/CustomerMapPanel';
 import { useManualPinAddress } from '@/hooks/customer/useManualPinAddress';
+import RatingDialog from '@/components/rating/RatingDialog';
+import PaymentDialog from '@/components/payment/PaymentDialog';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 import { useVehicleTypes } from '@/hooks/useVehicleTypes';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +32,11 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (..
 const CustomerPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // حالات التقييم والدفع
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [completedTrip, setCompletedTrip] = useState<any>(null);
 
   // التحقق من صلاحية الوصول
   React.useEffect(() => {
@@ -167,8 +175,9 @@ const CustomerPage = () => {
       />
 
       {/* Head & notification */}
-      <CustomerPageHeader 
+      <CustomerPageHeader
         userName={user.name}
+        userId={user.id}
         onSignOut={signOut}
       />
       
@@ -212,6 +221,39 @@ const CustomerPage = () => {
         setScheduleTime={rideHook.setScheduleTime}
         requestRide={rideHook.requestRide}
       />
+
+      {/* مربعات حوار التقييم والدفع */}
+      {completedTrip && (
+        <>
+          <RatingDialog
+            open={showRatingDialog}
+            onOpenChange={setShowRatingDialog}
+            tripId={completedTrip.id}
+            raterId={user.id}
+            ratedId={completedTrip.driver_id}
+            ratedName={completedTrip.driver_name || 'السائق'}
+            ratedType="driver"
+            onRatingSubmitted={() => {
+              setShowRatingDialog(false);
+              setCompletedTrip(null);
+            }}
+          />
+
+          <PaymentDialog
+            open={showPaymentDialog}
+            onOpenChange={setShowPaymentDialog}
+            tripId={completedTrip.id}
+            amount={completedTrip.price}
+            onPaymentSuccess={(transactionId) => {
+              setShowPaymentDialog(false);
+              setShowRatingDialog(true);
+            }}
+            onPaymentError={(error) => {
+              console.error('Payment error:', error);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };

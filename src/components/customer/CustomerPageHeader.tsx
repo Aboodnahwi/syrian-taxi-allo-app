@@ -2,15 +2,17 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Car, LogOut } from 'lucide-react';
-import NotificationSystem from '@/components/NotificationSystem';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 interface CustomerPageHeaderProps {
   userName: string;
+  userId: string;
   onSignOut: () => void;
 }
 
 const CustomerPageHeader: React.FC<CustomerPageHeaderProps> = ({
   userName,
+  userId,
   onSignOut
 }) => {
   return (
@@ -26,7 +28,7 @@ const CustomerPageHeader: React.FC<CustomerPageHeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationSystem userType="customer" />
+          <NotificationCenter userId={userId} />
           <Button variant="ghost" onClick={onSignOut} className="text-white hover:bg-white/10">
             <LogOut className="w-5 h-5" />
           </Button>
