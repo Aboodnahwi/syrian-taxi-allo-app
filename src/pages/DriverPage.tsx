@@ -164,6 +164,9 @@ const DriverPage = () => {
 
   const acceptRide = async (request: any) => {
     try {
+      console.log('Accepting ride:', request);
+      console.log('Driver ID:', user.id);
+
       const { error } = await supabase
         .from('trips')
         .update({ 
@@ -173,9 +176,24 @@ const DriverPage = () => {
         })
         .eq('id', request.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error accepting ride:', error);
+        throw error;
+      }
 
-      setActiveRide(request);
+      // تحويل البيانات للصيغة المطلوبة للرحلة النشطة
+      const activeRideData = {
+        ...request,
+        customerName: request.customer_name,
+        from: request.from_location,
+        to: request.to_location,
+        from_coordinates: request.from_coordinates,
+        to_coordinates: request.to_coordinates,
+        driver_id: user.id,
+        status: 'accepted'
+      };
+
+      setActiveRide(activeRideData);
       setRideStatus('accepted');
       
       toast({
@@ -187,7 +205,7 @@ const DriverPage = () => {
       console.error('Error accepting ride:', error);
       toast({
         title: "خطأ",
-        description: "تعذر قبول الرحلة",
+        description: "تعذر قبول الرحلة. يرجى المحاولة مرة أخرى.",
         variant: "destructive"
       });
     }

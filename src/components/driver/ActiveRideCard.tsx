@@ -25,19 +25,19 @@ const ActiveRideCard = ({ activeRide, rideStatus, updateRideStatus }: ActiveRide
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-slate-600 font-tajawal">الزبون:</span>
-              <p className="font-semibold text-slate-800">{activeRide.customerName}</p>
+              <p className="font-semibold text-slate-800">{activeRide.customerName || activeRide.customer_name || 'زبون'}</p>
             </div>
             <div>
               <span className="text-slate-600 font-tajawal">السعر:</span>
-              <p className="font-semibold text-emerald-600">{activeRide.price.toLocaleString()} ل.س</p>
+              <p className="font-semibold text-emerald-600">{activeRide.price ? activeRide.price.toLocaleString() : 0} ل.س</p>
             </div>
             <div>
               <span className="text-slate-600 font-tajawal">من:</span>
-              <p className="font-semibold text-slate-800">{activeRide.from}</p>
+              <p className="font-semibold text-slate-800">{activeRide.from || activeRide.from_location}</p>
             </div>
             <div>
               <span className="text-slate-600 font-tajawal">إلى:</span>
-              <p className="font-semibold text-slate-800">{activeRide.to}</p>
+              <p className="font-semibold text-slate-800">{activeRide.to || activeRide.to_location}</p>
             </div>
           </div>
 
