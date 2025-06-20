@@ -5,10 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Car, Users, MapPin, Clock } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LogOut, Car, Users, MapPin, Clock, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
+import DashboardStats from '@/components/admin/DashboardStats';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 const AdminPage = () => {
   const { user, signOut } = useAuth();
@@ -148,20 +151,45 @@ const AdminPage = () => {
               <p className="text-slate-300 font-tajawal">مرحباً {user.name}</p>
             </div>
           </div>
-          <Button 
-            onClick={handleSignOut}
-            variant="outline"
-            className="border-slate-600 text-white hover:bg-slate-700"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            تسجيل الخروج
-          </Button>
+          <div className="flex items-center gap-3">
+            <NotificationCenter userId={user.id} />
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              className="border-slate-600 text-white hover:bg-slate-700"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              تسجيل الخروج
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto p-6 grid lg:grid-cols-3 gap-6">
-        {/* الإحصائيات */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="container mx-auto p-6">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800 border-slate-700">
+            <TabsTrigger value="dashboard" className="text-white data-[state=active]:bg-slate-700">
+              <BarChart3 className="w-4 h-4 ml-2" />
+              لوحة المعلومات
+            </TabsTrigger>
+            <TabsTrigger value="trips" className="text-white data-[state=active]:bg-slate-700">
+              <Car className="w-4 h-4 ml-2" />
+              الرحلات
+            </TabsTrigger>
+            <TabsTrigger value="map" className="text-white data-[state=active]:bg-slate-700">
+              <MapPin className="w-4 h-4 ml-2" />
+              الخريطة
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <DashboardStats />
+          </TabsContent>
+
+          <TabsContent value="trips">
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* الإحصائيات */}
+              <div className="lg:col-span-1 space-y-6">
           {/* إحصائيات عامة */}
           <div className="grid grid-cols-1 gap-4">
             <Card className="bg-slate-800 border-slate-700">
@@ -252,27 +280,51 @@ const AdminPage = () => {
           </Card>
         </div>
 
-        {/* الخريطة التفاعلية */}
-        <div className="lg:col-span-2">
-          <Card className="bg-slate-800 border-slate-700 h-full">
-            <CardHeader>
-              <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-red-400" />
-                الخريطة التفاعلية - الرحلات المباشرة
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[600px] p-0">
-              <div className="h-full rounded-lg overflow-hidden">
-                <Map
-                  center={[33.5138, 36.2765]} // دمشق
-                  zoom={11}
-                  markers={mapMarkers}
-                  className="w-full h-full"
-                />
+              {/* الخريطة التفاعلية */}
+              <div className="lg:col-span-2">
+                <Card className="bg-slate-800 border-slate-700 h-full">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-red-400" />
+                      الخريطة التفاعلية - الرحلات المباشرة
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[600px] p-0">
+                    <div className="h-full rounded-lg overflow-hidden">
+                      <Map
+                        center={[33.5138, 36.2765]} // دمشق
+                        zoom={11}
+                        markers={mapMarkers}
+                        className="w-full h-full"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="map">
+            <Card className="bg-slate-800 border-slate-700 h-[700px]">
+              <CardHeader>
+                <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-red-400" />
+                  الخريطة التفاعلية - جميع الرحلات
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-full p-0">
+                <div className="h-full rounded-lg overflow-hidden">
+                  <Map
+                    center={[33.5138, 36.2765]} // دمشق
+                    zoom={11}
+                    markers={mapMarkers}
+                    className="w-full h-full"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

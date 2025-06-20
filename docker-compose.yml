@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # تطبيق ألو تكسي
+  allotaxi-app:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - allotaxi-network
+
+  # قاعدة بيانات PostgreSQL (للتطوير المحلي)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: allotaxi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - allotaxi-network
+
+  # Redis للتخزين المؤقت
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - allotaxi-network
+
+  # Nginx Proxy Manager (اختياري)
+  nginx-proxy:
+    image: nginxproxymanager/nginx-proxy-manager:latest
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "8181:81"
+    volumes:
+      - nginx_data:/data
+      - nginx_letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+    networks:
+      - allotaxi-network
+
+volumes:
+  postgres_data:
+  nginx_data:
+  nginx_letsencrypt:
+
+networks:
+  allotaxi-network:
+    driver: bridge

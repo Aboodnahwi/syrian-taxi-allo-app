@@ -11,6 +11,8 @@ import DriverPageMessages from '@/components/driver/DriverPageMessages';
 import { useActiveRideTracking } from '@/hooks/driver/useActiveRideTracking';
 import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
+import RatingDialog from '@/components/rating/RatingDialog';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 import { supabase } from '@/integrations/supabase/client';
 
 const DriverPage = () => {
@@ -24,6 +26,8 @@ const DriverPage = () => {
   const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapRoute, setMapRoute] = useState<[number, number][] | undefined>();
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [completedTrip, setCompletedTrip] = useState<any>(null);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useActiveRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
@@ -333,6 +337,23 @@ const DriverPage = () => {
           acceptRide={acceptRide}
           rejectRide={rejectRide}
           loading={requestsLoading}
+        />
+      )}
+
+      {/* مربع حوار التقييم */}
+      {completedTrip && (
+        <RatingDialog
+          open={showRatingDialog}
+          onOpenChange={setShowRatingDialog}
+          tripId={completedTrip.id}
+          raterId={user?.id || ''}
+          ratedId={completedTrip.customer_id}
+          ratedName={completedTrip.customer_name || 'العميل'}
+          ratedType="customer"
+          onRatingSubmitted={() => {
+            setShowRatingDialog(false);
+            setCompletedTrip(null);
+          }}
         />
       )}
     </div>
