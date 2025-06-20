@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types/auth';
 
@@ -59,26 +60,6 @@ export const authService = {
       }
 
       console.log('[authService] User found:', profile);
-      
-      // إنشاء جلسة صحيحة مع Supabase Auth لضمان عمل RLS
-      try {
-        console.log('[authService] Creating auth session...');
-        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-        
-        if (authError) {
-          console.error('[authService] Auth error:', authError);
-          // في حالة فشل المصادقة الرسمية، نحاول إنشاء جلسة مؤقتة
-          console.log('[authService] Auth failed, proceeding with local authentication');
-        } else {
-          console.log('[authService] Anonymous auth successful:', authData);
-          // حفظ معلومات الجلسة لاستخدامها لاحقاً
-          if (authData.session) {
-            localStorage.setItem('supabase_session', JSON.stringify(authData.session));
-          }
-        }
-      } catch (authError) {
-        console.error('[authService] Critical auth error:', authError);
-      }
 
       toast({
         title: "تم تسجيل الدخول بنجاح",
@@ -151,21 +132,6 @@ export const authService = {
             finalUser = profile;
             isNewUser = true;
             localStorage.removeItem('pendingRegistration');
-            
-            // إنشاء جلسة مع Supabase Auth لضمان عمل RLS
-            try {
-              const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-              if (authError) {
-                console.log('[authService] Auth session creation failed, continuing with local auth');
-              } else {
-                console.log('[authService] Anonymous auth created for new user');
-                if (authData.session) {
-                  localStorage.setItem('supabase_session', JSON.stringify(authData.session));
-                }
-              }
-            } catch (authError) {
-              console.log('[authService] Auth session creation failed, continuing with local auth');
-            }
             
           } else {
             if ("error" in data && (data as any).error && (data as any).error.includes("مستخدم مسبقًا")) {

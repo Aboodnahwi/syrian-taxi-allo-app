@@ -311,6 +311,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_trip_request: {
+        Args: {
+          p_customer_id: string
+          p_from_location: string
+          p_to_location: string
+          p_from_coordinates: string
+          p_to_coordinates: string
+          p_vehicle_type: string
+          p_distance_km: number
+          p_price: number
+          p_scheduled_time?: string
+        }
+        Returns: string
+      }
       generate_otp: {
         Args: { p_phone: string }
         Returns: string

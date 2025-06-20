@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { CreateTripRequestParams } from '@/types/supabase-rpc';
 
 interface UseCustomerRideProps {
   userId: string;
@@ -128,111 +129,35 @@ export const useCustomerRide = ({
         }
       }
 
-      // التأكد من إنشاء جلسة مصادقة صحيحة مع Supabase
-      console.log('[useCustomerRide] Ensuring Supabase session exists...');
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session) {
-          console.log('[useCustomerRide] No active session, creating anonymous session');
-          const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-          
-          if (authError) {
-            console.error('[useCustomerRide] Failed to create auth session:', authError);
-            // محاولة تسجيل دخول مؤقت بدون مصادقة رسمية
-            console.log('[useCustomerRide] Proceeding without Supabase auth session');
-          } else {
-            console.log('[useCustomerRide] Anonymous session created successfully');
-          }
-        } else {
-          console.log('[useCustomerRide] Existing session found');
-        }
-      } catch (authError) {
-        console.error('[useCustomerRide] Error managing auth session:', authError);
-      }
-
       // إعداد بيانات الرحلة
-      const tripData = {
-        customer_id: currentUser.id,
-        from_location: fromLocation.trim(),
-        to_location: toLocation.trim(),
-        from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
-        to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
-        vehicle_type: selectedVehicle,
-        distance_km: Math.round(distance * 100) / 100,
-        price: Math.round(price),
-        scheduled_time: scheduledTime,
-        status: scheduledTime ? 'scheduled' : 'pending'
+      const tripParams: CreateTripRequestParams = {
+        p_customer_id: currentUser.id,
+        p_from_location: fromLocation.trim(),
+        p_to_location: toLocation.trim(),
+        p_from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
+        p_to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
+        p_vehicle_type: selectedVehicle,
+        p_distance_km: Math.round(distance * 100) / 100,
+        p_price: Math.round(price),
+        p_scheduled_time: scheduledTime || undefined
       };
 
-      console.log('[useCustomerRide] Inserting trip data:', tripData);
+      console.log('[useCustomerRide] Creating trip with params:', tripParams);
 
-      // إرسال الطلب إلى قاعدة البيانات مع إعدادات خاصة
-      const { data, error } = await supabase
-        .from('trips')
-        .insert(tripData)
-        .select()
-        .single();
+      // إرسال الطلب باستخدام الدالة الجديدة
+      const { data: tripId, error } = await supabase.rpc('create_trip_request' as any, tripParams);
 
       if (error) {
-        console.error('[useCustomerRide] Database error:', error);
-        
-        // معالجة أخطاء محددة
-        if (error.code === '42501' || error.message.includes('RLS') || error.message.includes('policy')) {
-          // محاولة إدراج البيانات عبر دالة مخصصة
-          console.log('[useCustomerRide] Trying alternative insertion method...');
-          
-          try {
-            const { data: rpcData, error: rpcError } = await supabase.rpc('create_trip_request', {
-              p_customer_id: currentUser.id,
-              p_from_location: fromLocation.trim(),
-              p_to_location: toLocation.trim(),
-              p_from_coordinates: `(${fromCoordinates[0]},${fromCoordinates[1]})`,
-              p_to_coordinates: `(${toCoordinates[0]},${toCoordinates[1]})`,
-              p_vehicle_type: selectedVehicle,
-              p_distance_km: Math.round(distance * 100) / 100,
-              p_price: Math.round(price),
-              p_scheduled_time: scheduledTime
-            });
-
-            if (rpcError) {
-              console.error('[useCustomerRide] RPC error:', rpcError);
-              toast({
-                title: "خطأ في إرسال الطلب",
-                description: "حدث خطأ في النظام. يرجى المحاولة مرة أخرى.",
-                variant: "destructive"
-              });
-              return;
-            }
-
-            console.log('[useCustomerRide] Trip created via RPC successfully:', rpcData);
-            
-          } catch (rpcError) {
-            console.error('[useCustomerRide] RPC fallback failed:', rpcError);
-            toast({
-              title: "خطأ في الصلاحيات",
-              description: "لا يمكن إرسال الطلب حالياً. يرجى إعادة تسجيل الدخول والمحاولة مرة أخرى.",
-              variant: "destructive"
-            });
-            return;
-          }
-        } else if (error.code === '23505') {
-          toast({
-            title: "طلب مكرر",
-            description: "يوجد طلب مماثل قيد المعالجة",
-            variant: "destructive"
-          });
-          return;
-        } else {
-          toast({
-            title: "خطأ في إرسال الطلب",
-            description: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
-            variant: "destructive"
-          });
-          return;
-        }
-      } else {
-        console.log('[useCustomerRide] Trip created successfully:', data);
+        console.error('[useCustomerRide] Trip creation error:', error);
+        toast({
+          title: "خطأ في إرسال الطلب",
+          description: "حدث خطأ أثناء إرسال طلب الرحلة. يرجى المحاولة مرة أخرى.",
+          variant: "destructive"
+        });
+        return;
       }
+
+      console.log('[useCustomerRide] Trip created successfully:', tripId);
 
       // عرض رسالة نجاح
       toast({
@@ -260,8 +185,6 @@ export const useCustomerRide = ({
       if (error.message) {
         if (error.message.includes('fetch')) {
           errorMessage = "مشكلة في الاتصال. يرجى التحقق من الإنترنت والمحاولة مرة أخرى.";
-        } else if (error.message.includes('RLS') || error.message.includes('policy')) {
-          errorMessage = "خطأ في الصلاحيات. يرجى إعادة تسجيل الدخول والمحاولة مرة أخرى.";
         } else {
           errorMessage = error.message;
         }
