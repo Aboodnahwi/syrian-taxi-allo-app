@@ -28,7 +28,7 @@ export const authService = {
     }
   },
 
-  async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> => {
+  async signIn(phone: string, toast: any): Promise<{ success: boolean; user: User | null }> {
     try {
       console.log('[authService] Starting sign in for phone:', phone);
       
@@ -90,7 +90,7 @@ export const authService = {
     }
   },
 
-  async verifyOtp(phone: string, code: string, toast: any): Promise<{ success: boolean; user: User | null }> => {
+  async verifyOtp(phone: string, code: string, toast: any): Promise<{ success: boolean; user: User | null }> {
     try {
       console.log('[authService] Starting OTP verification for phone:', phone);
       
