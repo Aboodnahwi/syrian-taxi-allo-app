@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -74,6 +73,7 @@ const DriverPage = () => {
     );
     
     if (activeTrip && !activeRide) {
+      console.log('Setting active ride from trips:', activeTrip);
       setActiveRide(activeTrip);
       if (activeTrip.status === 'accepted') setRideStatus('accepted');
       else if (activeTrip.status === 'arrived') setRideStatus('arrived');
@@ -165,12 +165,58 @@ const DriverPage = () => {
   const acceptRide = async (request: any) => {
     try {
       console.log('Accepting ride:', request);
-      console.log('Driver ID:', user.id);
+      console.log('Driver user object:', user);
 
+      // التأكد من وجود معرف السائق
+      if (!user?.id) {
+        toast({
+          title: "خطأ",
+          description: "لم يتم العثور على معرف السائق",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // التحقق من وجود السائق في جدول drivers أولاً
+      const { data: driverData, error: driverError } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      let driverId = driverData?.id;
+
+      // إذا لم نجد السائق، ننشئه
+      if (driverError && driverError.code === 'PGRST116') {
+        console.log('Driver not found, creating new driver record...');
+        const { data: newDriver, error: createError } = await supabase
+          .from('drivers')
+          .insert({
+            user_id: user.id,
+            license_number: 'TEMP001',
+            license_plate: 'TEMP001',
+            vehicle_type: 'regular'
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('Error creating driver:', createError);
+          throw createError;
+        }
+        driverId = newDriver.id;
+      } else if (driverError) {
+        console.error('Error fetching driver:', driverError);
+        throw driverError;
+      }
+
+      console.log('Using driver ID:', driverId);
+
+      // تحديث الرحلة بمعرف السائق
       const { error } = await supabase
         .from('trips')
         .update({ 
-          driver_id: user.id, 
+          driver_id: driverId, 
           status: 'accepted',
           accepted_at: new Date().toISOString()
         })
@@ -185,14 +231,18 @@ const DriverPage = () => {
       const activeRideData = {
         ...request,
         customerName: request.customer_name,
+        customer_name: request.customer_name,
         from: request.from_location,
+        from_location: request.from_location,
         to: request.to_location,
+        to_location: request.to_location,
         from_coordinates: request.from_coordinates,
         to_coordinates: request.to_coordinates,
-        driver_id: user.id,
+        driver_id: driverId,
         status: 'accepted'
       };
 
+      console.log('Setting active ride data:', activeRideData);
       setActiveRide(activeRideData);
       setRideStatus('accepted');
       

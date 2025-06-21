@@ -36,6 +36,72 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_applications: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          id_document_url: string | null
+          license_document_url: string | null
+          license_number: string
+          license_plate: string
+          phone: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          vehicle_color: string | null
+          vehicle_model: string | null
+          vehicle_registration_url: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          id_document_url?: string | null
+          license_document_url?: string | null
+          license_number: string
+          license_plate: string
+          phone: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vehicle_color?: string | null
+          vehicle_model?: string | null
+          vehicle_registration_url?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          id_document_url?: string | null
+          license_document_url?: string | null
+          license_number?: string
+          license_plate?: string
+          phone?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_color?: string | null
+          vehicle_model?: string | null
+          vehicle_registration_url?: string | null
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           created_at: string
@@ -160,6 +226,39 @@ export type Database = {
           id?: string
           is_used?: boolean | null
           phone?: string
+        }
+        Relationships: []
+      }
+      pricing_factors: {
+        Row: {
+          created_at: string
+          description: string | null
+          factor_name: string
+          factor_type: string
+          factor_value: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          factor_name: string
+          factor_type: string
+          factor_value: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          factor_name?: string
+          factor_type?: string
+          factor_value?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -298,6 +397,42 @@ export type Database = {
           },
         ]
       }
+      vehicle_pricing: {
+        Row: {
+          base_price: number
+          created_at: string
+          id: string
+          is_active: boolean
+          minimum_fare: number
+          price_per_km: number
+          surge_multiplier: number
+          updated_at: string
+          vehicle_type: string
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          minimum_fare?: number
+          price_per_km?: number
+          surge_multiplier?: number
+          updated_at?: string
+          vehicle_type: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          minimum_fare?: number
+          price_per_km?: number
+          surge_multiplier?: number
+          updated_at?: string
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -305,6 +440,17 @@ export type Database = {
     Functions: {
       calculate_distance: {
         Args: { lat1: number; lon1: number; lat2: number; lon2: number }
+        Returns: number
+      }
+      calculate_dynamic_price: {
+        Args: {
+          p_vehicle_type: string
+          p_distance_km: number
+          p_is_peak_hour?: boolean
+          p_is_night_time?: boolean
+          p_is_weekend?: boolean
+          p_is_holiday?: boolean
+        }
         Returns: number
       }
       cleanup_expired_otps: {

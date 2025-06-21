@@ -30,6 +30,8 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
 
     const fetchRideRequests = async () => {
       try {
+        console.log('Fetching ride requests for driver location:', driverLocation);
+        
         // جلب الطلبات المتاحة مع معلومات الزبائن
         const { data: trips, error } = await supabase
           .from('trips')
@@ -54,19 +56,27 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           return;
         }
 
+        console.log('Fetched trips:', trips);
+
         // تحويل البيانات وحساب المسافة من موقع السائق
         const processedRequests: RideRequest[] = (trips || []).map((trip: any) => {
           // تحويل الإحداثيات
           const fromCoords = parseCoordinates(trip.from_coordinates);
           const toCoords = parseCoordinates(trip.to_coordinates);
 
-          if (!fromCoords || !toCoords) return null;
+          if (!fromCoords || !toCoords) {
+            console.warn('Invalid coordinates for trip:', trip.id);
+            return null;
+          }
 
           // حساب المسافة من موقع السائق إلى نقطة الانطلاق
           const distanceToPickup = calculateDistance(
             driverLocation[0], driverLocation[1],
             fromCoords[0], fromCoords[1]
           );
+
+          // حساب المدة المتوقعة بناءً على المسافة (افتراض 40 كم/ساعة في المدينة)
+          const estimatedDuration = Math.ceil((trip.distance_km || 5) * 1.5); // دقيقة
 
           return {
             id: trip.id,
@@ -78,13 +88,15 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
             vehicle_type: trip.vehicle_type,
             price: trip.price,
             distance_km: trip.distance_km || 0,
-            estimated_duration: trip.estimated_duration || 0,
+            estimated_duration: estimatedDuration,
             customer_name: trip.profiles?.name || 'زبون',
             customer_phone: trip.profiles?.phone || '',
             created_at: trip.created_at,
             urgent: distanceToPickup < 2, // عاجل إذا كان قريب
           };
         }).filter(Boolean) as RideRequest[];
+
+        console.log('Processed ride requests:', processedRequests);
 
         // ترتيب حسب القرب من السائق
         processedRequests.sort((a, b) => {
@@ -125,8 +137,8 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           table: 'trips',
           filter: 'status=eq.pending'
         },
-        () => {
-          console.log('New ride request or update detected');
+        (payload) => {
+          console.log('New ride request or update detected:', payload);
           fetchRideRequests();
         }
       )
