@@ -12,14 +12,14 @@ interface DriverApplication {
   id: string;
   full_name: string;
   phone: string;
-  email: string;
+  email: string | null;
   license_number: string;
   vehicle_type: string;
-  vehicle_model: string;
-  vehicle_color: string;
+  vehicle_model: string | null;
+  vehicle_color: string | null;
   license_plate: string;
-  status: 'pending' | 'approved' | 'rejected';
-  rejection_reason?: string;
+  status: string;
+  rejection_reason?: string | null;
   created_at: string;
 }
 

@@ -13,10 +13,18 @@ import { supabase } from '@/integrations/supabase/client';
 interface PricingFactor {
   id: string;
   factor_name: string;
-  factor_type: 'multiplier' | 'addition' | 'percentage';
+  factor_type: string;
   factor_value: number;
   is_active: boolean;
-  description: string;
+  description: string | null;
+}
+
+interface NewPricingFactor {
+  factor_name?: string;
+  factor_type?: string;
+  factor_value?: number;
+  is_active?: boolean;
+  description?: string;
 }
 
 const PricingFactorsManager = () => {
@@ -24,7 +32,7 @@ const PricingFactorsManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<PricingFactor>>({});
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newFactor, setNewFactor] = useState<Partial<PricingFactor>>({
+  const [newFactor, setNewFactor] = useState<NewPricingFactor>({
     factor_type: 'multiplier',
     is_active: true
   });
@@ -168,7 +176,7 @@ const PricingFactorsManager = () => {
                 <Label className="text-slate-300">نوع العامل</Label>
                 <Select 
                   value={newFactor.factor_type} 
-                  onValueChange={(value: any) => setNewFactor({...newFactor, factor_type: value})}
+                  onValueChange={(value) => setNewFactor({...newFactor, factor_type: value})}
                 >
                   <SelectTrigger className="bg-slate-600 border-slate-500 text-white">
                     <SelectValue />
