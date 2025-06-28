@@ -3,8 +3,8 @@ import RideRequestCard from './RideRequestCard';
 
 interface RideRequestListProps {
   rideRequests: any[];
-  acceptRide: (request: any) => void;
-  rejectRide: (requestId: number) => void;
+  acceptRide: (request: any) => Promise<{ success: boolean; }>;
+  rejectRide: (requestId: string) => Promise<void>;
 }
 
 const RideRequestList = ({ rideRequests, acceptRide, rejectRide }: RideRequestListProps) => {

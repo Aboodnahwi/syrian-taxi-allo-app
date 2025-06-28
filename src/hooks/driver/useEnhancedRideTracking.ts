@@ -77,7 +77,6 @@ export const useEnhancedRideTracking = (activeRide: any) => {
       await supabase
         .from('trips')
         .update({
-          route_path: data.path,
           real_time_distance: data.totalDistance,
           real_time_price: data.totalFare
         })
