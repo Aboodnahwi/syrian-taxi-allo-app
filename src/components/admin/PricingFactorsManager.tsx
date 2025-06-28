@@ -20,10 +20,10 @@ interface PricingFactor {
 }
 
 interface NewPricingFactor {
-  factor_name?: string;
-  factor_type?: string;
-  factor_value?: number;
-  is_active?: boolean;
+  factor_name: string;
+  factor_type: string;
+  factor_value: number;
+  is_active: boolean;
   description?: string;
 }
 
@@ -33,8 +33,11 @@ const PricingFactorsManager = () => {
   const [editForm, setEditForm] = useState<Partial<PricingFactor>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [newFactor, setNewFactor] = useState<NewPricingFactor>({
+    factor_name: '',
     factor_type: 'multiplier',
-    is_active: true
+    factor_value: 1,
+    is_active: true,
+    description: ''
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -114,7 +117,7 @@ const PricingFactorsManager = () => {
     try {
       const { error } = await supabase
         .from('pricing_factors')
-        .insert([newFactor]);
+        .insert(newFactor);
 
       if (error) throw error;
 
@@ -126,7 +129,13 @@ const PricingFactorsManager = () => {
 
       fetchFactors();
       setShowAddForm(false);
-      setNewFactor({ factor_type: 'multiplier', is_active: true });
+      setNewFactor({
+        factor_name: '',
+        factor_type: 'multiplier',
+        factor_value: 1,
+        is_active: true,
+        description: ''
+      });
     } catch (error: any) {
       toast({
         title: "خطأ في الإضافة",
@@ -166,7 +175,7 @@ const PricingFactorsManager = () => {
               <div>
                 <Label className="text-slate-300">اسم العامل</Label>
                 <Input
-                  value={newFactor.factor_name || ''}
+                  value={newFactor.factor_name}
                   onChange={(e) => setNewFactor({...newFactor, factor_name: e.target.value})}
                   className="bg-slate-600 border-slate-500 text-white"
                   placeholder="مثال: وقت الذروة"
@@ -193,7 +202,7 @@ const PricingFactorsManager = () => {
                 <Input
                   type="number"
                   step="0.1"
-                  value={newFactor.factor_value || ''}
+                  value={newFactor.factor_value}
                   onChange={(e) => setNewFactor({...newFactor, factor_value: Number(e.target.value)})}
                   className="bg-slate-600 border-slate-500 text-white"
                 />
