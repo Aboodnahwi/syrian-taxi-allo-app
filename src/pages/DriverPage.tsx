@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +54,8 @@ const DriverPage = () => {
       if (!user?.id) return;
 
       try {
+        console.log('Fetching driver profile for user ID:', user.id);
+        
         const { data: driver, error } = await supabase
           .from('drivers')
           .select('*')
@@ -67,6 +68,7 @@ const DriverPage = () => {
         }
 
         if (!driver) {
+          console.log('No driver profile found, creating new one');
           // إنشاء ملف سائق جديد
           const { data: newDriver, error: createError } = await supabase
             .from('drivers')
@@ -81,19 +83,33 @@ const DriverPage = () => {
 
           if (createError) {
             console.error('Error creating driver profile:', createError);
+            toast({
+              title: "خطأ في إنشاء الملف الشخصي",
+              description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
+              variant: "destructive"
+            });
             return;
           }
+          console.log('Created new driver profile:', newDriver);
           setDriverProfile(newDriver);
         } else {
+          console.log('Found existing driver profile:', driver);
           setDriverProfile(driver);
         }
       } catch (error) {
         console.error('Error in fetchDriverProfile:', error);
+        toast({
+          title: "خطأ في جلب البيانات",
+          description: "تعذر جلب بيانات السائق",
+          variant: "destructive"
+        });
       }
     };
 
     fetchDriverProfile();
-  }, [user]);
+  }, [user, toast]);
+
+  // ... keep existing code (getCurrentLocation useEffect)
 
   useEffect(() => {
     const getCurrentLocation = () => {
@@ -133,6 +149,8 @@ const DriverPage = () => {
       else if (activeTrip.status === 'started') setRideStatus('started');
     }
   }, [trips, driverProfile?.id, activeRide]);
+
+  // ... keep existing code (map markers useEffect)
 
   useEffect(() => {
     const markers = [];
@@ -225,6 +243,7 @@ const DriverPage = () => {
       return { success: false };
     }
 
+    console.log('Accepting ride request:', request);
     const result = await acceptRide(request, driverProfile.id, user.name);
     
     if (result.success) {
@@ -239,9 +258,11 @@ const DriverPage = () => {
         from_coordinates: request.from_coordinates,
         to_coordinates: request.to_coordinates,
         driver_id: driverProfile.id,
-        status: 'accepted'
+        status: 'accepted',
+        customer_phone: request.customer_phone
       };
 
+      console.log('Setting active ride data:', activeRideData);
       setActiveRide(activeRideData);
       setRideStatus('accepted');
     }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,11 +73,12 @@ export const useEnhancedRideTracking = (activeRide: any) => {
   // تحديث قاعدة البيانات بالمسار والبيانات الحالية
   const updateTripData = useCallback(async (data: EnhancedTrackingData) => {
     try {
+      // استخدام حقول موجودة في قاعدة البيانات
       await supabase
         .from('trips')
         .update({
-          real_time_distance: data.totalDistance,
-          real_time_price: data.totalFare
+          distance_km: data.totalDistance,
+          price: data.totalFare
         })
         .eq('id', data.tripId);
     } catch (error) {
