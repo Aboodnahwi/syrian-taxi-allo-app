@@ -347,7 +347,6 @@ const DriverPage = () => {
 
   return (
     <div className="h-screen w-full relative overflow-hidden bg-slate-900">
-      {/* الخريطة - ملء الشاشة كاملة */}
       <Map
         className="absolute inset-0 w-full h-full z-0"
         markers={mapMarkers}
@@ -357,7 +356,6 @@ const DriverPage = () => {
         toast={toast}
       />
 
-      {/* الواجهة العلوية - فوق الخريطة */}
       <div className="absolute inset-x-0 top-0 z-50">
         <DriverHeader 
           user={user}
@@ -367,7 +365,6 @@ const DriverPage = () => {
         />
       </div>
 
-      {/* عداد الأجرة الكبير */}
       {trackingData && rideStatus === 'started' && (
         <LiveFareCounter
           currentFare={trackingData.totalFare}
@@ -379,7 +376,6 @@ const DriverPage = () => {
         />
       )}
 
-      {/* عرض بيانات التتبع في الوقت الفعلي */}
       {trackingData && rideStatus !== 'started' && (
         <RealTimeTracker 
           distance={trackingData.totalDistance}
@@ -390,7 +386,6 @@ const DriverPage = () => {
         />
       )}
 
-      {/* بطاقة الرحلة النشطة */}
       {activeRide && (
         <div className="absolute top-24 right-4 z-40 max-w-sm">
           <ActiveRideCard 
@@ -401,7 +396,6 @@ const DriverPage = () => {
         </div>
       )}
 
-      {/* رسائل الحالة */}
       <DriverPageMessages 
         activeRide={activeRide}
         isOnline={isOnline}
@@ -409,7 +403,6 @@ const DriverPage = () => {
         toggleOnlineStatus={toggleOnlineStatus}
       />
 
-      {/* درج طلبات الرحلات */}
       {!activeRide && isOnline && (
         <RideRequestDrawer 
           rideRequests={rideRequests}
@@ -419,7 +412,6 @@ const DriverPage = () => {
         />
       )}
 
-      {/* ملخص إنهاء الرحلة */}
       {showCompletionSummary && completionData && (
         <RideCompletionSummary 
           rideData={completionData}

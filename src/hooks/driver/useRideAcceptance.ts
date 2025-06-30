@@ -32,20 +32,6 @@ export const useRideAcceptance = () => {
         customerName: request.customer_name
       });
 
-      // التحقق من وجود السائق أولاً
-      const { data: driverData, error: driverError } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('id', driverId)
-        .single();
-
-      if (driverError || !driverData) {
-        console.error('خطأ في جلب بيانات السائق:', driverError);
-        throw new Error('لم يتم العثور على بيانات السائق');
-      }
-
-      console.log('بيانات السائق:', driverData);
-
       // تحديث الرحلة بمعرف السائق
       const { data: updatedTrip, error: updateError } = await supabase
         .from('trips')
@@ -88,14 +74,13 @@ export const useRideAcceptance = () => {
           });
       } catch (notificationError) {
         console.error('خطأ في إرسال الإشعار:', notificationError);
-        // لا نرمي خطأ هنا لأن الرحلة تم قبولها بنجاح
       }
 
-      // تحضير بيانات الرحلة المقبولة
+      // تحضير بيانات الرحلة المقبولة مع التأكد من وجود جميع البيانات المطلوبة
       const acceptedRide = {
         ...updatedTrip,
-        customer_name: updatedTrip.profiles?.name || request.customer_name,
-        customer_phone: updatedTrip.profiles?.phone || request.customer_phone,
+        customer_name: updatedTrip.profiles?.name || request.customer_name || 'زبون',
+        customer_phone: updatedTrip.profiles?.phone || request.customer_phone || '',
         estimated_duration: request.estimated_duration || Math.ceil((updatedTrip.distance_km || 5) * 1.5)
       };
 
