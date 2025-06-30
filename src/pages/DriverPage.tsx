@@ -13,6 +13,7 @@ import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests'
 import { useRideAcceptance } from '@/hooks/driver/useRideAcceptance';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
 import { supabase } from '@/integrations/supabase/client';
+import LiveFareCounter from '@/components/driver/LiveFareCounter';
 
 const DriverPage = () => {
   const navigate = useNavigate();
@@ -48,13 +49,13 @@ const DriverPage = () => {
     setUser(parsedUser);
   }, [navigate]);
 
-  // جلب بيانات السائق
+  // جلب بيانات السائق مع إصلاح المشاكل
   useEffect(() => {
     const fetchDriverProfile = async () => {
       if (!user?.id) return;
 
       try {
-        console.log('Fetching driver profile for user ID:', user.id);
+        console.log('جلب ملف السائق للمستخدم:', user.id);
         
         const { data: driver, error } = await supabase
           .from('drivers')
@@ -63,26 +64,28 @@ const DriverPage = () => {
           .single();
 
         if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching driver profile:', error);
+          console.error('خطأ في جلب ملف السائق:', error);
           return;
         }
 
         if (!driver) {
-          console.log('No driver profile found, creating new one');
-          // إنشاء ملف سائق جديد
+          console.log('لم يتم العثور على ملف السائق، إنشاء ملف جديد');
           const { data: newDriver, error: createError } = await supabase
             .from('drivers')
             .insert({
               user_id: user.id,
-              license_number: 'TEMP001',
-              license_plate: 'TEMP001',
-              vehicle_type: 'regular'
+              license_number: `LIC-${Date.now()}`,
+              license_plate: `PLT-${Date.now()}`,
+              vehicle_type: 'regular',
+              is_online: false,
+              rating: 5.0,
+              total_trips: 0
             })
             .select()
             .single();
 
           if (createError) {
-            console.error('Error creating driver profile:', createError);
+            console.error('خطأ في إنشاء ملف السائق:', createError);
             toast({
               title: "خطأ في إنشاء الملف الشخصي",
               description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
@@ -90,14 +93,14 @@ const DriverPage = () => {
             });
             return;
           }
-          console.log('Created new driver profile:', newDriver);
+          console.log('تم إنشاء ملف السائق الجديد:', newDriver);
           setDriverProfile(newDriver);
         } else {
-          console.log('Found existing driver profile:', driver);
+          console.log('تم العثور على ملف السائق:', driver);
           setDriverProfile(driver);
         }
       } catch (error) {
-        console.error('Error in fetchDriverProfile:', error);
+        console.error('خطأ في fetchDriverProfile:', error);
         toast({
           title: "خطأ في جلب البيانات",
           description: "تعذر جلب بيانات السائق",
@@ -109,7 +112,7 @@ const DriverPage = () => {
     fetchDriverProfile();
   }, [user, toast]);
 
-  // ... keep existing code (getCurrentLocation useEffect)
+  // ... keep existing code (getCurrentLocation useEffect) the same ...
 
   useEffect(() => {
     const getCurrentLocation = () => {
@@ -142,15 +145,23 @@ const DriverPage = () => {
     );
     
     if (activeTrip && !activeRide) {
-      console.log('Setting active ride from trips:', activeTrip);
-      setActiveRide(activeTrip);
+      console.log('تعيين الرحلة النشطة من الرحلات:', activeTrip);
+      
+      // تحضير بيانات الرحلة بشكل صحيح
+      const rideData = {
+        ...activeTrip,
+        customer_name: activeTrip.customer_name || 'زبون',
+        estimated_duration: activeTrip.estimated_duration || Math.ceil((activeTrip.distance_km || 5) * 1.5)
+      };
+      
+      setActiveRide(rideData);
       if (activeTrip.status === 'accepted') setRideStatus('accepted');
       else if (activeTrip.status === 'arrived') setRideStatus('arrived');
       else if (activeTrip.status === 'started') setRideStatus('started');
     }
   }, [trips, driverProfile?.id, activeRide]);
 
-  // ... keep existing code (map markers useEffect)
+  // ... keep existing code (map markers useEffect) the same ...
 
   useEffect(() => {
     const markers = [];
@@ -243,27 +254,12 @@ const DriverPage = () => {
       return { success: false };
     }
 
-    console.log('Accepting ride request:', request);
+    console.log('قبول طلب الرحلة:', request);
     const result = await acceptRide(request, driverProfile.id, user.name);
     
-    if (result.success) {
-      const activeRideData = {
-        ...request,
-        customerName: request.customer_name,
-        customer_name: request.customer_name,
-        from: request.from_location,
-        from_location: request.from_location,
-        to: request.to_location,
-        to_location: request.to_location,
-        from_coordinates: request.from_coordinates,
-        to_coordinates: request.to_coordinates,
-        driver_id: driverProfile.id,
-        status: 'accepted',
-        customer_phone: request.customer_phone
-      };
-
-      console.log('Setting active ride data:', activeRideData);
-      setActiveRide(activeRideData);
+    if (result.success && result.trip) {
+      console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
+      setActiveRide(result.trip);
       setRideStatus('accepted');
     }
     
@@ -310,7 +306,7 @@ const DriverPage = () => {
       setRideStatus(status);
 
       const statusMessages = {
-        arrived: "تم الإعلان عن الوصول",
+        arrived: "تم الإعلان عن الوصول للزبون",
         started: "تم بدء الرحلة وتفعيل التتبع",
         completed: "تم إنهاء الرحلة بنجاح"
       };
@@ -326,7 +322,7 @@ const DriverPage = () => {
         setRideStatus(null);
       }
     } catch (error) {
-      console.error('Error updating ride status:', error);
+      console.error('خطأ في تحديث حالة الرحلة:', error);
       toast({
         title: "خطأ",
         description: "تعذر تحديث حالة الرحلة",
@@ -375,8 +371,20 @@ const DriverPage = () => {
         />
       </div>
 
+      {/* عداد الأجرة الكبير */}
+      {trackingData && rideStatus === 'started' && (
+        <LiveFareCounter
+          currentFare={trackingData.totalFare}
+          distance={trackingData.totalDistance}
+          duration={trackingData.duration}
+          speed={trackingData.currentSpeed}
+          customerName={activeRide?.customer_name}
+          isActive={trackingData.isTracking}
+        />
+      )}
+
       {/* عرض بيانات التتبع في الوقت الفعلي */}
-      {trackingData && (
+      {trackingData && rideStatus !== 'started' && (
         <RealTimeTracker 
           distance={trackingData.totalDistance}
           duration={trackingData.duration}

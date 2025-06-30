@@ -73,7 +73,12 @@ export const useEnhancedRideTracking = (activeRide: any) => {
   // تحديث قاعدة البيانات بالمسار والبيانات الحالية
   const updateTripData = useCallback(async (data: EnhancedTrackingData) => {
     try {
-      // استخدام حقول موجودة في قاعدة البيانات
+      console.log('تحديث بيانات الرحلة:', {
+        tripId: data.tripId,
+        distance: data.totalDistance,
+        fare: data.totalFare
+      });
+
       await supabase
         .from('trips')
         .update({
@@ -82,13 +87,18 @@ export const useEnhancedRideTracking = (activeRide: any) => {
         })
         .eq('id', data.tripId);
     } catch (error) {
-      console.error('Error updating trip data:', error);
+      console.error('خطأ في تحديث بيانات الرحلة:', error);
     }
   }, []);
 
   // بدء تتبع الرحلة
   const startTracking = useCallback(() => {
-    if (!activeRide) return;
+    if (!activeRide) {
+      console.log('لا توجد رحلة نشطة للتتبع');
+      return;
+    }
+
+    console.log('بدء تتبع الرحلة:', activeRide.id);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -107,13 +117,14 @@ export const useEnhancedRideTracking = (activeRide: any) => {
           totalDistance: 0,
           currentSpeed: 0,
           averageSpeed: 0,
-          totalFare: calculateFare(0, activeRide.vehicle_type || 'regular'),
+          totalFare: activeRide.price || calculateFare(0, activeRide.vehicle_type || 'regular'),
           startTime: Date.now(),
           duration: 0,
           isTracking: true,
           vehicleType: activeRide.vehicle_type || 'regular'
         };
 
+        console.log('بيانات التتبع الأولية:', initialData);
         setTrackingData(initialData);
         pathRef.current = [startPos];
         lastUpdateRef.current = Date.now();
@@ -133,6 +144,10 @@ export const useEnhancedRideTracking = (activeRide: any) => {
 
               const lastPos = pathRef.current[pathRef.current.length - 1];
               const segmentDistance = calculateDistance(lastPos, newPos);
+              
+              // تجنب التحديثات المتكررة للمواقع القريبة جداً
+              if (segmentDistance < 0.001) return prev;
+
               const currentSpeed = calculateSpeed(lastPos, newPos);
               const newTotalDistance = prev.totalDistance + segmentDistance;
               const newFare = calculateFare(newTotalDistance, prev.vehicleType);
@@ -147,17 +162,23 @@ export const useEnhancedRideTracking = (activeRide: any) => {
                 currentPosition: newPos,
                 path: [...pathRef.current],
                 totalDistance: newTotalDistance,
-                currentSpeed: Math.max(0, Math.min(120, currentSpeed)), // تحديد السرعة بين 0-120 كم/س
+                currentSpeed: Math.max(0, Math.min(120, currentSpeed)),
                 averageSpeed,
                 totalFare: newFare,
                 duration
               };
 
+              console.log('تحديث بيانات التتبع:', {
+                distance: updatedData.totalDistance,
+                fare: updatedData.totalFare,
+                speed: updatedData.currentSpeed
+              });
+
               return updatedData;
             });
           },
           (error) => {
-            console.error('Error tracking location:', error);
+            console.error('خطأ في تتبع الموقع:', error);
             toast({
               title: "خطأ في التتبع",
               description: "تعذر تتبع الموقع بدقة",
@@ -171,12 +192,15 @@ export const useEnhancedRideTracking = (activeRide: any) => {
           }
         );
 
-        // تحديث قاعدة البيانات كل 30 ثانية
+        // تحديث قاعدة البيانات كل 15 ثانية
         updateIntervalRef.current = setInterval(() => {
-          if (trackingData) {
-            updateTripData(trackingData);
-          }
-        }, 30000);
+          setTrackingData(current => {
+            if (current) {
+              updateTripData(current);
+            }
+            return current;
+          });
+        }, 15000);
 
         toast({
           title: "تم بدء التتبع",
@@ -185,7 +209,7 @@ export const useEnhancedRideTracking = (activeRide: any) => {
         });
       },
       (error) => {
-        console.error('Error getting initial position:', error);
+        console.error('خطأ في الحصول على الموقع الأولي:', error);
         toast({
           title: "خطأ في الموقع",
           description: "تعذر الحصول على الموقع الحالي",
