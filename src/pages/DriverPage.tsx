@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -60,11 +61,11 @@ const DriverPage = () => {
           .from('drivers')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           console.error('خطأ في جلب ملف السائق:', error);
-          return;
+          // لا نرجع هنا، سنحاول إنشاء ملف جديد
         }
 
         if (!driver) {
@@ -94,6 +95,11 @@ const DriverPage = () => {
           }
           console.log('تم إنشاء ملف السائق الجديد:', newDriver);
           setDriverProfile(newDriver);
+          toast({
+            title: "تم إنشاء الملف الشخصي",
+            description: "تم إنشاء ملف السائق بنجاح",
+            className: "bg-green-50 border-green-200 text-green-800"
+          });
         } else {
           console.log('تم العثور على ملف السائق:', driver);
           setDriverProfile(driver);
