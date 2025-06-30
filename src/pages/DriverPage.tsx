@@ -49,7 +49,6 @@ const DriverPage = () => {
     setUser(parsedUser);
   }, [navigate]);
 
-  // جلب بيانات السائق مع إصلاح المشاكل
   useEffect(() => {
     const fetchDriverProfile = async () => {
       if (!user?.id) return;
@@ -112,8 +111,6 @@ const DriverPage = () => {
     fetchDriverProfile();
   }, [user, toast]);
 
-  // ... keep existing code (getCurrentLocation useEffect) the same ...
-
   useEffect(() => {
     const getCurrentLocation = () => {
       if (navigator.geolocation) {
@@ -147,10 +144,11 @@ const DriverPage = () => {
     if (activeTrip && !activeRide) {
       console.log('تعيين الرحلة النشطة من الرحلات:', activeTrip);
       
-      // تحضير بيانات الرحلة بشكل صحيح
+      // تحضير بيانات الرحلة بشكل صحيح مع استخدام البيانات من profiles
       const rideData = {
         ...activeTrip,
-        customer_name: activeTrip.customer_name || 'زبون',
+        customer_name: activeTrip.customer_name || activeTrip.profiles?.name || 'زبون',
+        customer_phone: activeTrip.customer_phone || activeTrip.profiles?.phone || '',
         estimated_duration: activeTrip.estimated_duration || Math.ceil((activeTrip.distance_km || 5) * 1.5)
       };
       
@@ -160,8 +158,6 @@ const DriverPage = () => {
       else if (activeTrip.status === 'started') setRideStatus('started');
     }
   }, [trips, driverProfile?.id, activeRide]);
-
-  // ... keep existing code (map markers useEffect) the same ...
 
   useEffect(() => {
     const markers = [];

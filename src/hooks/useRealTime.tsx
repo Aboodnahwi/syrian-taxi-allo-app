@@ -28,6 +28,12 @@ interface Trip {
   cancellation_reason?: string;
   estimated_duration?: number;
   actual_duration?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  profiles?: {
+    name: string;
+    phone: string;
+  };
 }
 
 // Helper function to safely convert coordinates
@@ -76,7 +82,13 @@ export const useRealTimeTrips = (userType: 'customer' | 'driver', userId?: strin
       try {
         let query = supabase
           .from('trips')
-          .select('*');
+          .select(`
+            *,
+            profiles!trips_customer_id_fkey (
+              name,
+              phone
+            )
+          `);
 
         if (userType === 'customer') {
           query = query.eq('customer_id', userId);
@@ -121,7 +133,10 @@ export const useRealTimeTrips = (userType: 'customer' | 'driver', userId?: strin
           driver_comment: trip.driver_comment,
           cancellation_reason: trip.cancellation_reason,
           estimated_duration: trip.estimated_duration,
-          actual_duration: trip.actual_duration
+          actual_duration: trip.actual_duration,
+          customer_name: trip.profiles?.name,
+          customer_phone: trip.profiles?.phone,
+          profiles: trip.profiles
         }));
         
         setTrips(transformedTrips);
