@@ -25,12 +25,32 @@ export const useRideAcceptance = () => {
   const acceptRide = async (request: RideRequest, driverId: string, driverName: string) => {
     setLoading(true);
     try {
-      console.log('قبول الرحلة:', {
+      console.log('محاولة قبول الرحلة:', {
         requestId: request.id,
         driverId,
         driverName,
         customerName: request.customer_name
       });
+
+      // التحقق أولاً من أن الرحلة ما زالت متاحة
+      const { data: existingTrip, error: checkError } = await supabase
+        .from('trips')
+        .select('id, status, driver_id')
+        .eq('id', request.id)
+        .single();
+
+      if (checkError) {
+        console.error('خطأ في التحقق من الرحلة:', checkError);
+        throw new Error('تعذر التحقق من حالة الرحلة');
+      }
+
+      if (!existingTrip) {
+        throw new Error('الرحلة غير موجودة');
+      }
+
+      if (existingTrip.status !== 'pending' || existingTrip.driver_id) {
+        throw new Error('الرحلة لم تعد متاحة - تم قبولها من قبل سائق آخر');
+      }
 
       // تحديث الرحلة بمعرف السائق
       const { data: updatedTrip, error: updateError } = await supabase
@@ -41,6 +61,8 @@ export const useRideAcceptance = () => {
           accepted_at: new Date().toISOString()
         })
         .eq('id', request.id)
+        .eq('status', 'pending') // التأكد من أن الحالة ما زالت pending
+        .is('driver_id', null) // التأكد من عدم وجود سائق مسبق
         .select(`
           *,
           profiles!trips_customer_id_fkey (
@@ -52,14 +74,21 @@ export const useRideAcceptance = () => {
 
       if (updateError) {
         console.error('خطأ في تحديث الرحلة:', updateError);
-        throw updateError;
+        if (updateError.code === 'PGRST116') {
+          throw new Error('الرحلة لم تعد متاحة - تم قبولها من قبل سائق آخر');
+        }
+        throw new Error('تعذر قبول الرحلة. يرجى المحاولة مرة أخرى.');
+      }
+
+      if (!updatedTrip) {
+        throw new Error('الرحلة لم تعد متاحة - تم قبولها من قبل سائق آخر');
       }
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
       // إرسال إشعار للزبون
       try {
-        await supabase
+        const { error: notificationError } = await supabase
           .from('notifications')
           .insert({
             user_id: request.customer_id,
@@ -72,6 +101,10 @@ export const useRideAcceptance = () => {
               driver_id: driverId
             }
           });
+
+        if (notificationError) {
+          console.error('خطأ في إرسال الإشعار:', notificationError);
+        }
       } catch (notificationError) {
         console.error('خطأ في إرسال الإشعار:', notificationError);
       }
@@ -98,7 +131,7 @@ export const useRideAcceptance = () => {
         description: error.message || "تعذر قبول الرحلة. يرجى المحاولة مرة أخرى.",
         variant: "destructive"
       });
-      return { success: false, error };
+      return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }

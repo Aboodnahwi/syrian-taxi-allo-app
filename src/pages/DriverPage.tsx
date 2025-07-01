@@ -65,7 +65,6 @@ const DriverPage = () => {
 
         if (error) {
           console.error('خطأ في جلب ملف السائق:', error);
-          // لا نرجع هنا، سنحاول إنشاء ملف جديد
         }
 
         if (!driver) {
@@ -132,7 +131,6 @@ const DriverPage = () => {
           },
           (error) => {
             console.error('خطأ في الحصول على الموقع:', error);
-            // استخدام موقع افتراضي (دمشق)
             setCurrentLocation([33.5138, 36.2765]);
             toast({
               title: "تم استخدام موقع افتراضي",
@@ -142,7 +140,6 @@ const DriverPage = () => {
           }
         );
       } else {
-        // استخدام موقع افتراضي إذا كان المتصفح لا يدعم الموقع
         setCurrentLocation([33.5138, 36.2765]);
       }
     };
@@ -159,7 +156,6 @@ const DriverPage = () => {
     if (activeTrip && !activeRide) {
       console.log('تعيين الرحلة النشطة من الرحلات:', activeTrip);
       
-      // تحضير بيانات الرحلة بشكل صحيح مع استخدام البيانات من profiles
       const rideData = {
         ...activeTrip,
         customer_name: activeTrip.customer_name || activeTrip.profiles?.name || 'زبون',
@@ -272,22 +268,33 @@ const DriverPage = () => {
       console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
       setActiveRide(result.trip);
       setRideStatus('accepted');
+      
+      // إخفاء الرحلات المتاحة وإظهار الرحلة النشطة
+      setIsOnline(false);
     }
     
     return result;
   };
 
   const updateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
-    if (!activeRide) return;
+    if (!activeRide) {
+      toast({
+        title: "خطأ",
+        description: "لا توجد رحلة نشطة",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
+      console.log('تحديث حالة الرحلة إلى:', status, 'للرحلة:', activeRide.id);
+      
       const updateData: any = { status };
       
       if (status === 'arrived') {
         updateData.arrived_at = new Date().toISOString();
       } else if (status === 'started') {
         updateData.started_at = new Date().toISOString();
-        startTracking();
       } else if (status === 'completed') {
         updateData.completed_at = new Date().toISOString();
         if (trackingData) {
@@ -295,6 +302,30 @@ const DriverPage = () => {
           updateData.distance_km = trackingData.totalDistance;
           updateData.price = trackingData.totalFare;
         }
+      }
+
+      const { data: updatedTrip, error } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', activeRide.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('خطأ في تحديث قاعدة البيانات:', error);
+        throw error;
+      }
+
+      console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
+
+      // تحديث الحالة المحلية
+      setRideStatus(status);
+      setActiveRide(prev => ({ ...prev, ...updatedTrip }));
+
+      // تنفيذ الإجراءات الخاصة بكل حالة
+      if (status === 'started') {
+        startTracking();
+      } else if (status === 'completed') {
         const finalData = await stopTracking();
         if (finalData) {
           setCompletionData({
@@ -305,16 +336,9 @@ const DriverPage = () => {
           });
           setShowCompletionSummary(true);
         }
+        setActiveRide(null);
+        setRideStatus(null);
       }
-
-      const { error } = await supabase
-        .from('trips')
-        .update(updateData)
-        .eq('id', activeRide.id);
-
-      if (error) throw error;
-
-      setRideStatus(status);
 
       const statusMessages = {
         arrived: "تم الإعلان عن الوصول للزبون",
@@ -328,15 +352,11 @@ const DriverPage = () => {
         className: "bg-green-50 border-green-200 text-green-800"
       });
 
-      if (status === 'completed') {
-        setActiveRide(null);
-        setRideStatus(null);
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('خطأ في تحديث حالة الرحلة:', error);
       toast({
-        title: "خطأ",
-        description: "تعذر تحديث حالة الرحلة",
+        title: "خطأ في تحديث الحالة",
+        description: error.message || "تعذر تحديث حالة الرحلة. يرجى المحاولة مرة أخرى.",
         variant: "destructive"
       });
     }
