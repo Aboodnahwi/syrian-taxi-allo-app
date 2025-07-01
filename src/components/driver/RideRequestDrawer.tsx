@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronUp, ChevronDown, User, MapPin, Clock, Phone } from 'lucide-react';
+import { ChevronUp, ChevronDown, User, MapPin, Clock, Phone, Navigation } from 'lucide-react';
 
 interface RideRequest {
   id: string;
@@ -100,25 +100,45 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                       </div>
                     </div>
 
-                    <div className="space-y-2 mb-4 text-sm">
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-4 h-4 text-green-500 mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-slate-600">من:</span>
-                          <p className="font-semibold text-slate-800 font-tajawal">{request.from_location}</p>
+                    <div className="space-y-3 mb-4">
+                      {/* نقطة البداية */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-green-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded">نقطة البداية</span>
+                            </div>
+                            <p className="font-semibold text-slate-800 font-tajawal text-sm">{request.from_location}</p>
+                            <p className="text-xs text-slate-600">موقع الزبون - نقطة الانطلاق</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-4 h-4 text-red-500 mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-slate-600">إلى:</span>
-                          <p className="font-semibold text-slate-800 font-tajawal">{request.to_location}</p>
+
+                      {/* نقطة النهاية */}
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-red-600 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-red-700 bg-red-200 px-2 py-1 rounded">الوجهة</span>
+                            </div>
+                            <p className="font-semibold text-slate-800 font-tajawal text-sm">{request.to_location}</p>
+                            <p className="text-xs text-slate-600">وجهة الرحلة النهائية</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-slate-500" />
-                        <span className="text-slate-600">المدة المتوقعة:</span>
-                        <span className="font-semibold">{request.estimated_duration} دقيقة</span>
+
+                      {/* معلومات إضافية */}
+                      <div className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-2 rounded">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          <span>المدة: {request.estimated_duration} دقيقة</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Navigation className="w-4 h-4" />
+                          <span>المسافة: {request.distance_km.toFixed(1)} كم</span>
+                        </div>
                       </div>
                     </div>
 
@@ -152,7 +172,7 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                       )}
                     </div>
 
-                    {/* معلومات إضافية */}
+                    {/* معلومات إضافية في الأسفل */}
                     <div className="mt-3 p-2 bg-slate-50 rounded text-xs text-slate-600">
                       <div className="flex justify-between">
                         <span>نوع المركبة: {request.vehicle_type}</span>

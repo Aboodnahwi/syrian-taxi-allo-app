@@ -52,7 +52,7 @@ export const useRideAcceptance = () => {
         throw new Error('الرحلة لم تعد متاحة - تم قبولها من قبل سائق آخر');
       }
 
-      // تحديث الرحلة بمعرف السائق
+      // تحديث الرحلة بمعرف السائق باستخدام atomic update
       const { data: updatedTrip, error: updateError } = await supabase
         .from('trips')
         .update({ 
@@ -61,8 +61,8 @@ export const useRideAcceptance = () => {
           accepted_at: new Date().toISOString()
         })
         .eq('id', request.id)
-        .eq('status', 'pending') // التأكد من أن الحالة ما زالت pending
-        .is('driver_id', null) // التأكد من عدم وجود سائق مسبق
+        .eq('status', 'pending')
+        .is('driver_id', null)
         .select(`
           *,
           profiles!trips_customer_id_fkey (
@@ -109,7 +109,7 @@ export const useRideAcceptance = () => {
         console.error('خطأ في إرسال الإشعار:', notificationError);
       }
 
-      // تحضير بيانات الرحلة المقبولة مع التأكد من وجود جميع البيانات المطلوبة
+      // تحضير بيانات الرحلة المقبولة
       const acceptedRide = {
         ...updatedTrip,
         customer_name: updatedTrip.profiles?.name || request.customer_name || 'زبون',

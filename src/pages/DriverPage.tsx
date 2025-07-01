@@ -30,12 +30,14 @@ const DriverPage = () => {
   const [showCompletionSummary, setShowCompletionSummary] = useState(false);
   const [completionData, setCompletionData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
   const { acceptRide, rejectRide, loading: acceptanceLoading } = useRideAcceptance();
   const { trips } = useRealTimeTrips('driver', driverProfile?.id);
 
+  // التحقق من المستخدم وإعادة التوجيه
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (!userData) {
@@ -50,6 +52,7 @@ const DriverPage = () => {
     setUser(parsedUser);
   }, [navigate]);
 
+  // جلب ملف السائق
   useEffect(() => {
     const fetchDriverProfile = async () => {
       if (!user?.id) return;
@@ -65,6 +68,13 @@ const DriverPage = () => {
 
         if (error) {
           console.error('خطأ في جلب ملف السائق:', error);
+          toast({
+            title: "خطأ في جلب البيانات",
+            description: "تعذر جلب بيانات السائق",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
         }
 
         if (!driver) {
@@ -119,33 +129,80 @@ const DriverPage = () => {
     fetchDriverProfile();
   }, [user, toast]);
 
+  // الحصول على الموقع الحالي للسائق
   useEffect(() => {
     const getCurrentLocation = () => {
       if (navigator.geolocation) {
+        console.log('طلب الموقع من المتصفح...');
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            console.log('تم الحصول على الموقع:', lat, lng);
+            console.log('تم الحصول على موقع السائق:', lat, lng);
             setCurrentLocation([lat, lng]);
+            setLocationPermissionDenied(false);
+            
+            // تحديث موقع السائق في قاعدة البيانات
+            if (driverProfile?.id) {
+              updateDriverLocation(lat, lng);
+            }
           },
           (error) => {
             console.error('خطأ في الحصول على الموقع:', error);
+            setLocationPermissionDenied(true);
+            // استخدام موقع دمشق كافتراضي
             setCurrentLocation([33.5138, 36.2765]);
             toast({
               title: "تم استخدام موقع افتراضي",
-              description: "تعذر الوصول لموقعك. تم استخدام موقع دمشق كافتراضي.",
+              description: "تعذر الوصول لموقعك. تم استخدام موقع دمشق كافتراضي. يرجى السماح بالوصول للموقع لتحسين الخدمة.",
               className: "bg-yellow-50 border-yellow-200 text-yellow-800"
             });
+          },
+          { 
+            enableHighAccuracy: true, 
+            timeout: 10000, 
+            maximumAge: 300000 
           }
         );
       } else {
+        console.log('الجهاز لا يدعم خدمات الموقع');
         setCurrentLocation([33.5138, 36.2765]);
+        setLocationPermissionDenied(true);
+        toast({
+          title: "خدمة الموقع غير مدعومة",
+          description: "جهازك لا يدعم خدمات الموقع",
+          variant: "destructive"
+        });
       }
     };
-    getCurrentLocation();
-  }, [toast]);
 
+    getCurrentLocation();
+  }, [driverProfile, toast]);
+
+  // تحديث موقع السائق في قاعدة البيانات
+  const updateDriverLocation = async (lat: number, lng: number) => {
+    if (!driverProfile?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ 
+          current_location: `(${lat},${lng})`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', driverProfile.id);
+
+      if (error) {
+        console.error('خطأ في تحديث موقع السائق:', error);
+      } else {
+        console.log('تم تحديث موقع السائق بنجاح');
+      }
+    } catch (error) {
+      console.error('خطأ في updateDriverLocation:', error);
+    }
+  };
+
+  // مراقبة الرحلات النشطة
   useEffect(() => {
     if (!driverProfile?.id) return;
     
@@ -170,16 +227,22 @@ const DriverPage = () => {
     }
   }, [trips, driverProfile?.id, activeRide]);
 
+  // إعداد علامات الخريطة والمسارات
   useEffect(() => {
     const markers = [];
     
+    // موقع السائق
     if (currentLocation) {
       markers.push({
         id: 'driver',
         position: currentLocation,
-        popup: 'موقعي',
+        popup: `موقع السائق${locationPermissionDenied ? ' (موقع افتراضي)' : ''}`,
         icon: {
-          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-pulse"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M8 18V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12l-4-2-4 2Z"></path></svg></div>`,
+          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white ${locationPermissionDenied ? '' : 'animate-pulse'}">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                     <path d="M8 18V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12l-4-2-4 2Z"></path>
+                   </svg>
+                 </div>`,
           iconSize: [30, 30],
           iconAnchor: [15, 15],
           className: 'driver-marker'
@@ -187,22 +250,62 @@ const DriverPage = () => {
       });
     }
     
+    // طلبات الرحلات المتاحة
     if (isOnline && !activeRide && !isTracking) {
       rideRequests.forEach((request) => {
-        markers.push({
-          id: `request-${request.id}`,
-          position: request.from_coordinates,
-          popup: `<div class="font-tajawal"><strong>${request.customer_name}</strong><br>من: ${request.from_location}<br>إلى: ${request.to_location}</div>`,
-          icon: {
-            html: `<div class="bg-taxi-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v3c0 .6.4 1 1 1h2"></path><path d="M7 17H5c-.6 0-1 .4-1 1v2c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-2c0-.6-.4-1-1-1Z"></path><path d="M19 17h2c.6 0 1 .4 1 1v2c0 .6-.4 1-1 1h-2c-.6 0-1-.4-1-1v-2c0-.6.4-1 1-1Z"></path><path d="M12 17H7"></path><path d="M17 17h-5"></path><path d="M12 5v12"></path><circle cx="12" cy="3" r="1"></circle></svg></div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            className: 'custom-div-icon'
-          }
-        });
+        // نقطة البداية (موقع الزبون)
+        if (request.from_coordinates) {
+          markers.push({
+            id: `request-pickup-${request.id}`,
+            position: request.from_coordinates,
+            popup: `<div class="font-tajawal p-2">
+                      <div class="font-bold text-green-600 mb-1">نقطة البداية</div>
+                      <div><strong>الزبون:</strong> ${request.customer_name}</div>
+                      <div><strong>من:</strong> ${request.from_location}</div>
+                      <div><strong>إلى:</strong> ${request.to_location}</div>
+                      <div><strong>السعر:</strong> ${request.price.toLocaleString()} ل.س</div>
+                    </div>`,
+            icon: {
+              html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                         <circle cx="12" cy="10" r="3"></circle>
+                       </svg>
+                     </div>`,
+              iconSize: [30, 30],
+              iconAnchor: [15, 15],
+              className: 'pickup-marker'
+            }
+          });
+        }
+
+        // نقطة النهاية (وجهة الزبون)
+        if (request.to_coordinates) {
+          markers.push({
+            id: `request-destination-${request.id}`,
+            position: request.to_coordinates,
+            popup: `<div class="font-tajawal p-2">
+                      <div class="font-bold text-red-600 mb-1">الوجهة</div>
+                      <div><strong>إلى:</strong> ${request.to_location}</div>
+                      <div><strong>المسافة:</strong> ${request.distance_km.toFixed(1)} كم</div>
+                    </div>`,
+            icon: {
+              html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                         <circle cx="12" cy="10" r="3"></circle>
+                       </svg>
+                     </div>`,
+              iconSize: [30, 30],
+              iconAnchor: [15, 15],
+              className: 'destination-marker'
+            }
+          });
+        }
       });
     }
 
+    // الرحلة النشطة
     if (activeRide) {
       if (activeRide.from_coordinates) {
         markers.push({
@@ -210,7 +313,12 @@ const DriverPage = () => {
           position: activeRide.from_coordinates,
           popup: `نقطة الانطلاق: ${activeRide.from_location}`,
           icon: {
-            html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>`,
+            html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                       <circle cx="12" cy="10" r="3"></circle>
+                     </svg>
+                   </div>`,
             iconSize: [30, 30],
             iconAnchor: [15, 15]
           }
@@ -223,7 +331,12 @@ const DriverPage = () => {
           position: activeRide.to_coordinates,
           popup: `الوجهة: ${activeRide.to_location}`,
           icon: {
-            html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>`,
+            html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                       <circle cx="12" cy="10" r="3"></circle>
+                     </svg>
+                   </div>`,
             iconSize: [30, 30],
             iconAnchor: [15, 15]
           }
@@ -233,6 +346,7 @@ const DriverPage = () => {
     
     setMapMarkers(markers);
 
+    // إعداد المسارات
     if (isTracking && trackingData?.path) {
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
     } else if (activeRide?.from_coordinates && activeRide?.to_coordinates && !isTracking) {
@@ -240,9 +354,18 @@ const DriverPage = () => {
     } else {
       setMapRoute(undefined);
     }
-  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData]);
+  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, locationPermissionDenied]);
 
   const toggleOnlineStatus = () => {
+    if (!currentLocation && !locationPermissionDenied) {
+      toast({
+        title: "موقعك غير محدد",
+        description: "يرجى السماح بالوصول للموقع قبل تشغيل الخدمة",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsOnline(!isOnline);
     toast({
       title: isOnline ? "تم إيقاف الخدمة" : "تم تشغيل الخدمة",
@@ -268,8 +391,6 @@ const DriverPage = () => {
       console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
       setActiveRide(result.trip);
       setRideStatus('accepted');
-      
-      // إخفاء الرحلات المتاحة وإظهار الرحلة النشطة
       setIsOnline(false);
     }
     
@@ -318,11 +439,9 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
-      // تحديث الحالة المحلية
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
-      // تنفيذ الإجراءات الخاصة بكل حالة
       if (status === 'started') {
         startTracking();
       } else if (status === 'completed') {
@@ -384,6 +503,7 @@ const DriverPage = () => {
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
           <p className="text-lg font-cairo">جاري تحميل بيانات السائق...</p>
+          <p className="text-sm text-slate-400 mt-2">جاري تحديد موقعك...</p>
         </div>
       </div>
     );
