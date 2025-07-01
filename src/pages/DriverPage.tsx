@@ -44,12 +44,19 @@ const DriverPage = () => {
       navigate('/auth');
       return;
     }
-    const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== 'driver') {
+    
+    try {
+      const parsedUser = JSON.parse(userData);
+      if (parsedUser.role !== 'driver') {
+        navigate('/auth');
+        return;
+      }
+      setUser(parsedUser);
+    } catch (error) {
+      console.error('خطأ في تحليل بيانات المستخدم:', error);
+      localStorage.removeItem('user');
       navigate('/auth');
-      return;
     }
-    setUser(parsedUser);
   }, [navigate]);
 
   // جلب ملف السائق
@@ -66,14 +73,13 @@ const DriverPage = () => {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
           console.error('خطأ في جلب ملف السائق:', error);
           toast({
             title: "خطأ في جلب البيانات",
             description: "تعذر جلب بيانات السائق",
             variant: "destructive"
           });
-          setIsLoading(false);
           return;
         }
 
@@ -100,7 +106,6 @@ const DriverPage = () => {
               description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
               variant: "destructive"
             });
-            setIsLoading(false);
             return;
           }
           console.log('تم إنشاء ملف السائق الجديد:', newDriver);
@@ -126,7 +131,9 @@ const DriverPage = () => {
       }
     };
 
-    fetchDriverProfile();
+    if (user?.id) {
+      fetchDriverProfile();
+    }
   }, [user, toast]);
 
   // الحصول على الموقع الحالي للسائق
@@ -513,10 +520,14 @@ const DriverPage = () => {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
-          <p className="text-lg font-cairo">لم يتم العثور على بيانات السائق</p>
+          <p className="text-lg font-cairo mb-4">خطأ في جلب بيانات السائق</p>
+          <p className="text-sm text-slate-400 mb-4">يرجى المحاولة مرة أخرى</p>
           <button 
-            onClick={() => navigate('/auth')}
-            className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+            onClick={() => {
+              localStorage.removeItem('user');
+              navigate('/auth');
+            }}
+            className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
           >
             العودة لتسجيل الدخول
           </button>

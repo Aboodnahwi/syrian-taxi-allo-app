@@ -52,12 +52,12 @@ export const useRideAcceptance = () => {
         throw new Error('الرحلة لم تعد متاحة - تم قبولها من قبل سائق آخر');
       }
 
-      // تحديث الرحلة بمعرف السائق باستخدام atomic update
+      // تحديث الرحلة بمعرف السائق باستخدام atomic update مع الحالة الصحيحة
       const { data: updatedTrip, error: updateError } = await supabase
         .from('trips')
         .update({ 
           driver_id: driverId,
-          status: 'accepted',
+          status: 'accepted', // استخدام 'accepted' بدلاً من 'arrive'
           accepted_at: new Date().toISOString()
         })
         .eq('id', request.id)

@@ -26,16 +26,11 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!driverLocation) {
-      setLoading(false);
-      return;
-    }
-
     const fetchRideRequests = async () => {
       try {
-        console.log('جلب طلبات الرحلات لموقع السائق:', driverLocation);
+        console.log('جلب طلبات الرحلات المتاحة...');
         
-        // جلب الطلبات المتاحة مع معلومات الزبائن
+        // جلب الطلبات المتاحة مع معلومات الزبائن - بدون تصفية حسب موقع السائق
         const { data: trips, error } = await supabase
           .from('trips')
           .select(`
@@ -58,7 +53,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
 
         console.log('تم جلب الرحلات:', trips?.length || 0);
 
-        // تحويل البيانات وحساب المسافة من موقع السائق
+        // تحويل البيانات
         const processedRequests: RideRequest[] = (trips || []).map((trip: any) => {
           // تحويل الإحداثيات
           const fromCoords = parseCoordinates(trip.from_coordinates);
@@ -69,14 +64,11 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
             return null;
           }
 
-          // حساب المسافة من موقع السائق إلى نقطة الانطلاق
-          const distanceToPickup = calculateDistance(
-            driverLocation[0], driverLocation[1],
-            fromCoords[0], fromCoords[1]
-          );
-
           // حساب المدة المتوقعة بناءً على المسافة
           const estimatedDuration = Math.ceil((trip.distance_km || 5) * 1.5);
+
+          // تحديد إذا كان الطلب عاجل بناءً على الوقت (آخر 10 دقائق)
+          const isUrgent = new Date().getTime() - new Date(trip.created_at).getTime() > 10 * 60 * 1000;
 
           return {
             id: trip.id,
@@ -92,24 +84,16 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
             customer_name: trip.profiles?.name || 'زبون',
             customer_phone: trip.profiles?.phone || '',
             created_at: trip.created_at,
-            urgent: distanceToPickup < 2, // عاجل إذا كان قريب
+            urgent: isUrgent,
           };
         }).filter(Boolean) as RideRequest[];
 
         console.log('تم معالجة طلبات الرحلات:', processedRequests.length);
 
-        // ترتيب حسب القرب من السائق
-        processedRequests.sort((a, b) => {
-          const distA = calculateDistance(
-            driverLocation[0], driverLocation[1],
-            a.from_coordinates[0], a.from_coordinates[1]
-          );
-          const distB = calculateDistance(
-            driverLocation[0], driverLocation[1],
-            b.from_coordinates[0], b.from_coordinates[1]
-          );
-          return distA - distB;
-        });
+        // ترتيب حسب الوقت (الأحدث أولاً)
+        processedRequests.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
         setRideRequests(processedRequests);
       } catch (error) {
@@ -143,7 +127,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [driverLocation, toast]);
+  }, [toast]); // إزالة driverLocation من dependencies
 
   return { rideRequests, loading };
 };
@@ -176,17 +160,4 @@ const parseCoordinates = (coords: unknown): [number, number] | null => {
   }
   
   return null;
-};
-
-// حساب المسافة بين نقطتين
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371; // نصف قطر الأرض بالكيلومتر
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
 };
