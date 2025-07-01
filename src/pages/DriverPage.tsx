@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +29,7 @@ const DriverPage = () => {
   const [mapRoute, setMapRoute] = useState<[number, number][] | undefined>();
   const [showCompletionSummary, setShowCompletionSummary] = useState(false);
   const [completionData, setCompletionData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
@@ -91,6 +91,7 @@ const DriverPage = () => {
               description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
               variant: "destructive"
             });
+            setIsLoading(false);
             return;
           }
           console.log('تم إنشاء ملف السائق الجديد:', newDriver);
@@ -111,6 +112,8 @@ const DriverPage = () => {
           description: "تعذر جلب بيانات السائق",
           variant: "destructive"
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -124,17 +127,23 @@ const DriverPage = () => {
           (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
+            console.log('تم الحصول على الموقع:', lat, lng);
             setCurrentLocation([lat, lng]);
           },
           (error) => {
-            console.error('Error getting location:', error);
+            console.error('خطأ في الحصول على الموقع:', error);
+            // استخدام موقع افتراضي (دمشق)
+            setCurrentLocation([33.5138, 36.2765]);
             toast({
-              title: "خطأ في تحديد الموقع",
-              description: "تعذر الوصول لموقعك. يرجى تفعيل خدمات الموقع.",
-              variant: "destructive"
+              title: "تم استخدام موقع افتراضي",
+              description: "تعذر الوصول لموقعك. تم استخدام موقع دمشق كافتراضي.",
+              className: "bg-yellow-50 border-yellow-200 text-yellow-800"
             });
           }
         );
+      } else {
+        // استخدام موقع افتراضي إذا كان المتصفح لا يدعم الموقع
+        setCurrentLocation([33.5138, 36.2765]);
       }
     };
     getCurrentLocation();
@@ -349,7 +358,32 @@ const DriverPage = () => {
     navigate('/');
   };
 
-  if (!user) return null;
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-lg font-cairo">جاري تحميل بيانات السائق...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !driverProfile) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
+        <div className="text-center text-white">
+          <p className="text-lg font-cairo">لم يتم العثور على بيانات السائق</p>
+          <button 
+            onClick={() => navigate('/auth')}
+            className="mt-4 px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+          >
+            العودة لتسجيل الدخول
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full relative overflow-hidden bg-slate-900">

@@ -26,11 +26,14 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!driverLocation) return;
+    if (!driverLocation) {
+      setLoading(false);
+      return;
+    }
 
     const fetchRideRequests = async () => {
       try {
-        console.log('Fetching ride requests for driver location:', driverLocation);
+        console.log('جلب طلبات الرحلات لموقع السائق:', driverLocation);
         
         // جلب الطلبات المتاحة مع معلومات الزبائن
         const { data: trips, error } = await supabase
@@ -47,16 +50,13 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error fetching ride requests:', error);
-          toast({
-            title: "خطأ في جلب الطلبات",
-            description: "تعذر جلب طلبات الرحلات",
-            variant: "destructive"
-          });
+          console.error('خطأ في جلب طلبات الرحلات:', error);
+          setRideRequests([]);
+          setLoading(false);
           return;
         }
 
-        console.log('Fetched trips:', trips);
+        console.log('تم جلب الرحلات:', trips?.length || 0);
 
         // تحويل البيانات وحساب المسافة من موقع السائق
         const processedRequests: RideRequest[] = (trips || []).map((trip: any) => {
@@ -65,7 +65,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           const toCoords = parseCoordinates(trip.to_coordinates);
 
           if (!fromCoords || !toCoords) {
-            console.warn('Invalid coordinates for trip:', trip.id);
+            console.warn('إحداثيات غير صالحة للرحلة:', trip.id);
             return null;
           }
 
@@ -75,18 +75,18 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
             fromCoords[0], fromCoords[1]
           );
 
-          // حساب المدة المتوقعة بناءً على المسافة (افتراض 40 كم/ساعة في المدينة)
-          const estimatedDuration = Math.ceil((trip.distance_km || 5) * 1.5); // دقيقة
+          // حساب المدة المتوقعة بناءً على المسافة
+          const estimatedDuration = Math.ceil((trip.distance_km || 5) * 1.5);
 
           return {
             id: trip.id,
             customer_id: trip.customer_id,
-            from_location: trip.from_location,
-            to_location: trip.to_location,
+            from_location: trip.from_location || 'غير محدد',
+            to_location: trip.to_location || 'غير محدد',
             from_coordinates: fromCoords,
             to_coordinates: toCoords,
-            vehicle_type: trip.vehicle_type,
-            price: trip.price,
+            vehicle_type: trip.vehicle_type || 'regular',
+            price: trip.price || 0,
             distance_km: trip.distance_km || 0,
             estimated_duration: estimatedDuration,
             customer_name: trip.profiles?.name || 'زبون',
@@ -96,7 +96,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           };
         }).filter(Boolean) as RideRequest[];
 
-        console.log('Processed ride requests:', processedRequests);
+        console.log('تم معالجة طلبات الرحلات:', processedRequests.length);
 
         // ترتيب حسب القرب من السائق
         processedRequests.sort((a, b) => {
@@ -113,12 +113,8 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
 
         setRideRequests(processedRequests);
       } catch (error) {
-        console.error('Error in fetchRideRequests:', error);
-        toast({
-          title: "خطأ",
-          description: "حدث خطأ أثناء جلب الطلبات",
-          variant: "destructive"
-        });
+        console.error('خطأ في fetchRideRequests:', error);
+        setRideRequests([]);
       } finally {
         setLoading(false);
       }
@@ -138,7 +134,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           filter: 'status=eq.pending'
         },
         (payload) => {
-          console.log('New ride request or update detected:', payload);
+          console.log('تحديث جديد في طلبات الرحلات:', payload);
           fetchRideRequests();
         }
       )
@@ -167,7 +163,7 @@ const parseCoordinates = (coords: unknown): [number, number] | null => {
         }
       }
     } catch (error) {
-      console.error('Error parsing coordinates:', error);
+      console.error('خطأ في تحليل الإحداثيات:', error);
     }
   }
   

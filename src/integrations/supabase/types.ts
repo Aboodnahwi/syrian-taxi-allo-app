@@ -302,6 +302,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           actual_duration: number | null
+          arrived_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           completed_at: string | null
@@ -329,6 +330,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           actual_duration?: number | null
+          arrived_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
@@ -356,6 +358,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           actual_duration?: number | null
+          arrived_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null

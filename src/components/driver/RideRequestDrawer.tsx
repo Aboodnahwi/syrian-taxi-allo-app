@@ -23,13 +23,14 @@ interface RideRequest {
 
 interface RideRequestDrawerProps {
   rideRequests: RideRequest[];
-  acceptRide: (request: RideRequest) => void;
+  acceptRide: (request: RideRequest) => Promise<{ success: boolean }>;
   rejectRide: (requestId: string) => void;
   loading: boolean;
 }
 
 const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: RideRequestDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [acceptingRide, setAcceptingRide] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -41,6 +42,20 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
       </div>
     );
   }
+
+  const handleAcceptRide = async (request: RideRequest) => {
+    setAcceptingRide(request.id);
+    try {
+      const result = await acceptRide(request);
+      if (result.success) {
+        setIsOpen(false);
+      }
+    } catch (error) {
+      console.error('خطأ في قبول الرحلة:', error);
+    } finally {
+      setAcceptingRide(null);
+    }
+  };
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-30">
@@ -74,7 +89,7 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2">
                         <User className="w-5 h-5 text-slate-600" />
-                        <span className="font-semibold text-slate-800">{request.customer_name}</span>
+                        <span className="font-semibold text-slate-800 font-cairo">{request.customer_name}</span>
                         {request.urgent && (
                           <Badge className="bg-red-500 text-white text-xs">قريب منك</Badge>
                         )}
@@ -86,15 +101,19 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                     </div>
 
                     <div className="space-y-2 mb-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-blue-500" />
-                        <span className="text-slate-600">من:</span>
-                        <span className="font-semibold flex-1">{request.from_location}</span>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-green-500 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-slate-600">من:</span>
+                          <p className="font-semibold text-slate-800 font-tajawal">{request.from_location}</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-red-500" />
-                        <span className="text-slate-600">إلى:</span>
-                        <span className="font-semibold flex-1">{request.to_location}</span>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-red-500 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-slate-600">إلى:</span>
+                          <p className="font-semibold text-slate-800 font-tajawal">{request.to_location}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-slate-500" />
@@ -105,17 +124,19 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
 
                     <div className="flex gap-2">
                       <Button 
-                        onClick={() => acceptRide(request)}
-                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                        onClick={() => handleAcceptRide(request)}
+                        disabled={acceptingRide === request.id}
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-cairo"
                         size="sm"
                       >
-                        قبول الرحلة
+                        {acceptingRide === request.id ? 'جاري القبول...' : 'قبول الرحلة'}
                       </Button>
                       <Button 
                         onClick={() => rejectRide(request.id)}
                         variant="outline"
                         className="px-4 border-red-200 text-red-600 hover:bg-red-50"
                         size="sm"
+                        disabled={acceptingRide === request.id}
                       >
                         رفض
                       </Button>
@@ -129,6 +150,14 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                           <Phone className="w-4 h-4" />
                         </Button>
                       )}
+                    </div>
+
+                    {/* معلومات إضافية */}
+                    <div className="mt-3 p-2 bg-slate-50 rounded text-xs text-slate-600">
+                      <div className="flex justify-between">
+                        <span>نوع المركبة: {request.vehicle_type}</span>
+                        <span>الوقت: {new Date(request.created_at).toLocaleTimeString('ar-SY')}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
