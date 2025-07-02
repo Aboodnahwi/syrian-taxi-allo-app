@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronUp, ChevronDown, User, MapPin, Clock, Phone, Navigation } from 'lucide-react';
+import RideRequestMap from './RideRequestMap';
 
 interface RideRequest {
   id: string;
@@ -26,11 +27,27 @@ interface RideRequestDrawerProps {
   acceptRide: (request: RideRequest) => Promise<{ success: boolean }>;
   rejectRide: (requestId: string) => void;
   loading: boolean;
+  driverLocation?: [number, number];
 }
 
-const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: RideRequestDrawerProps) => {
+const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading, driverLocation }: RideRequestDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [acceptingRide, setAcceptingRide] = useState<string | null>(null);
+
+  // حساب المسافة من السائق إلى نقطة الانطلاق
+  const calculateDistanceToPickup = (fromCoordinates: [number, number]) => {
+    if (!driverLocation) return 0;
+    
+    const R = 6371; // نصف قطر الأرض بالكيلومتر
+    const dLat = (fromCoordinates[0] - driverLocation[0]) * Math.PI / 180;
+    const dLon = (fromCoordinates[1] - driverLocation[1]) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(driverLocation[0] * Math.PI / 180) * Math.cos(fromCoordinates[0] * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
   if (loading) {
     return (
@@ -83,7 +100,11 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                 <p className="text-sm text-slate-500 mt-1">ستصلك إشعار عند وجود طلبات جديدة</p>
               </div>
             ) : (
-              rideRequests.map((request) => (
+              rideRequests.map((request) => {
+                const distanceToPickup = calculateDistanceToPickup(request.from_coordinates);
+                const estimatedArrival = Math.ceil((distanceToPickup / 40) * 60); // افتراض سرعة 40 كم/س
+                
+                return (
                 <Card key={request.id} className="bg-white border-slate-200 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
@@ -129,16 +150,42 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                         </div>
                       </div>
 
-                      {/* معلومات إضافية */}
-                      <div className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-2 rounded">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>المدة: {request.estimated_duration} دقيقة</span>
+                       {/* معلومات إضافية */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm text-slate-600 bg-slate-50 p-2 rounded">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>المدة: {request.estimated_duration} دقيقة</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Navigation className="w-4 h-4" />
+                            <span>المسافة: {request.distance_km.toFixed(1)} كم</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Navigation className="w-4 h-4" />
-                          <span>المسافة: {request.distance_km.toFixed(1)} كم</span>
-                        </div>
+                        {/* المسافة من السائق إلى نقطة الانطلاق */}
+                        {driverLocation && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-1 text-orange-700">
+                                <Navigation className="w-3 h-3" />
+                                <span className="font-semibold">المسافة إليك:</span>
+                              </div>
+                              <div className="text-orange-600 font-semibold">
+                                {distanceToPickup.toFixed(1)} كم (~{estimatedArrival} دقيقة)
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* خريطة مصغرة للمسار */}
+                        <RideRequestMap
+                          fromCoordinates={request.from_coordinates}
+                          toCoordinates={request.to_coordinates}
+                          driverLocation={driverLocation}
+                          fromLocation={request.from_location}
+                          toLocation={request.to_location}
+                          distanceToPickup={driverLocation ? distanceToPickup : undefined}
+                        />
                       </div>
                     </div>
 
@@ -181,7 +228,8 @@ const RideRequestDrawer = ({ rideRequests, acceptRide, rejectRide, loading }: Ri
                     </div>
                   </CardContent>
                 </Card>
-              ))
+                );
+              })
             )}
           </div>
         </div>

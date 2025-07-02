@@ -57,7 +57,7 @@ export const useRideAcceptance = () => {
         .from('trips')
         .update({ 
           driver_id: driverId,
-          status: 'accepted', // استخدام 'accepted' بدلاً من 'arrive'
+          status: 'accepted',
           accepted_at: new Date().toISOString()
         })
         .eq('id', request.id)

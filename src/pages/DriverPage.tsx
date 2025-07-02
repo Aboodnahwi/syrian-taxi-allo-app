@@ -600,6 +600,7 @@ const DriverPage = () => {
           acceptRide={handleAcceptRide}
           rejectRide={rejectRide}
           loading={requestsLoading || acceptanceLoading}
+          driverLocation={currentLocation}
         />
       )}
 
