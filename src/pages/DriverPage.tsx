@@ -501,7 +501,7 @@ const DriverPage = () => {
 
   const logout = () => {
     localStorage.removeItem('user');
-    navigate('/');
+    navigate('/auth');
   };
 
   if (isLoading) {

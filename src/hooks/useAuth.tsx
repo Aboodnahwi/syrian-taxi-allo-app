@@ -135,8 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[AuthProvider] Supabase signOut failed, continuing with local signOut');
       }
       
-      // إعادة التوجه إلى الصفحة الرئيسية
-      window.location.href = '/';
+      console.log('[AuthProvider] SignOut completed, user should be redirected to auth page');
     } catch (error) {
       console.error('[AuthProvider] SignOut error:', error);
     }
