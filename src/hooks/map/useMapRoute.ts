@@ -77,12 +77,36 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
 
     if (route && route.length > 1) {
       console.log("[useMapRoute] Drawing route with", route.length, "points");
-      routeLayerRef.current = L.polyline(route, { 
-        color: '#ef4444', 
-        weight: 6, 
-        opacity: 0.9,
-        dashArray: '10, 5'
-      }).addTo(mapInstanceRef.current);
+      
+      // إذا كان لدينا 3 نقاط، ارسم مسارين بألوان مختلفة
+      if (route.length === 3) {
+        // مسار من السائق إلى الزبون (أحمر)
+        const driverToCustomer = L.polyline([route[0], route[1]], {
+          color: '#ef4444',
+          weight: 5,
+          opacity: 0.9,
+          dashArray: '8, 4'
+        }).addTo(mapInstanceRef.current);
+        
+        // مسار من الزبون إلى الوجهة (أخضر)
+        const customerToDestination = L.polyline([route[1], route[2]], {
+          color: '#22c55e',
+          weight: 5,
+          opacity: 0.9,
+          dashArray: '12, 6'
+        }).addTo(mapInstanceRef.current);
+        
+        // إنشاء مجموعة للمسارات
+        routeLayerRef.current = L.layerGroup([driverToCustomer, customerToDestination]);
+      } else {
+        // مسار عادي
+        routeLayerRef.current = L.polyline(route, { 
+          color: '#ef4444', 
+          weight: 6, 
+          opacity: 0.9,
+          dashArray: '10, 5'
+        }).addTo(mapInstanceRef.current);
+      }
       
       console.log("[useMapRoute] Route drawn successfully");
     }

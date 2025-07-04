@@ -227,16 +227,25 @@ const DriverPage = () => {
         estimated_duration: activeTrip.estimated_duration || Math.ceil((activeTrip.distance_km || 5) * 1.5)
       };
       
-      setActiveRide(rideData);
-      if (activeTrip.status === 'accepted') setRideStatus('accepted');
-      else if (activeTrip.status === 'arrived') setRideStatus('arrived');
-      else if (activeTrip.status === 'started') setRideStatus('started');
+      // التأكد من عدم إعادة تعيين نفس الرحلة
+      if (!activeRide || activeRide.id !== activeTrip.id) {
+        setActiveRide(rideData);
+      }
+      
+      // تحديث الحالة بناءً على حالة الرحلة
+      const newRideStatus = activeTrip.status === 'accepted' ? 'accepted' :
+                          activeTrip.status === 'arrived' ? 'arrived' :
+                          activeTrip.status === 'started' ? 'started' : null;
+      
+      if (rideStatus !== newRideStatus) {
+        setRideStatus(newRideStatus);
+      }
     } else if (!activeTrip && activeRide) {
       // إذا لم تعد هناك رحلة نشطة، امسح البيانات المحلية
       setActiveRide(null);
       setRideStatus(null);
     }
-  }, [trips, driverProfile?.id]);
+  }, [trips, driverProfile?.id, activeRide, rideStatus]);
 
   // إعداد علامات الخريطة والمسارات
   useEffect(() => {
@@ -364,6 +373,7 @@ const DriverPage = () => {
     } else if (activeRide && rideStatus === 'accepted') {
       // عند قبول الرحلة - عرض مسار السائق إلى نقطة البداية ثم إلى الوجهة
       if (currentLocation && activeRide.from_coordinates && activeRide.to_coordinates) {
+        // مسار من السائق إلى البداية ثم إلى الوجهة
         setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
       } else if (activeRide.from_coordinates && activeRide.to_coordinates) {
         setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
@@ -572,14 +582,18 @@ const DriverPage = () => {
       </div>
 
       {trackingData && rideStatus === 'started' && (
-        <LiveFareCounter
-          currentFare={trackingData.totalFare}
-          distance={trackingData.totalDistance}
-          duration={trackingData.duration}
-          speed={trackingData.currentSpeed}
-          customerName={activeRide?.customer_name}
-          isActive={true}
-        />
+        <div className="fixed inset-0 z-[100] pointer-events-none">
+          <div className="pointer-events-auto">
+            <LiveFareCounter
+              currentFare={trackingData.totalFare}
+              distance={trackingData.totalDistance}
+              duration={trackingData.duration}
+              speed={trackingData.currentSpeed}
+              customerName={activeRide?.customer_name}
+              isActive={true}
+            />
+          </div>
+        </div>
       )}
 
       {trackingData && rideStatus !== 'started' && (

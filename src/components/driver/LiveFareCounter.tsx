@@ -29,8 +29,8 @@ const LiveFareCounter = ({
   if (!isActive) return null;
 
   return (
-    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[2000]">
-      <Card className="bg-white/95 backdrop-blur-sm border-emerald-300 border-2 shadow-2xl">
+    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[2000] pointer-events-auto">
+      <Card className="bg-white/95 backdrop-blur-sm border-emerald-300 border-2 shadow-2xl max-w-xs mx-auto">
         <CardContent className="p-6">
           {/* الأجرة الحالية - عداد كبير */}
           <div className="text-center mb-6">
