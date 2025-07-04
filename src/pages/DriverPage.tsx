@@ -217,7 +217,7 @@ const DriverPage = () => {
       trip.status === 'accepted' || trip.status === 'started' || trip.status === 'arrived'
     );
     
-    if (activeTrip && !activeRide) {
+    if (activeTrip) {
       console.log('تعيين الرحلة النشطة من الرحلات:', activeTrip);
       
       const rideData = {
@@ -231,8 +231,12 @@ const DriverPage = () => {
       if (activeTrip.status === 'accepted') setRideStatus('accepted');
       else if (activeTrip.status === 'arrived') setRideStatus('arrived');
       else if (activeTrip.status === 'started') setRideStatus('started');
+    } else if (!activeTrip && activeRide) {
+      // إذا لم تعد هناك رحلة نشطة، امسح البيانات المحلية
+      setActiveRide(null);
+      setRideStatus(null);
     }
-  }, [trips, driverProfile?.id, activeRide]);
+  }, [trips, driverProfile?.id]);
 
   // إعداد علامات الخريطة والمسارات
   useEffect(() => {
@@ -355,9 +359,20 @@ const DriverPage = () => {
 
     // إعداد المسارات
     if (isTracking && trackingData?.path) {
+      // أثناء الرحلة - عرض المسار المسجل
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
-    } else if (activeRide?.from_coordinates && activeRide?.to_coordinates && !isTracking) {
-      setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
+    } else if (activeRide && rideStatus === 'accepted') {
+      // عند قبول الرحلة - عرض مسار السائق إلى نقطة البداية ثم إلى الوجهة
+      if (currentLocation && activeRide.from_coordinates && activeRide.to_coordinates) {
+        setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
+      } else if (activeRide.from_coordinates && activeRide.to_coordinates) {
+        setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
+      }
+    } else if (activeRide && (rideStatus === 'arrived' || rideStatus === 'started')) {
+      // عند الوصول أو بدء الرحلة - عرض مسار من نقطة البداية إلى الوجهة
+      if (activeRide.from_coordinates && activeRide.to_coordinates) {
+        setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
+      }
     } else {
       setMapRoute(undefined);
     }
@@ -563,7 +578,7 @@ const DriverPage = () => {
           duration={trackingData.duration}
           speed={trackingData.currentSpeed}
           customerName={activeRide?.customer_name}
-          isActive={trackingData.isTracking}
+          isActive={true}
         />
       )}
 

@@ -97,7 +97,7 @@ const ActiveRideCard = ({ activeRide, rideStatus, updateRideStatus }: ActiveRide
               onClick={() => updateRideStatus('arrived')}
               className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-cairo"
             >
-              وصلت للزبون
+              أنا ذاهب باتجاه الزبون
             </Button>
           )}
           {rideStatus === 'arrived' && (
