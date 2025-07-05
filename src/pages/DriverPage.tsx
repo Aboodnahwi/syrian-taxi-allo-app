@@ -424,6 +424,25 @@ const DriverPage = () => {
       setActiveRide(result.trip);
       setRideStatus('accepted');
       setIsOnline(false);
+      
+      // تحديث الخريطة فوراً بالمسار الجديد
+      if (currentLocation && result.trip.from_coordinates && result.trip.to_coordinates) {
+        const parseCoordinates = (coords: any): [number, number] => {
+          if (Array.isArray(coords) && coords.length >= 2) {
+            return [coords[0], coords[1]];
+          }
+          const coordStr = coords.toString();
+          const match = coordStr.match(/\(([-\d.]+),([-\d.]+)\)/);
+          if (match) {
+            return [parseFloat(match[1]), parseFloat(match[2])];
+          }
+          return [33.5138, 36.2765]; // fallback
+        };
+        
+        const fromCoords = parseCoordinates(result.trip.from_coordinates);
+        const toCoords = parseCoordinates(result.trip.to_coordinates);
+        setMapRoute([currentLocation, fromCoords, toCoords]);
+      }
     }
     
     return result;
@@ -525,8 +544,15 @@ const DriverPage = () => {
   };
 
   const logout = () => {
+    setIsLoading(true);
+    setUser(null);
+    setDriverProfile(null);
+    setActiveRide(null);
+    setRideStatus(null);
     localStorage.removeItem('user');
-    navigate('/auth');
+    setTimeout(() => {
+      navigate('/auth');
+    }, 100);
   };
 
   if (isLoading) {
@@ -549,8 +575,9 @@ const DriverPage = () => {
           <p className="text-sm text-slate-400 mb-4">يرجى المحاولة مرة أخرى</p>
           <button 
             onClick={() => {
+              setIsLoading(true);
               localStorage.removeItem('user');
-              navigate('/auth');
+              setTimeout(() => navigate('/auth'), 100);
             }}
             className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
           >
