@@ -31,6 +31,7 @@ const DriverPage = () => {
   const [completionData, setCompletionData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
@@ -62,7 +63,7 @@ const DriverPage = () => {
   // جلب ملف السائق
   useEffect(() => {
     const fetchDriverProfile = async () => {
-      if (!user?.id) return;
+      if (!user?.id || isLoggingOut) return;
 
       try {
         console.log('جلب ملف السائق للمستخدم:', user.id);
@@ -131,10 +132,10 @@ const DriverPage = () => {
       }
     };
 
-    if (user?.id) {
+    if (user?.id && !isLoggingOut) {
       fetchDriverProfile();
     }
-  }, [user, toast]);
+  }, [user, toast, isLoggingOut]);
 
   // الحصول على الموقع الحالي للسائق
   useEffect(() => {
@@ -544,6 +545,7 @@ const DriverPage = () => {
   };
 
   const logout = () => {
+    setIsLoggingOut(true);
     setUser(null);
     setDriverProfile(null);
     setActiveRide(null);
@@ -552,7 +554,7 @@ const DriverPage = () => {
     navigate('/auth');
   };
 
-  if (isLoading) {
+  if (isLoading && !isLoggingOut) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
@@ -564,7 +566,7 @@ const DriverPage = () => {
     );
   }
 
-  if (!user || !driverProfile) {
+  if ((!user || !driverProfile) && !isLoggingOut) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
@@ -582,6 +584,11 @@ const DriverPage = () => {
         </div>
       </div>
     );
+  }
+
+  // إذا كان في حالة تسجيل خروج، لا تظهر أي شيء
+  if (isLoggingOut) {
+    return null;
   }
 
   return (
