@@ -544,15 +544,12 @@ const DriverPage = () => {
   };
 
   const logout = () => {
-    setIsLoading(true);
     setUser(null);
     setDriverProfile(null);
     setActiveRide(null);
     setRideStatus(null);
     localStorage.removeItem('user');
-    setTimeout(() => {
-      navigate('/auth');
-    }, 100);
+    navigate('/auth');
   };
 
   if (isLoading) {
@@ -575,9 +572,8 @@ const DriverPage = () => {
           <p className="text-sm text-slate-400 mb-4">يرجى المحاولة مرة أخرى</p>
           <button 
             onClick={() => {
-              setIsLoading(true);
               localStorage.removeItem('user');
-              setTimeout(() => navigate('/auth'), 100);
+              navigate('/auth');
             }}
             className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
           >
