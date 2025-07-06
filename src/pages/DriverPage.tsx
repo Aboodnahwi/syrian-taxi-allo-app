@@ -150,7 +150,6 @@ const DriverPage = () => {
             setCurrentLocation([lat, lng]);
             setLocationPermissionDenied(false);
             
-            // تحديث موقع السائق في قاعدة البيانات
             if (driverProfile?.id) {
               updateDriverLocation(lat, lng);
             }
@@ -158,7 +157,6 @@ const DriverPage = () => {
           (error) => {
             console.error('خطأ في الحصول على الموقع:', error);
             setLocationPermissionDenied(true);
-            // استخدام موقع دمشق كافتراضي
             setCurrentLocation([33.5138, 36.2765]);
             toast({
               title: "تم استخدام موقع افتراضي",
@@ -228,12 +226,10 @@ const DriverPage = () => {
         estimated_duration: activeTrip.estimated_duration || Math.ceil((activeTrip.distance_km || 5) * 1.5)
       };
       
-      // التأكد من عدم إعادة تعيين نفس الرحلة
       if (!activeRide || activeRide.id !== activeTrip.id) {
         setActiveRide(rideData);
       }
       
-      // تحديث الحالة بناءً على حالة الرحلة
       const newRideStatus = activeTrip.status === 'accepted' ? 'accepted' :
                           activeTrip.status === 'arrived' ? 'arrived' :
                           activeTrip.status === 'started' ? 'started' : null;
@@ -242,7 +238,6 @@ const DriverPage = () => {
         setRideStatus(newRideStatus);
       }
     } else if (!activeTrip && activeRide) {
-      // إذا لم تعد هناك رحلة نشطة، امسح البيانات المحلية
       setActiveRide(null);
       setRideStatus(null);
     }
@@ -274,7 +269,6 @@ const DriverPage = () => {
     // طلبات الرحلات المتاحة
     if (isOnline && !activeRide && !isTracking) {
       rideRequests.forEach((request) => {
-        // نقطة البداية (موقع الزبون)
         if (request.from_coordinates) {
           markers.push({
             id: `request-pickup-${request.id}`,
@@ -300,7 +294,6 @@ const DriverPage = () => {
           });
         }
 
-        // نقطة النهاية (وجهة الزبون)
         if (request.to_coordinates) {
           markers.push({
             id: `request-destination-${request.id}`,
@@ -371,16 +364,13 @@ const DriverPage = () => {
     console.log('[DriverPage] Setting up route. activeRide:', activeRide ? 'exists' : 'none', 'rideStatus:', rideStatus, 'isTracking:', isTracking);
     
     if (isTracking && trackingData?.path) {
-      // أثناء الرحلة - عرض المسار المسجل
       console.log('[DriverPage] Showing tracking path');
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
     } else if (activeRide && activeRide.from_coordinates && activeRide.to_coordinates) {
       if (rideStatus === 'accepted' && currentLocation) {
-        // عند قبول الرحلة - عرض مسار السائق إلى نقطة البداية ثم إلى الوجهة
         console.log('[DriverPage] Showing route: driver -> pickup -> destination');
         setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
       } else if (rideStatus === 'arrived' || rideStatus === 'started') {
-        // عند الوصول أو بدء الرحلة - عرض مسار من نقطة البداية إلى الوجهة
         console.log('[DriverPage] Showing route: pickup -> destination');
         setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
       } else {
@@ -427,7 +417,6 @@ const DriverPage = () => {
     if (result.success && result.trip) {
       console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
       
-      // تحليل الإحداثيات بشكل صحيح
       const parseCoordinates = (coords: any): [number, number] | null => {
         if (!coords) return null;
         
@@ -455,7 +444,6 @@ const DriverPage = () => {
       setRideStatus('accepted');
       setIsOnline(false);
       
-      // تحديث الخريطة فوراً بالمسار الجديد
       if (currentLocation && tripWithParsedCoords.from_coordinates && tripWithParsedCoords.to_coordinates) {
         setMapRoute([currentLocation, tripWithParsedCoords.from_coordinates, tripWithParsedCoords.to_coordinates]);
       }
@@ -506,7 +494,6 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
-      // تحديث الحالة المحلية فوراً
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
@@ -570,7 +557,6 @@ const DriverPage = () => {
     navigate('/auth');
   };
 
-  // عرض شاشة التحميل فقط في البداية أو عند عدم وجود مستخدم/سائق
   if (isInitialLoading || !user || !driverProfile) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
