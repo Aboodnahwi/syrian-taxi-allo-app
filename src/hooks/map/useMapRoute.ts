@@ -27,14 +27,14 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     }
 
     if (routeLayerRef.current && route && route.length > 0) {
-      console.log("[useMapRoute] Zooming to route bounds with close zoom");
+      console.log("[useMapRoute] Zooming to route bounds");
       mapInstanceRef.current.fitBounds(routeLayerRef.current.getBounds(), { 
         animate: true, 
         padding: [20, 20],
-        maxZoom: 18 
+        maxZoom: 16
       });
     } else if (route && route.length >= 2) {
-      console.log("[useMapRoute] Zooming to route start/end points with close zoom");
+      console.log("[useMapRoute] Zooming to route start/end points");
       const bounds = L.latLngBounds([route[0], route[route.length - 1]]);
       
       const distance = mapInstanceRef.current.distance(route[0], route[route.length - 1]);
@@ -43,7 +43,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       mapInstanceRef.current.fitBounds(bounds, { 
         animate: true, 
         padding: [15, 15], 
-        maxZoom: distance < 1000 ? 19 : distance < 5000 ? 17 : 15 
+        maxZoom: distance < 1000 ? 18 : distance < 5000 ? 16 : 14
       });
     }
   }, [mapInstanceRef, route]);
@@ -81,7 +81,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     console.log("[useMapRoute] Processing route:", route?.length, route);
 
     if (route && route.length > 1) {
-      console.log("[useMapRoute] Drawing route with", route.length, "points");
+      console.log("[useMapRoute] Drawing enhanced route with", route.length, "points");
       
       if (route.length === 3) {
         console.log("[useMapRoute] Drawing 3-point route (driver -> pickup -> destination)");
@@ -89,64 +89,78 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
         // مسار من السائق إلى الزبون (أزرق متقطع)
         const driverToCustomer = L.polyline([route[0], route[1]], {
           color: '#3b82f6',
-          weight: 5,
+          weight: 6,
           opacity: 0.9,
-          dashArray: '10, 8',
+          dashArray: '15, 10',
           lineCap: 'round',
           lineJoin: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
         
-        // مسار من الزبون إلى الوجهة (أخضر)
+        // مسار من الزبون إلى الوجهة (أخضر صلب)
         const customerToDestination = L.polyline([route[1], route[2]], {
           color: '#22c55e',
-          weight: 6,
+          weight: 7,
           opacity: 0.95,
-          dashArray: '15, 5',
           lineCap: 'round',
           lineJoin: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
         
         // إضافة تأثير الظل للمسارات
         const shadowDriver = L.polyline([route[0], route[1]], {
           color: '#1e40af',
-          weight: 7,
+          weight: 8,
           opacity: 0.3,
-          dashArray: '10, 8',
+          dashArray: '15, 10',
           lineCap: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
         
         const shadowCustomer = L.polyline([route[1], route[2]], {
           color: '#16a34a',
-          weight: 8,
+          weight: 9,
           opacity: 0.3,
-          dashArray: '15, 5',
           lineCap: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
         
-        routeLayerRef.current = L.layerGroup([shadowDriver, shadowCustomer, driverToCustomer, customerToDestination]);
+        // إضافة جميع الطبقات للخريطة
+        shadowDriver.addTo(mapInstanceRef.current);
+        shadowCustomer.addTo(mapInstanceRef.current);
+        driverToCustomer.addTo(mapInstanceRef.current);
+        customerToDestination.addTo(mapInstanceRef.current);
+        
+        // تجميع جميع الطبقات
+        routeLayerRef.current = L.layerGroup([
+          shadowDriver, 
+          shadowCustomer, 
+          driverToCustomer, 
+          customerToDestination
+        ]);
+        
         console.log("[useMapRoute] Created enhanced layer group for 3-point route");
-      } else {
+      } else if (route.length === 2) {
         // مسار عادي (نقطتين) مع تحسينات بصرية
         console.log("[useMapRoute] Drawing enhanced 2-point route");
         
         // إضافة ظل للمسار
         const shadowRoute = L.polyline(route, { 
           color: '#16a34a', 
-          weight: 8, 
+          weight: 9, 
           opacity: 0.3,
           lineCap: 'round',
           lineJoin: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
         
         // المسار الرئيسي
         const mainRoute = L.polyline(route, { 
           color: '#22c55e', 
-          weight: 6, 
+          weight: 7, 
           opacity: 0.95,
-          dashArray: '12, 6',
           lineCap: 'round',
           lineJoin: 'round'
-        }).addTo(mapInstanceRef.current);
+        });
+        
+        // إضافة الطبقات للخريطة
+        shadowRoute.addTo(mapInstanceRef.current);
+        mainRoute.addTo(mapInstanceRef.current);
         
         routeLayerRef.current = L.layerGroup([shadowRoute, mainRoute]);
       }
@@ -167,16 +181,16 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
             // تحسين عرض المسار
             mapInstanceRef.current.fitBounds(bounds, { 
               animate: true, 
-              padding: [40, 40], // زيادة المساحة حول المسار
-              maxZoom: 16,
-              duration: 1.5 // تحريك أنعم
+              padding: [50, 50], // زيادة المساحة حول المسار
+              maxZoom: 15,
+              duration: 1.2 // تحريك أنعم
             });
             console.log("[useMapRoute] Enhanced bounds fitting completed");
           } catch (error) {
             console.error("[useMapRoute] Error fitting bounds:", error);
           }
         }
-      }, 300); // تقليل وقت الانتظار
+      }, 200); // تقليل وقت الانتظار
     } else {
       console.log("[useMapRoute] No valid route to draw");
     }

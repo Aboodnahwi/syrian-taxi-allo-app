@@ -32,13 +32,14 @@ const DriverPage = () => {
   const [completionData, setCompletionData] = useState<any>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [locationInitialized, setLocationInitialized] = useState(false);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
   const { acceptRide, rejectRide, loading: acceptanceLoading } = useRideAcceptance();
   const { trips } = useRealTimeTrips('driver', driverProfile?.id);
 
-  // التحقق من المستخدم وإعادة التوجيه
+  // التحقق من المستخدم وإعادة التوجيه - مرة واحدة فقط
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (!userData) {
@@ -60,11 +61,11 @@ const DriverPage = () => {
     }
   }, [navigate]);
 
-  // جلب ملف السائق
+  // جلب ملف السائق - مرة واحدة فقط عند تحديد المستخدم
   useEffect(() => {
-    const fetchDriverProfile = async () => {
-      if (!user?.id) return;
+    if (!user?.id || driverProfile) return;
 
+    const fetchDriverProfile = async () => {
       try {
         console.log('جلب ملف السائق للمستخدم:', user.id);
         
@@ -132,13 +133,13 @@ const DriverPage = () => {
       }
     };
 
-    if (user?.id) {
-      fetchDriverProfile();
-    }
-  }, [user, toast]);
+    fetchDriverProfile();
+  }, [user?.id, toast]);
 
-  // الحصول على الموقع الحالي للسائق
+  // الحصول على الموقع الحالي للسائق - مرة واحدة فقط
   useEffect(() => {
+    if (locationInitialized) return;
+
     const getCurrentLocation = () => {
       if (navigator.geolocation) {
         console.log('طلب الموقع من المتصفح...');
@@ -149,6 +150,7 @@ const DriverPage = () => {
             console.log('تم الحصول على موقع السائق:', lat, lng);
             setCurrentLocation([lat, lng]);
             setLocationPermissionDenied(false);
+            setLocationInitialized(true);
             
             if (driverProfile?.id) {
               updateDriverLocation(lat, lng);
@@ -158,6 +160,7 @@ const DriverPage = () => {
             console.error('خطأ في الحصول على الموقع:', error);
             setLocationPermissionDenied(true);
             setCurrentLocation([33.5138, 36.2765]);
+            setLocationInitialized(true);
             toast({
               title: "تم استخدام موقع افتراضي",
               description: "تعذر الوصول لموقعك. تم استخدام موقع دمشق كافتراضي. يرجى السماح بالوصول للموقع لتحسين الخدمة.",
@@ -174,6 +177,7 @@ const DriverPage = () => {
         console.log('الجهاز لا يدعم خدمات الموقع');
         setCurrentLocation([33.5138, 36.2765]);
         setLocationPermissionDenied(true);
+        setLocationInitialized(true);
         toast({
           title: "خدمة الموقع غير مدعومة",
           description: "جهازك لا يدعم خدمات الموقع",
@@ -183,7 +187,7 @@ const DriverPage = () => {
     };
 
     getCurrentLocation();
-  }, [driverProfile, toast]);
+  }, [toast]);
 
   // تحديث موقع السائق في قاعدة البيانات
   const updateDriverLocation = async (lat: number, lng: number) => {
@@ -241,7 +245,7 @@ const DriverPage = () => {
       setActiveRide(null);
       setRideStatus(null);
     }
-  }, [trips, driverProfile?.id, activeRide, rideStatus]);
+  }, [trips, driverProfile?.id]);
 
   // إعداد علامات الخريطة والمسارات
   useEffect(() => {
@@ -360,25 +364,28 @@ const DriverPage = () => {
     
     setMapMarkers(markers);
 
-    // إعداد المسارات
-    console.log('[DriverPage] Setting up route. activeRide:', activeRide ? 'exists' : 'none', 'rideStatus:', rideStatus, 'isTracking:', isTracking);
+    // إعداد المسارات - رسم خط الرحلة المقبولة
+    console.log('[DriverPage] Setting up route for active ride:', activeRide?.id, 'status:', rideStatus);
     
     if (isTracking && trackingData?.path) {
       console.log('[DriverPage] Showing tracking path');
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
-    } else if (activeRide && activeRide.from_coordinates && activeRide.to_coordinates) {
-      if (rideStatus === 'accepted' && currentLocation) {
-        console.log('[DriverPage] Showing route: driver -> pickup -> destination');
+    } else if (activeRide && currentLocation) {
+      // رسم خط الرحلة حسب حالة الرحلة
+      if (rideStatus === 'accepted' && activeRide.from_coordinates && activeRide.to_coordinates) {
+        // مسار السائق -> نقطة الانطلاق -> الوجهة
+        console.log('[DriverPage] Drawing full route: driver -> pickup -> destination');
         setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
-      } else if (rideStatus === 'arrived' || rideStatus === 'started') {
-        console.log('[DriverPage] Showing route: pickup -> destination');
+      } else if ((rideStatus === 'arrived' || rideStatus === 'started') && activeRide.from_coordinates && activeRide.to_coordinates) {
+        // مسار نقطة الانطلاق -> الوجهة
+        console.log('[DriverPage] Drawing ride route: pickup -> destination');
         setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
       } else {
-        console.log('[DriverPage] No route condition met, clearing route');
+        console.log('[DriverPage] No valid route conditions met');
         setMapRoute(undefined);
       }
     } else {
-      console.log('[DriverPage] No active ride or coordinates, clearing route');
+      console.log('[DriverPage] No active ride, clearing route');
       setMapRoute(undefined);
     }
   }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, locationPermissionDenied, rideStatus]);
@@ -443,10 +450,6 @@ const DriverPage = () => {
       setActiveRide(tripWithParsedCoords);
       setRideStatus('accepted');
       setIsOnline(false);
-      
-      if (currentLocation && tripWithParsedCoords.from_coordinates && tripWithParsedCoords.to_coordinates) {
-        setMapRoute([currentLocation, tripWithParsedCoords.from_coordinates, tripWithParsedCoords.to_coordinates]);
-      }
     }
     
     return result;
@@ -494,6 +497,7 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
+      // تحديث الحالة المحلية فقط بدون إعادة تحميل
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
