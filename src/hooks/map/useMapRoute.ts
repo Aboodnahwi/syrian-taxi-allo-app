@@ -69,7 +69,17 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
 
     // Remove old route
     if (routeLayerRef.current) {
-      mapInstanceRef.current.removeLayer(routeLayerRef.current);
+      console.log("[useMapRoute] Removing old route layer");
+      if (routeLayerRef.current.removeFrom) {
+        routeLayerRef.current.removeFrom(mapInstanceRef.current);
+      } else if (routeLayerRef.current.eachLayer) {
+        // It's a layer group
+        routeLayerRef.current.eachLayer((layer: any) => {
+          mapInstanceRef.current.removeLayer(layer);
+        });
+      } else {
+        mapInstanceRef.current.removeLayer(routeLayerRef.current);
+      }
       routeLayerRef.current = null;
     }
 
@@ -80,12 +90,14 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       
       // إذا كان لدينا 3 نقاط، ارسم مسارين بألوان مختلفة
       if (route.length === 3) {
-        // مسار من السائق إلى الزبون (أحمر)
+        console.log("[useMapRoute] Drawing 3-point route (driver -> pickup -> destination)");
+        
+        // مسار من السائق إلى الزبون (أزرق متقطع)
         const driverToCustomer = L.polyline([route[0], route[1]], {
-          color: '#ef4444',
-          weight: 5,
-          opacity: 0.9,
-          dashArray: '8, 4'
+          color: '#3b82f6',
+          weight: 4,
+          opacity: 0.8,
+          dashArray: '8, 8'
         }).addTo(mapInstanceRef.current);
         
         // مسار من الزبون إلى الوجهة (أخضر)
@@ -93,22 +105,50 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
           color: '#22c55e',
           weight: 5,
           opacity: 0.9,
-          dashArray: '12, 6'
+          dashArray: '12, 4'
         }).addTo(mapInstanceRef.current);
         
         // إنشاء مجموعة للمسارات
         routeLayerRef.current = L.layerGroup([driverToCustomer, customerToDestination]);
+        console.log("[useMapRoute] Created layer group for 3-point route");
       } else {
-        // مسار عادي
+        // مسار عادي (نقطتين)
+        console.log("[useMapRoute] Drawing 2-point route");
         routeLayerRef.current = L.polyline(route, { 
-          color: '#ef4444', 
-          weight: 6, 
+          color: '#22c55e', 
+          weight: 5, 
           opacity: 0.9,
           dashArray: '10, 5'
         }).addTo(mapInstanceRef.current);
       }
       
       console.log("[useMapRoute] Route drawn successfully");
+      
+      // تحديد نطاق العرض للمسار
+      setTimeout(() => {
+        if (routeLayerRef.current && mapInstanceRef.current) {
+          try {
+            let bounds;
+            if (routeLayerRef.current.getBounds) {
+              bounds = routeLayerRef.current.getBounds();
+            } else {
+              // إذا كانت مجموعة طبقات، أنشئ الحدود يدوياً
+              bounds = L.latLngBounds(route);
+            }
+            
+            mapInstanceRef.current.fitBounds(bounds, { 
+              animate: true, 
+              padding: [30, 30],
+              maxZoom: 16
+            });
+            console.log("[useMapRoute] Fitted bounds to route");
+          } catch (error) {
+            console.error("[useMapRoute] Error fitting bounds:", error);
+          }
+        }
+      }, 500);
+    } else {
+      console.log("[useMapRoute] No valid route to draw");
     }
   }, [route, mapReady, mapInstanceRef]);
 

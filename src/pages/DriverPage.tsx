@@ -373,26 +373,30 @@ const DriverPage = () => {
     setMapMarkers(markers);
 
     // إعداد المسارات
+    console.log('[DriverPage] Setting up route. activeRide:', activeRide ? 'exists' : 'none', 'rideStatus:', rideStatus, 'isTracking:', isTracking);
+    
     if (isTracking && trackingData?.path) {
       // أثناء الرحلة - عرض المسار المسجل
+      console.log('[DriverPage] Showing tracking path');
       setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
-    } else if (activeRide && rideStatus === 'accepted') {
-      // عند قبول الرحلة - عرض مسار السائق إلى نقطة البداية ثم إلى الوجهة
-      if (currentLocation && activeRide.from_coordinates && activeRide.to_coordinates) {
-        // مسار من السائق إلى البداية ثم إلى الوجهة
+    } else if (activeRide && activeRide.from_coordinates && activeRide.to_coordinates) {
+      if (rideStatus === 'accepted' && currentLocation) {
+        // عند قبول الرحلة - عرض مسار السائق إلى نقطة البداية ثم إلى الوجهة
+        console.log('[DriverPage] Showing route: driver -> pickup -> destination');
         setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
-      } else if (activeRide.from_coordinates && activeRide.to_coordinates) {
+      } else if (rideStatus === 'arrived' || rideStatus === 'started') {
+        // عند الوصول أو بدء الرحلة - عرض مسار من نقطة البداية إلى الوجهة
+        console.log('[DriverPage] Showing route: pickup -> destination');
         setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
-      }
-    } else if (activeRide && (rideStatus === 'arrived' || rideStatus === 'started')) {
-      // عند الوصول أو بدء الرحلة - عرض مسار من نقطة البداية إلى الوجهة
-      if (activeRide.from_coordinates && activeRide.to_coordinates) {
-        setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
+      } else {
+        console.log('[DriverPage] No route condition met, clearing route');
+        setMapRoute(undefined);
       }
     } else {
+      console.log('[DriverPage] No active ride or coordinates, clearing route');
       setMapRoute(undefined);
     }
-  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, locationPermissionDenied]);
+  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, locationPermissionDenied, rideStatus]);
 
   const toggleOnlineStatus = () => {
     if (!currentLocation && !locationPermissionDenied) {
@@ -510,6 +514,7 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
+      // تحديث الحالة المحلية بدون إظهار شاشة التحميل
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
