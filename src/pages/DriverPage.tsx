@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -29,9 +30,8 @@ const DriverPage = () => {
   const [mapRoute, setMapRoute] = useState<[number, number][] | undefined>();
   const [showCompletionSummary, setShowCompletionSummary] = useState(false);
   const [completionData, setCompletionData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
   const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
@@ -63,7 +63,7 @@ const DriverPage = () => {
   // جلب ملف السائق
   useEffect(() => {
     const fetchDriverProfile = async () => {
-      if (!user?.id || isLoggingOut) return;
+      if (!user?.id) return;
 
       try {
         console.log('جلب ملف السائق للمستخدم:', user.id);
@@ -81,7 +81,6 @@ const DriverPage = () => {
             description: "تعذر جلب بيانات السائق",
             variant: "destructive"
           });
-          setIsLoading(false);
           return;
         }
 
@@ -108,7 +107,6 @@ const DriverPage = () => {
               description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
               variant: "destructive"
             });
-            setIsLoading(false);
             return;
           }
           console.log('تم إنشاء ملف السائق الجديد:', newDriver);
@@ -130,15 +128,14 @@ const DriverPage = () => {
           variant: "destructive"
         });
       } finally {
-        // التأكد من إيقاف التحميل في جميع الحالات
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
-    if (user?.id && !isLoggingOut) {
+    if (user?.id) {
       fetchDriverProfile();
     }
-  }, [user, toast, isLoggingOut]);
+  }, [user, toast]);
 
   // الحصول على الموقع الحالي للسائق
   useEffect(() => {
@@ -234,8 +231,6 @@ const DriverPage = () => {
       // التأكد من عدم إعادة تعيين نفس الرحلة
       if (!activeRide || activeRide.id !== activeTrip.id) {
         setActiveRide(rideData);
-        // التأكد من إيقاف التحميل عند وجود رحلة نشطة
-        setIsLoading(false);
       }
       
       // تحديث الحالة بناءً على حالة الرحلة
@@ -460,9 +455,6 @@ const DriverPage = () => {
       setRideStatus('accepted');
       setIsOnline(false);
       
-      // إيقاف التحميل فوراً عند قبول الرحلة
-      setIsLoading(false);
-      
       // تحديث الخريطة فوراً بالمسار الجديد
       if (currentLocation && tripWithParsedCoords.from_coordinates && tripWithParsedCoords.to_coordinates) {
         setMapRoute([currentLocation, tripWithParsedCoords.from_coordinates, tripWithParsedCoords.to_coordinates]);
@@ -514,7 +506,7 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
-      // تحديث الحالة المحلية بدون إظهار شاشة التحميل
+      // تحديث الحالة المحلية فوراً
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
@@ -569,7 +561,7 @@ const DriverPage = () => {
   };
 
   const logout = () => {
-    setIsLoggingOut(true);
+    console.log('بدء عملية تسجيل الخروج');
     setUser(null);
     setDriverProfile(null);
     setActiveRide(null);
@@ -578,7 +570,8 @@ const DriverPage = () => {
     navigate('/auth');
   };
 
-  if (isLoading && !isLoggingOut && !activeRide) {
+  // عرض شاشة التحميل فقط في البداية أو عند عدم وجود مستخدم/سائق
+  if (isInitialLoading || !user || !driverProfile) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
@@ -588,31 +581,6 @@ const DriverPage = () => {
         </div>
       </div>
     );
-  }
-
-  if ((!user || !driverProfile) && !isLoggingOut) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
-        <div className="text-center text-white">
-          <p className="text-lg font-cairo mb-4">خطأ في جلب بيانات السائق</p>
-          <p className="text-sm text-slate-400 mb-4">يرجى المحاولة مرة أخرى</p>
-          <button 
-            onClick={() => {
-              localStorage.removeItem('user');
-              navigate('/auth');
-            }}
-            className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-          >
-            العودة لتسجيل الدخول
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // إذا كان في حالة تسجيل خروج، لا تظهر أي شيء
-  if (isLoggingOut) {
-    return null;
   }
 
   return (
