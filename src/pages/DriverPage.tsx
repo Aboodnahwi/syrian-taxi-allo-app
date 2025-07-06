@@ -81,6 +81,7 @@ const DriverPage = () => {
             description: "تعذر جلب بيانات السائق",
             variant: "destructive"
           });
+          setIsLoading(false);
           return;
         }
 
@@ -107,6 +108,7 @@ const DriverPage = () => {
               description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
               variant: "destructive"
             });
+            setIsLoading(false);
             return;
           }
           console.log('تم إنشاء ملف السائق الجديد:', newDriver);
@@ -128,6 +130,7 @@ const DriverPage = () => {
           variant: "destructive"
         });
       } finally {
+        // التأكد من إيقاف التحميل في جميع الحالات
         setIsLoading(false);
       }
     };
@@ -231,6 +234,8 @@ const DriverPage = () => {
       // التأكد من عدم إعادة تعيين نفس الرحلة
       if (!activeRide || activeRide.id !== activeTrip.id) {
         setActiveRide(rideData);
+        // التأكد من إيقاف التحميل عند وجود رحلة نشطة
+        setIsLoading(false);
       }
       
       // تحديث الحالة بناءً على حالة الرحلة
@@ -328,7 +333,7 @@ const DriverPage = () => {
 
     // الرحلة النشطة
     if (activeRide) {
-      if (activeRide.from_coordinates) {
+      if (activeRide.from_coordinates && Array.isArray(activeRide.from_coordinates)) {
         markers.push({
           id: 'pickup',
           position: activeRide.from_coordinates,
@@ -346,7 +351,7 @@ const DriverPage = () => {
         });
       }
       
-      if (activeRide.to_coordinates) {
+      if (activeRide.to_coordinates && Array.isArray(activeRide.to_coordinates)) {
         markers.push({
           id: 'destination',
           position: activeRide.to_coordinates,
@@ -422,27 +427,41 @@ const DriverPage = () => {
     
     if (result.success && result.trip) {
       console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
-      setActiveRide(result.trip);
-      setRideStatus('accepted');
-      setIsOnline(false);
       
-      // تحديث الخريطة فوراً بالمسار الجديد
-      if (currentLocation && result.trip.from_coordinates && result.trip.to_coordinates) {
-        const parseCoordinates = (coords: any): [number, number] => {
-          if (Array.isArray(coords) && coords.length >= 2) {
-            return [coords[0], coords[1]];
-          }
-          const coordStr = coords.toString();
-          const match = coordStr.match(/\(([-\d.]+),([-\d.]+)\)/);
+      // تحليل الإحداثيات بشكل صحيح
+      const parseCoordinates = (coords: any): [number, number] | null => {
+        if (!coords) return null;
+        
+        if (Array.isArray(coords) && coords.length >= 2) {
+          return [parseFloat(coords[0]), parseFloat(coords[1])];
+        }
+        
+        if (typeof coords === 'string') {
+          const match = coords.match(/\(([^,]+),([^)]+)\)/);
           if (match) {
             return [parseFloat(match[1]), parseFloat(match[2])];
           }
-          return [33.5138, 36.2765]; // fallback
-        };
+        }
         
-        const fromCoords = parseCoordinates(result.trip.from_coordinates);
-        const toCoords = parseCoordinates(result.trip.to_coordinates);
-        setMapRoute([currentLocation, fromCoords, toCoords]);
+        return null;
+      };
+
+      const tripWithParsedCoords = {
+        ...result.trip,
+        from_coordinates: parseCoordinates(result.trip.from_coordinates),
+        to_coordinates: parseCoordinates(result.trip.to_coordinates)
+      };
+
+      setActiveRide(tripWithParsedCoords);
+      setRideStatus('accepted');
+      setIsOnline(false);
+      
+      // إيقاف التحميل فوراً عند قبول الرحلة
+      setIsLoading(false);
+      
+      // تحديث الخريطة فوراً بالمسار الجديد
+      if (currentLocation && tripWithParsedCoords.from_coordinates && tripWithParsedCoords.to_coordinates) {
+        setMapRoute([currentLocation, tripWithParsedCoords.from_coordinates, tripWithParsedCoords.to_coordinates]);
       }
     }
     
@@ -554,7 +573,7 @@ const DriverPage = () => {
     navigate('/auth');
   };
 
-  if (isLoading && !isLoggingOut) {
+  if (isLoading && !isLoggingOut && !activeRide) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
