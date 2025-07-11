@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -135,7 +134,7 @@ const DriverPage = () => {
     fetchDriverProfile();
   }, [user?.id, toast]);
 
-  // الحصول على الموقع الحالي للسائق - مع تحسين معالجة الأخطاء
+  // الحصول على الموقع الحالي للسائق
   useEffect(() => {
     if (locationInitialized) return;
 
@@ -144,11 +143,6 @@ const DriverPage = () => {
         console.log('الجهاز لا يدعم خدمات الموقع');
         setCurrentLocation([33.5138, 36.2765]);
         setLocationInitialized(true);
-        toast({
-          title: "خدمة الموقع غير مدعومة",
-          description: "جهازك لا يدعم خدمات الموقع",
-          variant: "destructive"
-        });
         return;
       }
 
@@ -167,18 +161,9 @@ const DriverPage = () => {
         },
         (error) => {
           console.error('خطأ في الحصول على الموقع:', error);
-          // استخدام موقع افتراضي بدلاً من إظهار رسالة خطأ مربكة
+          // استخدام موقع افتراضي
           setCurrentLocation([33.5138, 36.2765]);
           setLocationInitialized(true);
-          
-          // عرض رسالة مفيدة فقط إذا كانت المشكلة في الصلاحيات
-          if (error.code === error.PERMISSION_DENIED) {
-            toast({
-              title: "تم استخدام موقع افتراضي",
-              description: "للحصول على أفضل خدمة، يرجى السماح بالوصول للموقع من إعدادات المتصفح",
-              className: "bg-yellow-50 border-yellow-200 text-yellow-800"
-            });
-          }
         },
         { 
           enableHighAccuracy: true, 
@@ -189,7 +174,7 @@ const DriverPage = () => {
     };
 
     getCurrentLocation();
-  }, [toast, driverProfile?.id]);
+  }, [toast, driverProfile?.id, locationInitialized]);
 
   // تحديث موقع السائق في قاعدة البيانات
   const updateDriverLocation = async (lat: number, lng: number) => {
@@ -402,11 +387,13 @@ const DriverPage = () => {
       return;
     }
 
-    setIsOnline(!isOnline);
+    const newOnlineStatus = !isOnline;
+    setIsOnline(newOnlineStatus);
+    
     toast({
-      title: isOnline ? "تم إيقاف الخدمة" : "تم تشغيل الخدمة",
-      description: isOnline ? "لن تصلك طلبات جديدة" : "يمكنك الآن استقبال الطلبات",
-      className: isOnline ? "bg-red-50 border-red-200 text-red-800" : "bg-green-50 border-green-200 text-green-800"
+      title: newOnlineStatus ? "تم تشغيل الخدمة" : "تم إيقاف الخدمة",
+      description: newOnlineStatus ? "يمكنك الآن استقبال الطلبات" : "لن تصلك طلبات جديدة",
+      className: newOnlineStatus ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
     });
   };
 
@@ -499,7 +486,7 @@ const DriverPage = () => {
 
       console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
 
-      // تحديث الحالة المحلية فقط بدون إعادة تحميل
+      // تحديث الحالة المحلية
       setRideStatus(status);
       setActiveRide(prev => ({ ...prev, ...updatedTrip }));
 
@@ -556,7 +543,7 @@ const DriverPage = () => {
   const logout = () => {
     console.log('بدء عملية تسجيل الخروج');
     
-    // تنظيف البيانات المحلية
+    // تنظيف البيانات المحلية فوراً
     setUser(null);
     setDriverProfile(null);
     setActiveRide(null);
@@ -564,12 +551,13 @@ const DriverPage = () => {
     setCurrentLocation(null);
     setLocationInitialized(false);
     setIsOnline(false);
+    setIsInitialLoading(false); // منع الشاشة السوداء
     
     // إزالة البيانات المحفوظة
     localStorage.removeItem('user');
     
-    // التوجه لصفحة المصادقة
-    navigate('/auth');
+    // التوجه لصفحة المصادقة فوراً
+    navigate('/auth', { replace: true });
   };
 
   if (isInitialLoading || !user || !driverProfile) {
@@ -614,6 +602,9 @@ const DriverPage = () => {
               speed={trackingData.currentSpeed}
               customerName={activeRide?.customer_name}
               isActive={true}
+              rideStatus={rideStatus}
+              onStartRide={() => updateRideStatus('started')}
+              onEndRide={() => updateRideStatus('completed')}
             />
           </div>
         </div>
