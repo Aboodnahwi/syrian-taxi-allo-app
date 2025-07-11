@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +20,6 @@ const CustomerPage = () => {
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [markers, setMarkers] = useState<any[]>([]);
   const [route, setRoute] = useState<[number, number][] | undefined>(undefined);
-  const [activeMap, setActiveMap] = useState<any>(null);
 	
   const [activeTrip, setActiveTrip] = useState<any>(null);
 
@@ -178,7 +178,6 @@ const CustomerPage = () => {
     <div className="h-screen w-full relative overflow-hidden bg-slate-900">
       <Map
         className="absolute inset-0 w-full h-full z-0"
-        ref={mapRef}
         markers={markers}
         route={route}
         center={userLocation || [33.5138, 36.2765]}
