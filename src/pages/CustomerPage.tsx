@@ -17,7 +17,11 @@ const CustomerPage = () => {
 
   const [user, setUser] = useState<any>(null);
   const [isRequesting, setIsRequesting] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    lat: number;
+    lng: number;
+    address: string;
+  } | null>(null);
   const [markers, setMarkers] = useState<any[]>([]);
   const [route, setRoute] = useState<[number, number][] | undefined>(undefined);
 	
@@ -87,12 +91,21 @@ const CustomerPage = () => {
       return;
     }
 
+    if (!user || !user.id || !user.name || !user.phone) {
+      toast({
+        title: "User information missing",
+        description: "Please log in again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsRequesting(true);
 
     const rideRequestData = {
       from_location: selectedLocation.address,
       to_location: destination,
-      from_coordinates: [selectedLocation.lat, selectedLocation.lng],
+      from_coordinates: [selectedLocation.lat, selectedLocation.lng] as [number, number],
       customer_id: user.id,
       customer_name: user.name,
       customer_phone: user.phone
