@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -331,7 +330,7 @@ const DriverPage = () => {
           position: activeRide.from_coordinates,
           popup: `نقطة الانطلاق: ${activeRide.from_location}`,
           icon: {
-            html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+            html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-bounce">
                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                        <circle cx="12" cy="10" r="3"></circle>
@@ -349,7 +348,7 @@ const DriverPage = () => {
           position: activeRide.to_coordinates,
           popup: `الوجهة: ${activeRide.to_location}`,
           icon: {
-            html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+            html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-bounce">
                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                        <circle cx="12" cy="10" r="3"></circle>
