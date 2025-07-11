@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
 import VehiclePricingManager from '@/components/admin/VehiclePricingManager';
+import AdvancedPricingManager from '@/components/admin/AdvancedPricingManager';
 import DriverApplicationsManager from '@/components/admin/DriverApplicationsManager';
 import PricingFactorsManager from '@/components/admin/PricingFactorsManager';
 
@@ -185,12 +186,15 @@ const AdminPage = () => {
 
       <div className="container mx-auto p-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-slate-700">
               لوحة المعلومات
             </TabsTrigger>
             <TabsTrigger value="pricing" className="data-[state=active]:bg-slate-700">
               إدارة التسعير
+            </TabsTrigger>
+            <TabsTrigger value="advanced-pricing" className="data-[state=active]:bg-slate-700">
+              التسعير المتقدم
             </TabsTrigger>
             <TabsTrigger value="drivers" className="data-[state=active]:bg-slate-700">
               طلبات السائقين
@@ -361,6 +365,10 @@ const AdminPage = () => {
 
           <TabsContent value="pricing">
             <VehiclePricingManager />
+          </TabsContent>
+
+          <TabsContent value="advanced-pricing">
+            <AdvancedPricingManager />
           </TabsContent>
 
           <TabsContent value="drivers">
