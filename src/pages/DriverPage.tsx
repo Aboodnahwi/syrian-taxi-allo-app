@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -272,7 +271,7 @@ const DriverPage = () => {
       });
     }
     
-    // طلبات الرحلات المتاحة
+    // طلبات الرحلات المتاحة (فقط عندما يكون السائق متاح وليس في رحلة)
     if (isOnline && !activeRide && !isTracking) {
       rideRequests.forEach((request) => {
         if (request.from_coordinates) {
@@ -397,6 +396,16 @@ const DriverPage = () => {
       toast({
         title: "موقعك غير محدد",
         description: "يرجى إعادة تحميل الصفحة للحصول على موقعك",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // منع تغيير الحالة إذا كان هناك رحلة نشطة
+    if (activeRide) {
+      toast({
+        title: "لا يمكن تغيير الحالة",
+        description: "لديك رحلة نشطة حالياً",
         variant: "destructive"
       });
       return;
@@ -593,6 +602,8 @@ const DriverPage = () => {
         center={currentLocation || [33.5138, 36.2765]}
         zoom={currentLocation ? 14 : 11}
         toast={toast}
+        driverLocation={currentLocation}
+        rideStatus={rideStatus}
       />
 
       <div className="absolute inset-x-0 top-0 z-50">
@@ -604,22 +615,38 @@ const DriverPage = () => {
         />
       </div>
 
-      {trackingData && rideStatus === 'started' && (
-        <div className="fixed inset-0 z-[100] pointer-events-none">
-          <div className="pointer-events-auto">
-            <LiveFareCounter
-              currentFare={trackingData.totalFare}
-              distance={trackingData.totalDistance}
-              duration={trackingData.duration}
-              speed={trackingData.currentSpeed}
-              customerName={activeRide?.customer_name}
-              isActive={true}
-            />
-          </div>
-        </div>
+      {/* عرض العداد الكبير عند قبول الرحلة أو أثناء الرحلة */}
+      {activeRide && (rideStatus === 'accepted' || rideStatus === 'arrived') && (
+        <LiveFareCounter
+          currentFare={0} // ابدأ بصفر قبل بدء الرحلة
+          distance={0}
+          duration={0}
+          speed={0}
+          customerName={activeRide?.customer_name}
+          isActive={true}
+          activeRide={activeRide}
+          rideStatus={rideStatus}
+          onUpdateRideStatus={updateRideStatus}
+        />
       )}
 
-      {trackingData && rideStatus !== 'started' && (
+      {/* عرض العداد المتحرك أثناء الرحلة */}
+      {trackingData && rideStatus === 'started' && (
+        <LiveFareCounter
+          currentFare={trackingData.totalFare}
+          distance={trackingData.totalDistance}
+          duration={trackingData.duration}
+          speed={trackingData.currentSpeed}
+          customerName={activeRide?.customer_name}
+          isActive={true}
+          activeRide={activeRide}
+          rideStatus={rideStatus}
+          onUpdateRideStatus={updateRideStatus}
+        />
+      )}
+
+      {/* عرض معلومات التتبع فقط عندما لا يكون العداد الكبير ظاهر */}
+      {trackingData && rideStatus !== 'started' && rideStatus !== 'accepted' && rideStatus !== 'arrived' && (
         <RealTimeTracker 
           distance={trackingData.totalDistance}
           duration={trackingData.duration}
@@ -629,7 +656,8 @@ const DriverPage = () => {
         />
       )}
 
-      {activeRide && (
+      {/* عرض بطاقة الرحلة النشطة فقط عندما لا يكون العداد الكبير ظاهر */}
+      {activeRide && !['accepted', 'arrived'].includes(rideStatus as string) && (
         <div className="absolute top-24 right-4 z-40 max-w-sm">
           <ActiveRideCard 
             activeRide={activeRide}

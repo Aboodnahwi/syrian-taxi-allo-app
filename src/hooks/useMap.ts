@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { MapProps } from '@/components/map/types';
 import { useMapInitialization } from './map/useMapInitialization';
@@ -12,9 +13,13 @@ export const useMap = ({
   markers = [],
   route,
   toast,
-  onMarkerDrag
+  onMarkerDrag,
+  driverLocation,
+  rideStatus
 }: Omit<MapProps, 'className'> & { 
-  onMarkerDrag?: (type:'from'|'to', lat:number, lng:number, address:string)=>void 
+  onMarkerDrag?: (type:'from'|'to', lat:number, lng:number, address:string)=>void;
+  driverLocation?: [number, number];
+  rideStatus?: 'accepted' | 'arrived' | 'started' | 'completed' | null;
 }) => {
   const { mapRef, mapInstanceRef, mapReady, zoomToLatLng } = useMapInitialization({
     center,
@@ -39,7 +44,9 @@ export const useMap = ({
   const { zoomToRoute } = useMapRoute({
     mapInstanceRef,
     mapReady,
-    route
+    route,
+    driverLocation,
+    rideStatus
   });
 
   // Auto-get location when map is ready

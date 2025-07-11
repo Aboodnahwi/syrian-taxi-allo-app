@@ -6,9 +6,11 @@ interface UseMapRouteProps {
   mapInstanceRef: React.MutableRefObject<any>;
   mapReady: boolean;
   route?: Array<[number, number]>;
+  driverLocation?: [number, number];
+  rideStatus?: 'accepted' | 'arrived' | 'started' | 'completed' | null;
 }
 
-export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProps) => {
+export const useMapRoute = ({ mapInstanceRef, mapReady, route, driverLocation, rideStatus }: UseMapRouteProps) => {
   const routeLayerRef = useRef<any>(null);
 
   const zoomToRoute = useCallback(() => {
@@ -48,7 +50,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     }
   }, [mapInstanceRef, route]);
 
-  // رسم مسار واقعي محسن مع استخدام OpenStreetMap Routing API
+  // رسم مسار واقعي محسن مع تمييز مسار السائق إلى الزبون
   const drawRealisticRoute = useCallback(async (L: any, routePoints: [number, number][]) => {
     // إزالة المسار القديم
     if (routeLayerRef.current) {
@@ -65,33 +67,55 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       routeLayerRef.current = null;
     }
 
-    if (routePoints.length === 3) {
-      console.log("[useMapRoute] Drawing enhanced 3-point route (driver -> pickup -> destination)");
+    if (routePoints.length === 3 && rideStatus === 'accepted') {
+      console.log("[useMapRoute] Drawing driver-to-customer route with different colors");
       
-      // الحصول على مسار واقعي من السائق إلى نقطة الالتقاط
+      // الحصول على مسار واقعي من السائق إلى نقطة الالتقاط (أزرق متقطع)
       const driverToPickupRoute = await getRealisticRoute(routePoints[0], routePoints[1]);
       
-      // الحصول على مسار واقعي من نقطة الالتقاط إلى الوجهة
+      // الحصول على مسار واقعي من نقطة الالتقاط إلى الوجهة (أخضر صلب)
       const pickupToDestinationRoute = await getRealisticRoute(routePoints[1], routePoints[2]);
       
-      // رسم المسار الأول (السائق -> نقطة الالتقاط) - أزرق متقطع
+      // رسم المسار الأول (السائق -> نقطة الالتقاط) - أزرق متقطع مع تحديد المسافة
       const driverPath = driverToPickupRoute.length > 0 ? driverToPickupRoute : [routePoints[0], routePoints[1]];
+      
+      // حساب المسافة والوقت المتوقع
+      const distanceToCustomer = calculateDistance(routePoints[0], routePoints[1]);
+      const estimatedTime = Math.ceil((distanceToCustomer / 40) * 60); // افتراض سرعة 40 كم/ساعة
+      
       const shadowDriver = L.polyline(driverPath, {
         color: '#1e40af',
-        weight: 8,
-        opacity: 0.3,
-        dashArray: '15, 10',
+        weight: 10,
+        opacity: 0.4,
+        dashArray: '20, 15',
         lineCap: 'round'
       });
       
       const driverToPickup = L.polyline(driverPath, {
         color: '#3b82f6',
-        weight: 6,
-        opacity: 0.9,
-        dashArray: '15, 10',
+        weight: 8,
+        opacity: 1,
+        dashArray: '20, 15',
         lineCap: 'round',
         lineJoin: 'round'
       });
+      
+      // إضافة نص يوضح المسافة والوقت المتوقع في منتصف المسار
+      if (driverPath.length > 1) {
+        const midPoint = driverPath[Math.floor(driverPath.length / 2)];
+        const distanceMarker = L.marker(midPoint, {
+          icon: L.divIcon({
+            html: `<div class="bg-blue-600 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-bold border-2 border-white">
+                     ${distanceToCustomer.toFixed(1)} كم<br>
+                     ~${estimatedTime} دقيقة
+                   </div>`,
+            iconSize: [80, 40],
+            iconAnchor: [40, 20],
+            className: 'distance-info-marker'
+          })
+        });
+        distanceMarker.addTo(mapInstanceRef.current);
+      }
       
       // رسم المسار الثاني (نقطة الالتقاط -> الوجهة) - أخضر صلب
       const destinationPath = pickupToDestinationRoute.length > 0 ? pickupToDestinationRoute : [routePoints[1], routePoints[2]];
@@ -124,9 +148,8 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
         pickupToDestination
       ]);
       
-      console.log("[useMapRoute] Created enhanced layer group for 3-point route");
     } else if (routePoints.length === 2) {
-      console.log("[useMapRoute] Drawing enhanced 2-point route");
+      console.log("[useMapRoute] Drawing simple 2-point route");
       
       // الحصول على مسار واقعي
       const realisticRoute = await getRealisticRoute(routePoints[0], routePoints[1]);
@@ -181,7 +204,20 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
         }
       }
     }, 300);
-  }, [mapInstanceRef]);
+  }, [mapInstanceRef, rideStatus]);
+
+  // دالة لحساب المسافة بين نقطتين
+  const calculateDistance = useCallback((point1: [number, number], point2: [number, number]): number => {
+    const R = 6371; // نصف قطر الأرض بالكيلومتر
+    const dLat = (point2[0] - point1[0]) * Math.PI / 180;
+    const dLon = (point2[1] - point1[1]) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(point1[0] * Math.PI / 180) * Math.cos(point2[0] * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }, []);
 
   // دالة للحصول على مسار واقعي باستخدام OpenStreetMap
   const getRealisticRoute = useCallback(async (start: [number, number], end: [number, number]): Promise<[number, number][]> => {
@@ -225,7 +261,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       return; 
     }
 
-    console.log("[useMapRoute] Processing route:", route?.length, route);
+    console.log("[useMapRoute] Processing route:", route?.length, route, "Status:", rideStatus);
 
     if (route && route.length > 1) {
       console.log("[useMapRoute] Drawing enhanced route with", route.length, "points");
@@ -248,7 +284,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
         routeLayerRef.current = null;
       }
     }
-  }, [route, mapReady, mapInstanceRef, drawRealisticRoute]);
+  }, [route, mapReady, mapInstanceRef, drawRealisticRoute, rideStatus]);
 
   return {
     routeLayerRef,

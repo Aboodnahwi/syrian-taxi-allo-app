@@ -1,11 +1,15 @@
-
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { MapProps } from './types';
 import { useMap } from '@/hooks/useMap';
 
-const Map: React.FC<MapProps> = ({
+interface ExtendedMapProps extends MapProps {
+  driverLocation?: [number, number];
+  rideStatus?: 'accepted' | 'arrived' | 'started' | 'completed' | null;
+}
+
+const Map: React.FC<ExtendedMapProps> = ({
   className,
   center,
   zoom,
@@ -18,6 +22,8 @@ const Map: React.FC<MapProps> = ({
   mapZoomToToRef,
   mapZoomToRouteRef,
   onMapMove,
+  driverLocation,
+  rideStatus,
 }) => {
   const { mapRef, mapInstanceRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
     center,
@@ -27,6 +33,8 @@ const Map: React.FC<MapProps> = ({
     route,
     toast,
     onMarkerDrag,
+    driverLocation,
+    rideStatus,
   });
 
   const moveTimeoutRef = useRef<NodeJS.Timeout>();
