@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +31,6 @@ const DriverPage = () => {
   const [showCompletionSummary, setShowCompletionSummary] = useState(false);
   const [completionData, setCompletionData] = useState<any>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [locationInitialized, setLocationInitialized] = useState(false);
 
   const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
@@ -135,58 +135,61 @@ const DriverPage = () => {
     fetchDriverProfile();
   }, [user?.id, toast]);
 
-  // الحصول على الموقع الحالي للسائق - مرة واحدة فقط
+  // الحصول على الموقع الحالي للسائق - مع تحسين معالجة الأخطاء
   useEffect(() => {
     if (locationInitialized) return;
 
     const getCurrentLocation = () => {
-      if (navigator.geolocation) {
-        console.log('طلب الموقع من المتصفح...');
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            console.log('تم الحصول على موقع السائق:', lat, lng);
-            setCurrentLocation([lat, lng]);
-            setLocationPermissionDenied(false);
-            setLocationInitialized(true);
-            
-            if (driverProfile?.id) {
-              updateDriverLocation(lat, lng);
-            }
-          },
-          (error) => {
-            console.error('خطأ في الحصول على الموقع:', error);
-            setLocationPermissionDenied(true);
-            setCurrentLocation([33.5138, 36.2765]);
-            setLocationInitialized(true);
-            toast({
-              title: "تم استخدام موقع افتراضي",
-              description: "تعذر الوصول لموقعك. تم استخدام موقع دمشق كافتراضي. يرجى السماح بالوصول للموقع لتحسين الخدمة.",
-              className: "bg-yellow-50 border-yellow-200 text-yellow-800"
-            });
-          },
-          { 
-            enableHighAccuracy: true, 
-            timeout: 10000, 
-            maximumAge: 300000 
-          }
-        );
-      } else {
+      if (!navigator.geolocation) {
         console.log('الجهاز لا يدعم خدمات الموقع');
         setCurrentLocation([33.5138, 36.2765]);
-        setLocationPermissionDenied(true);
         setLocationInitialized(true);
         toast({
           title: "خدمة الموقع غير مدعومة",
           description: "جهازك لا يدعم خدمات الموقع",
           variant: "destructive"
         });
+        return;
       }
+
+      console.log('طلب الموقع من المتصفح...');
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          console.log('تم الحصول على موقع السائق:', lat, lng);
+          setCurrentLocation([lat, lng]);
+          setLocationInitialized(true);
+          
+          if (driverProfile?.id) {
+            updateDriverLocation(lat, lng);
+          }
+        },
+        (error) => {
+          console.error('خطأ في الحصول على الموقع:', error);
+          // استخدام موقع افتراضي بدلاً من إظهار رسالة خطأ مربكة
+          setCurrentLocation([33.5138, 36.2765]);
+          setLocationInitialized(true);
+          
+          // عرض رسالة مفيدة فقط إذا كانت المشكلة في الصلاحيات
+          if (error.code === error.PERMISSION_DENIED) {
+            toast({
+              title: "تم استخدام موقع افتراضي",
+              description: "للحصول على أفضل خدمة، يرجى السماح بالوصول للموقع من إعدادات المتصفح",
+              className: "bg-yellow-50 border-yellow-200 text-yellow-800"
+            });
+          }
+        },
+        { 
+          enableHighAccuracy: true, 
+          timeout: 15000, 
+          maximumAge: 600000 
+        }
+      );
     };
 
     getCurrentLocation();
-  }, [toast]);
+  }, [toast, driverProfile?.id]);
 
   // تحديث موقع السائق في قاعدة البيانات
   const updateDriverLocation = async (lat: number, lng: number) => {
@@ -255,9 +258,9 @@ const DriverPage = () => {
       markers.push({
         id: 'driver',
         position: currentLocation,
-        popup: `موقع السائق${locationPermissionDenied ? ' (موقع افتراضي)' : ''}`,
+        popup: 'موقع السائق',
         icon: {
-          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white ${locationPermissionDenied ? '' : 'animate-pulse'}">
+          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-pulse">
                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
                      <path d="M8 18V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12l-4-2-4 2Z"></path>
                    </svg>
@@ -387,13 +390,13 @@ const DriverPage = () => {
       console.log('[DriverPage] No active ride, clearing route');
       setMapRoute(undefined);
     }
-  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, locationPermissionDenied, rideStatus]);
+  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, rideStatus]);
 
   const toggleOnlineStatus = () => {
-    if (!currentLocation && !locationPermissionDenied) {
+    if (!currentLocation) {
       toast({
         title: "موقعك غير محدد",
-        description: "يرجى السماح بالوصول للموقع قبل تشغيل الخدمة",
+        description: "يرجى إعادة تحميل الصفحة للحصول على موقعك",
         variant: "destructive"
       });
       return;
@@ -552,11 +555,20 @@ const DriverPage = () => {
 
   const logout = () => {
     console.log('بدء عملية تسجيل الخروج');
+    
+    // تنظيف البيانات المحلية
     setUser(null);
     setDriverProfile(null);
     setActiveRide(null);
     setRideStatus(null);
+    setCurrentLocation(null);
+    setLocationInitialized(false);
+    setIsOnline(false);
+    
+    // إزالة البيانات المحفوظة
     localStorage.removeItem('user');
+    
+    // التوجه لصفحة المصادقة
     navigate('/auth');
   };
 

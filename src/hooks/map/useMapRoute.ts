@@ -48,8 +48,8 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     }
   }, [mapInstanceRef, route]);
 
-  // رسم مسار محسن وواقعي
-  const drawRealisticRoute = useCallback((L: any, routePoints: [number, number][]) => {
+  // رسم مسار واقعي محسن مع استخدام OpenStreetMap Routing API
+  const drawRealisticRoute = useCallback(async (L: any, routePoints: [number, number][]) => {
     // إزالة المسار القديم
     if (routeLayerRef.current) {
       console.log("[useMapRoute] Removing old route layer");
@@ -68,8 +68,23 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     if (routePoints.length === 3) {
       console.log("[useMapRoute] Drawing enhanced 3-point route (driver -> pickup -> destination)");
       
-      // مسار من السائق إلى نقطة الالتقاط (أزرق متقطع)
-      const driverToPickup = L.polyline([routePoints[0], routePoints[1]], {
+      // الحصول على مسار واقعي من السائق إلى نقطة الالتقاط
+      const driverToPickupRoute = await getRealisticRoute(routePoints[0], routePoints[1]);
+      
+      // الحصول على مسار واقعي من نقطة الالتقاط إلى الوجهة
+      const pickupToDestinationRoute = await getRealisticRoute(routePoints[1], routePoints[2]);
+      
+      // رسم المسار الأول (السائق -> نقطة الالتقاط) - أزرق متقطع
+      const driverPath = driverToPickupRoute.length > 0 ? driverToPickupRoute : [routePoints[0], routePoints[1]];
+      const shadowDriver = L.polyline(driverPath, {
+        color: '#1e40af',
+        weight: 8,
+        opacity: 0.3,
+        dashArray: '15, 10',
+        lineCap: 'round'
+      });
+      
+      const driverToPickup = L.polyline(driverPath, {
         color: '#3b82f6',
         weight: 6,
         opacity: 0.9,
@@ -78,29 +93,21 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
         lineJoin: 'round'
       });
       
-      // مسار من نقطة الالتقاط إلى الوجهة (أخضر صلب)
-      const pickupToDestination = L.polyline([routePoints[1], routePoints[2]], {
+      // رسم المسار الثاني (نقطة الالتقاط -> الوجهة) - أخضر صلب
+      const destinationPath = pickupToDestinationRoute.length > 0 ? pickupToDestinationRoute : [routePoints[1], routePoints[2]];
+      const shadowPickup = L.polyline(destinationPath, {
+        color: '#16a34a',
+        weight: 9,
+        opacity: 0.3,
+        lineCap: 'round'
+      });
+      
+      const pickupToDestination = L.polyline(destinationPath, {
         color: '#22c55e',
         weight: 7,
         opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round'
-      });
-      
-      // إضافة تأثير الظل للمسارات
-      const shadowDriver = L.polyline([routePoints[0], routePoints[1]], {
-        color: '#1e40af',
-        weight: 8,
-        opacity: 0.3,
-        dashArray: '15, 10',
-        lineCap: 'round'
-      });
-      
-      const shadowPickup = L.polyline([routePoints[1], routePoints[2]], {
-        color: '#16a34a',
-        weight: 9,
-        opacity: 0.3,
-        lineCap: 'round'
       });
       
       // إضافة جميع الطبقات للخريطة
@@ -121,8 +128,12 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
     } else if (routePoints.length === 2) {
       console.log("[useMapRoute] Drawing enhanced 2-point route");
       
+      // الحصول على مسار واقعي
+      const realisticRoute = await getRealisticRoute(routePoints[0], routePoints[1]);
+      const routePath = realisticRoute.length > 0 ? realisticRoute : routePoints;
+      
       // إضافة ظل للمسار
-      const shadowRoute = L.polyline(routePoints, { 
+      const shadowRoute = L.polyline(routePath, { 
         color: '#16a34a', 
         weight: 9, 
         opacity: 0.3,
@@ -131,7 +142,7 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       });
       
       // المسار الرئيسي
-      const mainRoute = L.polyline(routePoints, { 
+      const mainRoute = L.polyline(routePath, { 
         color: '#22c55e', 
         weight: 7, 
         opacity: 0.95,
@@ -171,6 +182,33 @@ export const useMapRoute = ({ mapInstanceRef, mapReady, route }: UseMapRouteProp
       }
     }, 300);
   }, [mapInstanceRef]);
+
+  // دالة للحصول على مسار واقعي باستخدام OpenStreetMap
+  const getRealisticRoute = useCallback(async (start: [number, number], end: [number, number]): Promise<[number, number][]> => {
+    try {
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`
+      );
+      
+      if (!response.ok) {
+        console.log("[useMapRoute] OSRM API not available, using direct line");
+        return [];
+      }
+      
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0 && data.routes[0].geometry) {
+        const coordinates = data.routes[0].geometry.coordinates;
+        // تحويل الإحداثيات من [lng, lat] إلى [lat, lng]
+        return coordinates.map((coord: [number, number]) => [coord[1], coord[0]]);
+      }
+      
+      return [];
+    } catch (error) {
+      console.log("[useMapRoute] Error fetching realistic route:", error);
+      return [];
+    }
+  }, []);
 
   // Update route
   useEffect(() => {
