@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Navigation } from 'lucide-react';
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -8,9 +7,6 @@ import { useMap } from '@/hooks/useMap';
 interface ExtendedMapProps extends MapProps {
   driverLocation?: [number, number];
   rideStatus?: 'accepted' | 'arrived' | 'started' | 'completed' | null;
-  routeCoordinates?: [number, number][];
-  routeColor?: string;
-  showUserLocation?: boolean;
 }
 
 const Map: React.FC<ExtendedMapProps> = ({
@@ -28,16 +24,13 @@ const Map: React.FC<ExtendedMapProps> = ({
   onMapMove,
   driverLocation,
   rideStatus,
-  routeCoordinates,
-  routeColor,
-  showUserLocation,
 }) => {
   const { mapRef, mapInstanceRef, centerOnCurrentLocation, zoomToLatLng, zoomToRoute } = useMap({
     center,
     zoom,
     onLocationSelect,
     markers,
-    route: route || routeCoordinates,
+    route,
     toast,
     onMarkerDrag,
     driverLocation,
