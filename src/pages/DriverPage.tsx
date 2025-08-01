@@ -187,7 +187,7 @@ const DriverPage = () => {
   return (
     <div className="min-h-screen bg-slate-900 relative">
       {/* Header */}
-      <div className="bg-slate-800 shadow-lg p-4">
+      <div className="bg-slate-800 shadow-lg p-4 relative z-40">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white font-cairo">
             مرحباً أيها السائق {user?.name}
@@ -201,8 +201,8 @@ const DriverPage = () => {
         </div>
       </div>
 
-      {/* Map Container */}
-      <div className="relative h-screen">
+      {/* Map Container - في الخلف */}
+      <div className="absolute top-0 left-0 w-full h-full z-10">
         <Map
           center={userLocation || [33.5138, 36.2765]}
           zoom={13}
@@ -212,19 +212,23 @@ const DriverPage = () => {
           showUserLocation={true}
           className="w-full h-full"
         />
+      </div>
 
-        {/* Ride Requests List */}
-        {!activeRide && (
+      {/* Ride Requests List - في المقدمة */}
+      {!activeRide && (
+        <div className="relative z-30">
           <RideRequestList
             rideRequests={rideRequests}
             acceptRide={handleAcceptRide}
             rejectRide={handleRejectRide}
             acceptedRideId={acceptedRideId}
           />
-        )}
+        </div>
+      )}
 
-        {/* Live Fare Counter */}
-        {activeRide && isFareCounterActive && (
+      {/* Live Fare Counter - في المقدمة */}
+      {activeRide && isFareCounterActive && (
+        <div className="relative z-30">
           <LiveFareCounter
             currentFare={currentFare}
             distance={distance}
@@ -236,8 +240,8 @@ const DriverPage = () => {
             rideStatus={rideStatus}
             onUpdateRideStatus={handleUpdateRideStatus}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

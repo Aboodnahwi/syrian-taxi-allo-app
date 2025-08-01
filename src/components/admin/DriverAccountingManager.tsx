@@ -1,162 +1,179 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { DollarSign, User, TrendingUp, TrendingDown, Calculator, Search } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { DollarSign, TrendingUp, TrendingDown, Eye, Calculator } from 'lucide-react';
 
-interface DriverAccount {
-  driver_id: string;
-  driver_name: string;
-  total_earnings: number;
-  platform_commission: number;
-  net_balance: number;
-  total_trips: number;
-  commission_rate: number;
+interface DriverFinancials {
+  driverId: string;
+  driverName: string;
+  totalTrips: number;
+  totalRevenue: number;
+  platformCommission: number;
+  driverEarnings: number;
+  avgTripValue: number;
+  lastTripDate: string;
+  currentBalance: number;
+  monthlyEarnings: number;
+  completionRate: number;
 }
 
-interface Transaction {
+interface TripDetail {
   id: string;
-  trip_id: string;
-  driver_name: string;
-  customer_name: string;
-  trip_fare: number;
-  commission_amount: number;
-  net_amount: number;
-  created_at: string;
+  date: string;
   from_location: string;
   to_location: string;
+  price: number;
+  platformCommission: number;
+  driverEarning: number;
+  customerName: string;
+  distance: number;
+  status: string;
 }
 
 const DriverAccountingManager = () => {
-  const [drivers, setDrivers] = useState<DriverAccount[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [driversFinancials, setDriversFinancials] = useState<DriverFinancials[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string>('');
-  const [commissionRate, setCommissionRate] = useState<number>(15);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [driverTrips, setDriverTrips] = useState<TripDetail[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [commissionRate, setCommissionRate] = useState(15);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadDriverAccounts();
-    loadTransactions();
-    loadCommissionRate();
+    fetchDriversFinancials();
+    fetchCommissionRate();
   }, []);
 
-  const loadCommissionRate = async () => {
+  const fetchCommissionRate = async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('app_settings')
         .select('setting_value')
         .eq('setting_key', 'platform_commission_rate')
         .single();
-
+      
       if (data) {
         setCommissionRate(parseFloat(data.setting_value));
       }
     } catch (error) {
-      console.log('استخدام نسبة العمولة الافتراضية');
+      console.error('خطأ في جلب نسبة العمولة:', error);
     }
   };
 
-  const updateCommissionRate = async () => {
+  const fetchDriversFinancials = async () => {
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          setting_key: 'platform_commission_rate',
-          setting_value: commissionRate.toString(),
-          description: 'نسبة عمولة المنصة من أرباح السائقين'
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "تم التحديث بنجاح",
-        description: `تم تحديث نسبة العمولة إلى ${commissionRate}%`,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-
-      loadDriverAccounts();
-    } catch (error: any) {
-      toast({
-        title: "خطأ في التحديث",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const loadDriverAccounts = async () => {
-    try {
-      setLoading(true);
-
-      // First get trips with driver information
-      const { data: tripsData, error: tripsError } = await supabase
+      // جلب جميع الرحلات المكتملة مع بيانات السائق والزبون
+      const { data: trips, error: tripsError } = await supabase
         .from('trips')
-        .select('driver_id, price, status')
+        .select(`
+          id,
+          driver_id,
+          customer_id,
+          price,
+          distance_km,
+          completed_at,
+          from_location,
+          to_location,
+          status
+        `)
         .eq('status', 'completed')
         .not('driver_id', 'is', null);
 
       if (tripsError) throw tripsError;
 
-      // Then get driver names from profiles
-      const driverIds = [...new Set(tripsData?.map(trip => trip.driver_id).filter(Boolean))];
-      
-      const { data: profilesData, error: profilesError } = await supabase
+      // جلب أسماء السائقين
+      const driverIds = [...new Set(trips?.map(trip => trip.driver_id).filter(Boolean))];
+      const { data: drivers, error: driversError } = await supabase
         .from('profiles')
         .select('id, name')
         .in('id', driverIds);
 
-      if (profilesError) throw profilesError;
+      if (driversError) throw driversError;
 
-      // Create a map of driver ID to name
-      const driverNamesMap = new Map();
-      profilesData?.forEach(profile => {
-        driverNamesMap.set(profile.id, profile.name);
-      });
+      // جلب أسماء الزبائن
+      const customerIds = [...new Set(trips?.map(trip => trip.customer_id))];
+      const { data: customers, error: customersError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', customerIds);
 
-      // تجميع البيانات لكل سائق
-      const driverAccountsMap = new Map<string, DriverAccount>();
+      if (customersError) throw customersError;
 
-      tripsData?.forEach((trip) => {
-        if (!trip.driver_id) return;
+      // إنشاء خرائط للأسماء
+      const driverNamesMap = drivers?.reduce((acc, driver) => {
+        acc[driver.id] = driver.name;
+        return acc;
+      }, {} as Record<string, string>) || {};
+
+      const customerNamesMap = customers?.reduce((acc, customer) => {
+        acc[customer.id] = customer.name;
+        return acc;
+      }, {} as Record<string, string>) || {};
+
+      // تجميع البيانات المالية لكل سائق
+      const financialsByDriver = trips?.reduce((acc, trip) => {
+        if (!trip.driver_id) return acc;
 
         const driverId = trip.driver_id;
-        const driverName = driverNamesMap.get(driverId) || 'سائق غير معروف';
-        const tripFare = trip.price || 0;
-        const commissionAmount = (tripFare * commissionRate) / 100;
-        const netAmount = tripFare - commissionAmount;
+        const price = trip.price || 0;
+        const commission = (price * commissionRate) / 100;
+        const earning = price - commission;
 
-        if (driverAccountsMap.has(driverId)) {
-          const account = driverAccountsMap.get(driverId)!;
-          account.total_earnings += tripFare;
-          account.platform_commission += commissionAmount;
-          account.net_balance += netAmount;
-          account.total_trips += 1;
-        } else {
-          driverAccountsMap.set(driverId, {
-            driver_id: driverId,
-            driver_name: driverName,
-            total_earnings: tripFare,
-            platform_commission: commissionAmount,
-            net_balance: netAmount,
-            total_trips: 1,
-            commission_rate: commissionRate
-          });
+        if (!acc[driverId]) {
+          acc[driverId] = {
+            driverId,
+            driverName: driverNamesMap[driverId] || 'سائق غير معروف',
+            totalTrips: 0,
+            totalRevenue: 0,
+            platformCommission: 0,
+            driverEarnings: 0,
+            avgTripValue: 0,
+            lastTripDate: '',
+            currentBalance: 0,
+            monthlyEarnings: 0,
+            completionRate: 0
+          };
         }
+
+        acc[driverId].totalTrips += 1;
+        acc[driverId].totalRevenue += price;
+        acc[driverId].platformCommission += commission;
+        acc[driverId].driverEarnings += earning;
+        
+        // آخر رحلة
+        if (!acc[driverId].lastTripDate || trip.completed_at > acc[driverId].lastTripDate) {
+          acc[driverId].lastTripDate = trip.completed_at;
+        }
+
+        // الأرباح الشهرية (الشهر الحالي)
+        const tripDate = new Date(trip.completed_at);
+        const currentDate = new Date();
+        if (tripDate.getMonth() === currentDate.getMonth() && 
+            tripDate.getFullYear() === currentDate.getFullYear()) {
+          acc[driverId].monthlyEarnings += earning;
+        }
+
+        return acc;
+      }, {} as Record<string, DriverFinancials>) || {};
+
+      // حساب المتوسطات
+      Object.values(financialsByDriver).forEach(driver => {
+        driver.avgTripValue = driver.totalTrips > 0 ? driver.totalRevenue / driver.totalTrips : 0;
+        driver.currentBalance = driver.driverEarnings; // الرصيد الحالي = مجموع الأرباح
+        driver.completionRate = 100; // يمكن تحسينه لاحقاً
       });
 
-      setDrivers(Array.from(driverAccountsMap.values()));
+      setDriversFinancials(Object.values(financialsByDriver));
+
     } catch (error: any) {
-      console.error('خطأ في تحميل حسابات السائقين:', error);
+      console.error('خطأ في جلب البيانات المالية:', error);
       toast({
-        title: "خطأ في تحميل البيانات",
+        title: "خطأ في جلب البيانات",
         description: error.message,
         variant: "destructive"
       });
@@ -165,302 +182,275 @@ const DriverAccountingManager = () => {
     }
   };
 
-  const loadTransactions = async () => {
+  const fetchDriverTrips = async (driverId: string) => {
+    setLoading(true);
     try {
-      // Get trips data
-      const { data: tripsData, error: tripsError } = await supabase
+      const { data: trips, error: tripsError } = await supabase
         .from('trips')
-        .select('id, price, created_at, from_location, to_location, customer_id, driver_id')
+        .select(`
+          id,
+          completed_at,
+          from_location,
+          to_location,
+          price,
+          distance_km,
+          status,
+          customer_id
+        `)
+        .eq('driver_id', driverId)
         .eq('status', 'completed')
-        .not('driver_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('completed_at', { ascending: false });
 
       if (tripsError) throw tripsError;
 
-      // Get all unique user IDs (customers and drivers)
-      const customerIds = [...new Set(tripsData?.map(trip => trip.customer_id).filter(Boolean))];
-      const driverIds = [...new Set(tripsData?.map(trip => trip.driver_id).filter(Boolean))];
-      const allUserIds = [...new Set([...customerIds, ...driverIds])];
-
-      // Get names from profiles
-      const { data: profilesData, error: profilesError } = await supabase
+      // جلب أسماء الزبائن
+      const customerIds = trips?.map(trip => trip.customer_id) || [];
+      const { data: customers } = await supabase
         .from('profiles')
         .select('id, name')
-        .in('id', allUserIds);
+        .in('id', customerIds);
 
-      if (profilesError) throw profilesError;
+      const customerNamesMap = customers?.reduce((acc, customer) => {
+        acc[customer.id] = customer.name;
+        return acc;
+      }, {} as Record<string, string>) || {};
 
-      // Create name maps
-      const namesMap = new Map();
-      profilesData?.forEach(profile => {
-        namesMap.set(profile.id, profile.name);
-      });
+      const tripDetails: TripDetail[] = trips?.map(trip => {
+        const price = trip.price || 0;
+        const commission = (price * commissionRate) / 100;
+        const earning = price - commission;
 
-      const formattedTransactions = tripsData?.map(trip => ({
-        id: trip.id,
-        trip_id: trip.id,
-        driver_name: namesMap.get(trip.driver_id) || 'سائق غير معروف',
-        customer_name: namesMap.get(trip.customer_id) || 'زبون غير معروف',
-        trip_fare: trip.price || 0,
-        commission_amount: ((trip.price || 0) * commissionRate) / 100,
-        net_amount: (trip.price || 0) - (((trip.price || 0) * commissionRate) / 100),
-        created_at: trip.created_at,
-        from_location: trip.from_location || '',
-        to_location: trip.to_location || ''
-      })) || [];
+        return {
+          id: trip.id,
+          date: trip.completed_at,
+          from_location: trip.from_location,
+          to_location: trip.to_location,
+          price,
+          platformCommission: commission,
+          driverEarning: earning,
+          customerName: customerNamesMap[trip.customer_id] || 'زبون غير معروف',
+          distance: trip.distance_km || 0,
+          status: trip.status
+        };
+      }) || [];
 
-      setTransactions(formattedTransactions);
+      setDriverTrips(tripDetails);
     } catch (error: any) {
-      console.error('خطأ في تحميل المعاملات:', error);
+      console.error('خطأ في جلب رحلات السائق:', error);
+      toast({
+        title: "خطأ في جلب البيانات",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredDrivers = drivers.filter(driver => 
-    driver.driver_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const formatCurrency = (amount: number) => {
+    return `${amount.toLocaleString()} ل.س`;
+  };
 
-  const filteredTransactions = transactions.filter(transaction => {
-    if (selectedDriver && transaction.driver_name !== selectedDriver) return false;
-    return transaction.driver_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           transaction.customer_name.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  const totalPlatformEarnings = drivers.reduce((sum, driver) => sum + driver.platform_commission, 0);
-  const totalDriverEarnings = drivers.reduce((sum, driver) => sum + driver.net_balance, 0);
-  const totalTrips = drivers.reduce((sum, driver) => sum + driver.total_trips, 0);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ar-SY');
+  };
 
   return (
     <div className="space-y-6">
-      {/* العنوان الرئيسي */}
-      <Card className="bg-gradient-to-r from-green-600 to-blue-600 text-white">
-        <CardHeader>
-          <CardTitle className="text-2xl font-cairo flex items-center gap-3">
-            <Calculator className="w-8 h-8" />
-            نظام محاسبة السائقين
-          </CardTitle>
-          <p className="text-green-100 font-tajawal text-lg">
-            إدارة شاملة لحسابات السائقين والعمولات
-          </p>
-        </CardHeader>
-      </Card>
-
-      {/* الإحصائيات العامة */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-400" />
-              إجمالي أرباح المنصة
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-400 mb-2">
-              {totalPlatformEarnings.toLocaleString()} ل.س
-            </div>
-            <p className="text-slate-400 text-sm font-tajawal">العمولة المحصلة</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
-              أرباح السائقين
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-400 mb-2">
-              {totalDriverEarnings.toLocaleString()} ل.س
-            </div>
-            <p className="text-slate-400 text-sm font-tajawal">صافي الأرباح</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
-              <User className="w-5 h-5 text-purple-400" />
-              عدد السائقين
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-400 mb-2">
-              {drivers.length}
-            </div>
-            <p className="text-slate-400 text-sm font-tajawal">سائق نشط</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
-              <TrendingDown className="w-5 h-5 text-orange-400" />
-              نسبة العمولة
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-400 mb-2">
-              {commissionRate}%
-            </div>
-            <p className="text-slate-400 text-sm font-tajawal">من كل رحلة</p>
-          </CardContent>
-        </Card>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold font-cairo">محاسبة السائقين</h2>
+          <p className="text-slate-600 font-tajawal">إدارة الحسابات المالية للسائقين</p>
+        </div>
+        <Button onClick={fetchDriversFinancials} disabled={loading}>
+          تحديث البيانات
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* إعدادات العمولة */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white font-cairo flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-green-400" />
-              إعدادات العمولة
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-slate-300 font-tajawal">نسبة عمولة المنصة (%)</Label>
-              <Input
-                type="number"
-                value={commissionRate}
-                onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
-                className="bg-slate-700 border-slate-600 text-white"
-                placeholder="15"
-              />
-            </div>
-            <Button 
-              onClick={updateCommissionRate}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              تحديث نسبة العمولة
-            </Button>
-            <div className="text-sm text-slate-400 font-tajawal">
-              <p>مثال: إذا كانت قيمة الرحلة 10,000 ل.س</p>
-              <p>عمولة المنصة: {((10000 * commissionRate) / 100).toLocaleString()} ل.س</p>
-              <p>صافي السائق: {(10000 - (10000 * commissionRate) / 100).toLocaleString()} ل.س</p>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
+          <TabsTrigger value="details">التفاصيل</TabsTrigger>
+        </TabsList>
 
-        {/* حسابات السائقين */}
-        <div className="lg:col-span-2">
-          <Card className="bg-slate-800 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white font-cairo flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-400" />
-                حسابات السائقين
-              </CardTitle>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="البحث عن سائق..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-                <Button variant="outline" size="icon" className="border-slate-600">
-                  <Search className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-              {filteredDrivers.map((driver) => (
-                <div key={driver.driver_id} className="border border-slate-600 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-white font-medium font-cairo">{driver.driver_name}</h3>
-                      <p className="text-slate-400 text-sm font-tajawal">
-                        {driver.total_trips} رحلة مكتملة
-                      </p>
-                    </div>
-                    <Badge className="bg-green-500">
-                      نشط
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-blue-400">
-                        {driver.total_earnings.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">إجمالي الأرباح</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-red-400">
-                        -{driver.platform_commission.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">عمولة المنصة</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-green-400">
-                        {driver.net_balance.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-slate-500">صافي الرصيد</div>
-                    </div>
-                  </div>
+        <TabsContent value="overview" className="space-y-4">
+          {/* إحصائيات عامة */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">مجموع السائقين</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-cairo">{driversFinancials.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-cairo text-green-600">
+                  {formatCurrency(driversFinancials.reduce((acc, d) => acc + d.totalRevenue, 0))}
                 </div>
-              ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">عمولة المنصة</CardTitle>
+                <Calculator className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-cairo text-blue-600">
+                  {formatCurrency(driversFinancials.reduce((acc, d) => acc + d.platformCommission, 0))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">أرباح السائقين</CardTitle>
+                <TrendingDown className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-cairo text-orange-600">
+                  {formatCurrency(driversFinancials.reduce((acc, d) => acc + d.driverEarnings, 0))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* قائمة السائقين */}
+          <Card>
+            <CardHeader>
+              <CardTitle>حسابات السائقين</CardTitle>
+              <CardDescription>تفاصيل الحسابات المالية لجميع السائقين</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {driversFinancials.map((driver) => (
+                  <div key={driver.driverId} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold font-cairo text-lg">{driver.driverName}</h3>
+                        <p className="text-sm text-slate-600">
+                          آخر رحلة: {driver.lastTripDate ? formatDate(driver.lastTripDate) : 'لا توجد رحلات'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-600 font-cairo">
+                          {formatCurrency(driver.currentBalance)}
+                        </div>
+                        <p className="text-sm text-slate-600">الرصيد الحالي</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-600">عدد الرحلات</p>
+                        <p className="font-bold font-cairo">{driver.totalTrips}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-600">إجمالي الإيرادات</p>
+                        <p className="font-bold font-cairo text-blue-600">
+                          {formatCurrency(driver.totalRevenue)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-600">عمولة المنصة ({commissionRate}%)</p>
+                        <p className="font-bold font-cairo text-red-600">
+                          {formatCurrency(driver.platformCommission)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-600">صافي الأرباح</p>
+                        <p className="font-bold font-cairo text-green-600">
+                          {formatCurrency(driver.driverEarnings)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <Badge variant="secondary">
+                        متوسط قيمة الرحلة: {formatCurrency(driver.avgTripValue)}
+                      </Badge>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => {
+                          setSelectedDriver(driver.driverId);
+                          fetchDriverTrips(driver.driverId);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        عرض التفاصيل
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                {driversFinancials.length === 0 && !loading && (
+                  <div className="text-center py-8 text-slate-600">
+                    لا توجد بيانات مالية للسائقين
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* سجل المعاملات المفصل */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white font-cairo flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-purple-400" />
-            سجل المعاملات المفصل ({filteredTransactions.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 max-h-96 overflow-y-auto">
-          {filteredTransactions.map((transaction) => (
-            <div key={transaction.id} className="border border-slate-600 rounded-lg p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <p className="text-white font-medium font-tajawal">
-                    {transaction.from_location} ← {transaction.to_location}
-                  </p>
-                  <p className="text-slate-400 text-sm font-tajawal">
-                    السائق: {transaction.driver_name} | الزبون: {transaction.customer_name}
-                  </p>
+        <TabsContent value="details" className="space-y-4">
+          {selectedDriver && (
+            <Card>
+              <CardHeader>
+                <CardTitle>تفاصيل رحلات السائق</CardTitle>
+                <CardDescription>
+                  السائق: {driversFinancials.find(d => d.driverId === selectedDriver)?.driverName}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {driverTrips.map((trip) => (
+                    <div key={trip.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <p className="font-bold">{trip.from_location} → {trip.to_location}</p>
+                          <p className="text-sm text-slate-600">
+                            الزبون: {trip.customerName} | المسافة: {trip.distance.toFixed(1)} كم
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatDate(trip.date)}
+                          </p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="font-bold text-lg font-cairo">
+                            {formatCurrency(trip.price)}
+                          </p>
+                          <p className="text-sm text-red-600">
+                            عمولة: -{formatCurrency(trip.platformCommission)}
+                          </p>
+                          <p className="text-sm text-green-600 font-bold">
+                            صافي: {formatCurrency(trip.driverEarning)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {driverTrips.length === 0 && !loading && (
+                    <div className="text-center py-8 text-slate-600">
+                      اختر سائقاً لعرض تفاصيل رحلاته
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="text-green-400 font-bold">
-                    {transaction.trip_fare.toLocaleString()} ل.س
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {new Date(transaction.created_at).toLocaleDateString('ar-SA')}
-                  </div>
-                </div>
-              </div>
-              
-              <Separator className="bg-slate-600 my-2" />
-              
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <div className="text-blue-400 font-medium">
-                    {transaction.trip_fare.toLocaleString()}
-                  </div>
-                  <div className="text-slate-500">قيمة الرحلة</div>
-                </div>
-                <div>
-                  <div className="text-red-400 font-medium">
-                    -{transaction.commission_amount.toLocaleString()}
-                  </div>
-                  <div className="text-slate-500">عمولة المنصة</div>
-                </div>
-                <div>
-                  <div className="text-green-400 font-medium">
-                    {transaction.net_amount.toLocaleString()}
-                  </div>
-                  <div className="text-slate-500">صافي السائق</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
