@@ -30,7 +30,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
       try {
         console.log('جلب طلبات الرحلات المتاحة...');
         
-        // جلب الطلبات المتاحة مع معلومات الزبائن - بدون تصفية حسب موقع السائق
+        // جلب الطلبات المتاحة مع معلومات الزبائن - تأكد من عدم وجود سائق مقبول
         const { data: trips, error } = await supabase
           .from('trips')
           .select(`
@@ -41,7 +41,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
             )
           `)
           .eq('status', 'pending')
-          .is('driver_id', null)
+          .is('driver_id', null) // تأكد من عدم وجود سائق مُعيّن
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -51,7 +51,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
           return;
         }
 
-        console.log('تم جلب الرحلات:', trips?.length || 0);
+        console.log('تم جلب الرحلات المتاحة:', trips?.length || 0);
 
         // تحويل البيانات
         const processedRequests: RideRequest[] = (trips || []).map((trip: any) => {
@@ -106,20 +106,33 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
 
     fetchRideRequests();
 
-    // الاشتراك في التحديثات الفورية
+    // الاشتراك في التحديثات الفورية - مراقبة التغييرات في الطلبات المعلقة فقط
     const channel = supabase
-      .channel('ride-requests')
+      .channel('pending-ride-requests')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'trips',
-          filter: 'status=eq.pending'
+          table: 'trips'
         },
         (payload) => {
-          console.log('تحديث جديد في طلبات الرحلات:', payload);
-          fetchRideRequests();
+          console.log('تحديث في طلبات الرحلات:', payload);
+          
+          // تحديث فوري عند تغيير حالة الرحلة
+          if (payload.eventType === 'UPDATE') {
+            const updatedTrip = payload.new as any;
+            
+            // إذا تم قبول الرحلة أو تغيرت حالتها، قم بإزالتها من القائمة
+            if (updatedTrip.status !== 'pending' || updatedTrip.driver_id !== null) {
+              setRideRequests(prev => prev.filter(request => request.id !== updatedTrip.id));
+            }
+          }
+          
+          // إعادة جلب البيانات في الحالات الأخرى
+          if (payload.eventType === 'INSERT') {
+            fetchRideRequests();
+          }
         }
       )
       .subscribe();
@@ -127,7 +140,7 @@ export const useRealTimeRideRequests = (driverLocation: [number, number] | null)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]); // إزالة driverLocation من dependencies
+  }, [toast]);
 
   return { rideRequests, loading };
 };
