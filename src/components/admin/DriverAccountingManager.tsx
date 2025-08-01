@@ -96,28 +96,39 @@ const DriverAccountingManager = () => {
     try {
       setLoading(true);
 
-      // جلب بيانات السائقين وحساباتهم
-      const { data: driversData, error: driversError } = await supabase
+      // First get trips with driver information
+      const { data: tripsData, error: tripsError } = await supabase
         .from('trips')
-        .select(`
-          driver_id,
-          price,
-          status,
-          profiles!trips_driver_id_fkey (name)
-        `)
+        .select('driver_id, price, status')
         .eq('status', 'completed')
         .not('driver_id', 'is', null);
 
-      if (driversError) throw driversError;
+      if (tripsError) throw tripsError;
+
+      // Then get driver names from profiles
+      const driverIds = [...new Set(tripsData?.map(trip => trip.driver_id).filter(Boolean))];
+      
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', driverIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of driver ID to name
+      const driverNamesMap = new Map();
+      profilesData?.forEach(profile => {
+        driverNamesMap.set(profile.id, profile.name);
+      });
 
       // تجميع البيانات لكل سائق
       const driverAccountsMap = new Map<string, DriverAccount>();
 
-      driversData?.forEach((trip) => {
-        if (!trip.driver_id || !trip.profiles) return;
+      tripsData?.forEach((trip) => {
+        if (!trip.driver_id) return;
 
         const driverId = trip.driver_id;
-        const driverName = trip.profiles.name || 'سائق غير معروف';
+        const driverName = driverNamesMap.get(driverId) || 'سائق غير معروف';
         const tripFare = trip.price || 0;
         const commissionAmount = (tripFare * commissionRate) / 100;
         const netAmount = tripFare - commissionAmount;
@@ -156,29 +167,41 @@ const DriverAccountingManager = () => {
 
   const loadTransactions = async () => {
     try {
-      const { data, error } = await supabase
+      // Get trips data
+      const { data: tripsData, error: tripsError } = await supabase
         .from('trips')
-        .select(`
-          id,
-          price,
-          created_at,
-          from_location,
-          to_location,
-          customer:profiles!trips_customer_id_fkey (name),
-          driver:profiles!trips_driver_id_fkey (name, id)
-        `)
+        .select('id, price, created_at, from_location, to_location, customer_id, driver_id')
         .eq('status', 'completed')
         .not('driver_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (tripsError) throw tripsError;
 
-      const formattedTransactions = data?.map(trip => ({
+      // Get all unique user IDs (customers and drivers)
+      const customerIds = [...new Set(tripsData?.map(trip => trip.customer_id).filter(Boolean))];
+      const driverIds = [...new Set(tripsData?.map(trip => trip.driver_id).filter(Boolean))];
+      const allUserIds = [...new Set([...customerIds, ...driverIds])];
+
+      // Get names from profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', allUserIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create name maps
+      const namesMap = new Map();
+      profilesData?.forEach(profile => {
+        namesMap.set(profile.id, profile.name);
+      });
+
+      const formattedTransactions = tripsData?.map(trip => ({
         id: trip.id,
         trip_id: trip.id,
-        driver_name: trip.driver?.name || 'سائق غير معروف',
-        customer_name: trip.customer?.name || 'زبون غير معروف',
+        driver_name: namesMap.get(trip.driver_id) || 'سائق غير معروف',
+        customer_name: namesMap.get(trip.customer_id) || 'زبون غير معروف',
         trip_fare: trip.price || 0,
         commission_amount: ((trip.price || 0) * commissionRate) / 100,
         net_amount: (trip.price || 0) - (((trip.price || 0) * commissionRate) / 100),

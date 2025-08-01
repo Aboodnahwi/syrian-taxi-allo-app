@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +9,7 @@ import Map from '@/components/map/Map';
 import RideRequestList from '@/components/driver/RideRequestList';
 import LiveFareCounter from '@/components/driver/LiveFareCounter';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useRideAcceptance } from '@/hooks/driver/useRideAcceptance';
 
 const DriverPage = () => {
   const { user, signOut } = useAuth();
@@ -32,6 +34,8 @@ const DriverPage = () => {
     location: geolocation,
     error: geolocationError,
   } = useGeolocation();
+
+  const { acceptRide: acceptRideHook, completeRide, rejectRide } = useRideAcceptance();
 
   // Redirect if not authenticated or not a driver
   useEffect(() => {
@@ -98,14 +102,14 @@ const DriverPage = () => {
   }, [user, toast]);
 
   // Handle accepting a ride
-  const handleAcceptRide = async (request: any) => {
-    if (!user) return;
+  const handleAcceptRide = async (request: any): Promise<{ success: boolean }> => {
+    if (!user) return { success: false };
 
-    const { success, trip } = await useRideAcceptance().acceptRide(request, user.id, user.name);
+    const result = await acceptRideHook(request, user.id, user.name);
 
-    if (success && trip) {
-      setActiveRide(trip);
-      setAcceptedRideId(trip.id);
+    if (result.success && result.trip) {
+      setActiveRide(result.trip);
+      setAcceptedRideId(result.trip.id);
       setRideRequests(prevRequests => prevRequests.filter(req => req.id !== request.id));
       setRideStatus('accepted');
       toast({
@@ -120,16 +124,13 @@ const DriverPage = () => {
         variant: "destructive"
       });
     }
+
+    return result;
   };
 
   const handleRejectRide = async (requestId: string) => {
-    await useRideAcceptance().rejectRide(requestId);
+    await rejectRide(requestId);
     setRideRequests(prevRequests => prevRequests.filter(req => req.id !== requestId));
-  };
-
-  // Handle map click (for debugging)
-  const handleMapClick = (lat: number, lng: number) => {
-    console.log('Map clicked at:', lat, lng);
   };
 
   // Handle updating ride status
@@ -157,7 +158,7 @@ const DriverPage = () => {
 
       const finalFare = Math.max(currentFare, 5000);
 
-      const { success } = await useRideAcceptance().completeRide(activeRide.id, finalFare);
+      const { success } = await completeRide(activeRide.id, finalFare);
 
       if (success) {
         setActiveRide(null);
@@ -181,7 +182,7 @@ const DriverPage = () => {
         });
       }
     }
-  }, [activeRide, currentFare, toast]);
+  }, [activeRide, currentFare, completeRide, toast]);
 
   return (
     <div className="min-h-screen bg-slate-900 relative">
@@ -206,7 +207,6 @@ const DriverPage = () => {
           center={userLocation || [33.5138, 36.2765]}
           zoom={13}
           markers={[]}
-          onMapClick={handleMapClick}
           routeCoordinates={routeCoordinates}
           routeColor={routeColor}
           showUserLocation={true}
