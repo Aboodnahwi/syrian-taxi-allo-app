@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign } from 'lucide-react';
+import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign, Calculator, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
-import VehiclePricingManager from '@/components/admin/VehiclePricingManager';
 import AdvancedPricingManager from '@/components/admin/AdvancedPricingManager';
 import DriverApplicationsManager from '@/components/admin/DriverApplicationsManager';
 import PricingFactorsManager from '@/components/admin/PricingFactorsManager';
+import ComprehensiveAccountingManager from '@/components/admin/ComprehensiveAccountingManager';
+import EnhancedVehiclePricingManager from '@/components/admin/EnhancedVehiclePricingManager';
 
 const AdminPage = () => {
   const { user, signOut } = useAuth();
@@ -186,12 +187,15 @@ const AdminPage = () => {
 
       <div className="container mx-auto p-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-slate-800">
+          <TabsList className="grid w-full grid-cols-7 bg-slate-800">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-slate-700">
               لوحة المعلومات
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="data-[state=active]:bg-slate-700">
-              إدارة التسعير
+            <TabsTrigger value="accounting" className="data-[state=active]:bg-slate-700">
+              المحاسبة الشاملة
+            </TabsTrigger>
+            <TabsTrigger value="vehicle-pricing" className="data-[state=active]:bg-slate-700">
+              إدارة وسائل النقل
             </TabsTrigger>
             <TabsTrigger value="advanced-pricing" className="data-[state=active]:bg-slate-700">
               التسعير المتقدم
@@ -363,8 +367,12 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="pricing">
-            <VehiclePricingManager />
+          <TabsContent value="accounting">
+            <ComprehensiveAccountingManager />
+          </TabsContent>
+
+          <TabsContent value="vehicle-pricing">
+            <EnhancedVehiclePricingManager />
           </TabsContent>
 
           <TabsContent value="advanced-pricing">
