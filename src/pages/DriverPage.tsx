@@ -1,484 +1,190 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign, Calculator, BarChart3, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Map from '@/components/map/Map';
-import DriverHeader from '@/components/driver/DriverHeader';
-import ActiveRideCard from '@/components/driver/ActiveRideCard';
-import RideRequestDrawer from '@/components/driver/RideRequestDrawer';
-import RealTimeTracker from '@/components/driver/RealTimeTracker';
-import RideCompletionSummary from '@/components/driver/RideCompletionSummary';
-import DriverPageMessages from '@/components/driver/DriverPageMessages';
-import { useEnhancedRideTracking } from '@/hooks/driver/useEnhancedRideTracking';
-import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests';
-import { useRideAcceptance } from '@/hooks/driver/useRideAcceptance';
-import { useRealTimeTrips } from '@/hooks/useRealTime';
 import { supabase } from '@/integrations/supabase/client';
+import Map from '@/components/map/Map';
 import LiveFareCounter from '@/components/driver/LiveFareCounter';
 
+interface RideRequest {
+  id: string;
+  created_at: string;
+  from_location: string;
+  to_location: string;
+  customer_id: string;
+  driver_id: string | null;
+  price: number | null;
+  status: 'pending' | 'accepted' | 'started' | 'completed' | 'cancelled';
+  distance_km: number;
+  customer?: {
+    name: string;
+    phone: string;
+  };
+}
+
+interface Driver {
+  id: string;
+  user_id: string;
+  name: string;
+  phone: string;
+  is_active: boolean;
+  is_available: boolean;
+  license_number: string;
+  vehicle_type: string;
+  vehicle_plate: string;
+}
+
 const DriverPage = () => {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  const [user, setUser] = useState<any>(null);
-  const [driverProfile, setDriverProfile] = useState<any>(null);
-  const [isOnline, setIsOnline] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
-  const [activeRide, setActiveRide] = useState<any>(null);
+
+  const [driverData, setDriverData] = useState<Driver | null>(null);
+  const [rideRequests, setRideRequests] = useState<RideRequest[]>([]);
+  const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
   const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
-  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
-  const [mapRoute, setMapRoute] = useState<[number, number][] | undefined>();
-  const [showCompletionSummary, setShowCompletionSummary] = useState(false);
-  const [completionData, setCompletionData] = useState<any>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [locationInitialized, setLocationInitialized] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [trackingStartTime, setTrackingStartTime] = useState<Date>(new Date());
 
-  const { trackingData, startTracking, stopTracking, isTracking } = useEnhancedRideTracking(activeRide);
-  const { rideRequests, loading: requestsLoading } = useRealTimeRideRequests(currentLocation);
-  const { acceptRide, rejectRide, loading: acceptanceLoading } = useRideAcceptance();
-  const { trips } = useRealTimeTrips('driver', driverProfile?.id);
-
-  // التحقق من المستخدم وإعادة التوجيه - مرة واحدة فقط
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData) {
+    if (!user) {
       navigate('/auth');
       return;
     }
-    
+
+    fetchDriverData();
+    fetchRideRequests();
+  }, [user, navigate, toast]);
+
+  const fetchDriverData = async () => {
     try {
-      const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'driver') {
-        navigate('/auth');
-        return;
-      }
-      setUser(parsedUser);
-    } catch (error) {
-      console.error('خطأ في تحليل بيانات المستخدم:', error);
-      localStorage.removeItem('user');
-      navigate('/auth');
+      setLoading(true);
+
+      const { data: driver, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+
+      setDriverData(driver);
+      setIsOnline(driver?.is_available || false);
+    } catch (error: any) {
+      console.error('Error fetching driver data:', error);
+      toast({
+        title: "خطأ في تحميل بيانات السائق",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [navigate]);
+  };
 
-  // جلب ملف السائق - مرة واحدة فقط عند تحديد المستخدم
-  useEffect(() => {
-    if (!user?.id || driverProfile) return;
+  const fetchRideRequests = async () => {
+    try {
+      setLoading(true);
 
-    const fetchDriverProfile = async () => {
-      try {
-        console.log('جلب ملف السائق للمستخدم:', user.id);
-        
-        const { data: driver, error } = await supabase
-          .from('drivers')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+      const { data: requests, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          customer:profiles!trips_customer_id_fkey(name, phone)
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('خطأ في جلب ملف السائق:', error);
-          toast({
-            title: "خطأ في جلب البيانات",
-            description: "تعذر جلب بيانات السائق",
-            variant: "destructive"
-          });
-          return;
-        }
+      if (error) throw error;
 
-        if (!driver) {
-          console.log('لم يتم العثور على ملف السائق، إنشاء ملف جديد');
-          const { data: newDriver, error: createError } = await supabase
-            .from('drivers')
-            .insert({
-              user_id: user.id,
-              license_number: `LIC-${Date.now()}`,
-              license_plate: `PLT-${Date.now()}`,
-              vehicle_type: 'regular',
-              is_online: false,
-              rating: 5.0,
-              total_trips: 0
-            })
-            .select()
-            .single();
+      setRideRequests(requests || []);
+    } catch (error: any) {
+      console.error('Error fetching ride requests:', error);
+      toast({
+        title: "خطأ في تحميل طلبات الرحلات",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          if (createError) {
-            console.error('خطأ في إنشاء ملف السائق:', createError);
-            toast({
-              title: "خطأ في إنشاء الملف الشخصي",
-              description: "تعذر إنشاء ملف السائق. يرجى المحاولة مرة أخرى.",
-              variant: "destructive"
-            });
-            return;
-          }
-          console.log('تم إنشاء ملف السائق الجديد:', newDriver);
-          setDriverProfile(newDriver);
-          toast({
-            title: "تم إنشاء الملف الشخصي",
-            description: "تم إنشاء ملف السائق بنجاح",
-            className: "bg-green-50 border-green-200 text-green-800"
-          });
-        } else {
-          console.log('تم العثور على ملف السائق:', driver);
-          setDriverProfile(driver);
-        }
-      } catch (error) {
-        console.error('خطأ في fetchDriverProfile:', error);
-        toast({
-          title: "خطأ في جلب البيانات",
-          description: "تعذر جلب بيانات السائق",
-          variant: "destructive"
-        });
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
-
-    fetchDriverProfile();
-  }, [user?.id, toast]);
-
-  // الحصول على الموقع الحالي للسائق - مع تحسين معالجة الأخطاء
-  useEffect(() => {
-    if (locationInitialized) return;
-
-    const getCurrentLocation = () => {
-      if (!navigator.geolocation) {
-        console.log('الجهاز لا يدعم خدمات الموقع');
-        setCurrentLocation([33.5138, 36.2765]);
-        setLocationInitialized(true);
-        toast({
-          title: "خدمة الموقع غير مدعومة",
-          description: "جهازك لا يدعم خدمات الموقع",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('طلب الموقع من المتصفح...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          console.log('تم الحصول على موقع السائق:', lat, lng);
-          setCurrentLocation([lat, lng]);
-          setLocationInitialized(true);
-          
-          if (driverProfile?.id) {
-            updateDriverLocation(lat, lng);
-          }
-        },
-        (error) => {
-          console.error('خطأ في الحصول على الموقع:', error);
-          // استخدام موقع افتراضي بدلاً من إظهار رسالة خطأ مربكة
-          setCurrentLocation([33.5138, 36.2765]);
-          setLocationInitialized(true);
-          
-          // عرض رسالة مفيدة فقط إذا كانت المشكلة في الصلاحيات
-          if (error.code === error.PERMISSION_DENIED) {
-            toast({
-              title: "تم استخدام موقع افتراضي",
-              description: "للحصول على أفضل خدمة، يرجى السماح بالوصول للموقع من إعدادات المتصفح",
-              className: "bg-yellow-50 border-yellow-200 text-yellow-800"
-            });
-          }
-        },
-        { 
-          enableHighAccuracy: true, 
-          timeout: 15000, 
-          maximumAge: 600000 
-        }
-      );
-    };
-
-    getCurrentLocation();
-  }, [toast, driverProfile?.id]);
-
-  // تحديث موقع السائق في قاعدة البيانات
-  const updateDriverLocation = async (lat: number, lng: number) => {
-    if (!driverProfile?.id) return;
+  const handleToggleOnlineStatus = async () => {
+    if (!driverData) return;
 
     try {
+      setLoading(true);
+      const newStatus = !isOnline;
+
       const { error } = await supabase
         .from('drivers')
+        .update({ is_available: newStatus })
+        .eq('id', driverData.id);
+
+      if (error) throw error;
+
+      setIsOnline(newStatus);
+      setDriverData({ ...driverData, is_available: newStatus });
+
+      toast({
+        title: "تم تحديث الحالة",
+        description: `تم تغيير حالتك إلى ${newStatus ? 'متاح' : 'غير متاح'}`,
+      });
+    } catch (error: any) {
+      console.error('Error updating online status:', error);
+      toast({
+        title: "خطأ في تحديث الحالة",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcceptRide = async (rideId: string) => {
+    try {
+      setTrackingStartTime(new Date()); // تسجيل وقت بدء التتبع
+      
+      const { error } = await supabase
+        .from('trips')
         .update({ 
-          current_location: `(${lat},${lng})`,
-          updated_at: new Date().toISOString()
+          status: 'accepted', 
+          driver_id: driverData?.id,
+          accepted_at: new Date().toISOString()
         })
-        .eq('id', driverProfile.id);
+        .eq('id', rideId);
 
-      if (error) {
-        console.error('خطأ في تحديث موقع السائق:', error);
-      } else {
-        console.log('تم تحديث موقع السائق بنجاح');
-      }
-    } catch (error) {
-      console.error('خطأ في updateDriverLocation:', error);
-    }
-  };
+      if (error) throw error;
 
-  // مراقبة الرحلات النشطة
-  useEffect(() => {
-    if (!driverProfile?.id) return;
-    
-    const activeTrip = trips.find(trip => 
-      trip.status === 'accepted' || trip.status === 'started' || trip.status === 'arrived'
-    );
-    
-    if (activeTrip) {
-      console.log('تعيين الرحلة النشطة من الرحلات:', activeTrip);
-      
-      const rideData = {
-        ...activeTrip,
-        customer_name: activeTrip.customer_name || activeTrip.profiles?.name || 'زبون',
-        customer_phone: activeTrip.customer_phone || activeTrip.profiles?.phone || '',
-        estimated_duration: activeTrip.estimated_duration || Math.ceil((activeTrip.distance_km || 5) * 1.5)
-      };
-      
-      if (!activeRide || activeRide.id !== activeTrip.id) {
-        setActiveRide(rideData);
-      }
-      
-      const newRideStatus = activeTrip.status === 'accepted' ? 'accepted' :
-                          activeTrip.status === 'arrived' ? 'arrived' :
-                          activeTrip.status === 'started' ? 'started' : null;
-      
-      if (rideStatus !== newRideStatus) {
-        setRideStatus(newRideStatus);
-      }
-    } else if (!activeTrip && activeRide) {
-      setActiveRide(null);
-      setRideStatus(null);
-    }
-  }, [trips, driverProfile?.id]);
-
-  // إعداد علامات الخريطة والمسارات
-  useEffect(() => {
-    const markers = [];
-    
-    // موقع السائق
-    if (currentLocation) {
-      markers.push({
-        id: 'driver',
-        position: currentLocation,
-        popup: 'موقع السائق',
-        icon: {
-          html: `<div class="bg-emerald-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-pulse">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-                     <path d="M8 18V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12l-4-2-4 2Z"></path>
-                   </svg>
-                 </div>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
-          className: 'driver-marker'
-        }
-      });
-    }
-    
-    // طلبات الرحلات المتاحة (فقط عندما يكون السائق متاح وليس في رحلة)
-    if (isOnline && !activeRide && !isTracking) {
-      rideRequests.forEach((request) => {
-        if (request.from_coordinates) {
-          markers.push({
-            id: `request-pickup-${request.id}`,
-            position: request.from_coordinates,
-            popup: `<div class="font-tajawal p-2">
-                      <div class="font-bold text-green-600 mb-1">نقطة البداية</div>
-                      <div><strong>الزبون:</strong> ${request.customer_name}</div>
-                      <div><strong>من:</strong> ${request.from_location}</div>
-                      <div><strong>إلى:</strong> ${request.to_location}</div>
-                      <div><strong>السعر:</strong> ${request.price.toLocaleString()} ل.س</div>
-                    </div>`,
-            icon: {
-              html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
-                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                         <circle cx="12" cy="10" r="3"></circle>
-                       </svg>
-                     </div>`,
-              iconSize: [30, 30],
-              iconAnchor: [15, 15],
-              className: 'pickup-marker'
-            }
-          });
-        }
-
-        if (request.to_coordinates) {
-          markers.push({
-            id: `request-destination-${request.id}`,
-            position: request.to_coordinates,
-            popup: `<div class="font-tajawal p-2">
-                      <div class="font-bold text-red-600 mb-1">الوجهة</div>
-                      <div><strong>إلى:</strong> ${request.to_location}</div>
-                      <div><strong>المسافة:</strong> ${request.distance_km.toFixed(1)} كم</div>
-                    </div>`,
-            icon: {
-              html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
-                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                         <circle cx="12" cy="10" r="3"></circle>
-                       </svg>
-                     </div>`,
-              iconSize: [30, 30],
-              iconAnchor: [15, 15],
-              className: 'destination-marker'
-            }
-          });
-        }
-      });
-    }
-
-    // الرحلة النشطة
-    if (activeRide) {
-      if (activeRide.from_coordinates && Array.isArray(activeRide.from_coordinates)) {
-        markers.push({
-          id: 'pickup',
-          position: activeRide.from_coordinates,
-          popup: `نقطة الانطلاق: ${activeRide.from_location}`,
-          icon: {
-            html: `<div class="bg-green-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-bounce">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                       <circle cx="12" cy="10" r="3"></circle>
-                     </svg>
-                   </div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-          }
-        });
-      }
-      
-      if (activeRide.to_coordinates && Array.isArray(activeRide.to_coordinates)) {
-        markers.push({
-          id: 'destination',
-          position: activeRide.to_coordinates,
-          popup: `الوجهة: ${activeRide.to_location}`,
-          icon: {
-            html: `<div class="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white animate-bounce">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                       <circle cx="12" cy="10" r="3"></circle>
-                     </svg>
-                   </div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-          }
-        });
-      }
-    }
-    
-    setMapMarkers(markers);
-
-    // إعداد المسارات - رسم خط الرحلة المقبولة
-    console.log('[DriverPage] Setting up route for active ride:', activeRide?.id, 'status:', rideStatus);
-    
-    if (isTracking && trackingData?.path) {
-      console.log('[DriverPage] Showing tracking path');
-      setMapRoute(trackingData.path.map(pos => [pos.lat, pos.lng]));
-    } else if (activeRide && currentLocation) {
-      // رسم خط الرحلة حسب حالة الرحلة
-      if (rideStatus === 'accepted' && activeRide.from_coordinates && activeRide.to_coordinates) {
-        // مسار السائق -> نقطة الانطلاق -> الوجهة
-        console.log('[DriverPage] Drawing full route: driver -> pickup -> destination');
-        setMapRoute([currentLocation, activeRide.from_coordinates, activeRide.to_coordinates]);
-      } else if ((rideStatus === 'arrived' || rideStatus === 'started') && activeRide.from_coordinates && activeRide.to_coordinates) {
-        // مسار نقطة الانطلاق -> الوجهة
-        console.log('[DriverPage] Drawing ride route: pickup -> destination');
-        setMapRoute([activeRide.from_coordinates, activeRide.to_coordinates]);
-      } else {
-        console.log('[DriverPage] No valid route conditions met');
-        setMapRoute(undefined);
-      }
-    } else {
-      console.log('[DriverPage] No active ride, clearing route');
-      setMapRoute(undefined);
-    }
-  }, [isOnline, rideRequests, currentLocation, activeRide, isTracking, trackingData, rideStatus]);
-
-  const toggleOnlineStatus = () => {
-    if (!currentLocation) {
-      toast({
-        title: "موقعك غير محدد",
-        description: "يرجى إعادة تحميل الصفحة للحصول على موقعك",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // منع تغيير الحالة إذا كان هناك رحلة نشطة
-    if (activeRide) {
-      toast({
-        title: "لا يمكن تغيير الحالة",
-        description: "لديك رحلة نشطة حالياً",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsOnline(!isOnline);
-    toast({
-      title: isOnline ? "تم إيقاف الخدمة" : "تم تشغيل الخدمة",
-      description: isOnline ? "لن تصلك طلبات جديدة" : "يمكنك الآن استقبال الطلبات",
-      className: isOnline ? "bg-red-50 border-red-200 text-red-800" : "bg-green-50 border-green-200 text-green-800"
-    });
-  };
-
-  const handleAcceptRide = async (request: any) => {
-    if (!driverProfile?.id || !user?.name) {
-      toast({
-        title: "خطأ",
-        description: "لم يتم العثور على بيانات السائق",
-        variant: "destructive"
-      });
-      return { success: false };
-    }
-
-    console.log('قبول طلب الرحلة:', request);
-    const result = await acceptRide(request, driverProfile.id, user.name);
-    
-    if (result.success && result.trip) {
-      console.log('تم قبول الرحلة بنجاح، تحديث الحالة المحلية');
-      
-      const parseCoordinates = (coords: any): [number, number] | null => {
-        if (!coords) return null;
-        
-        if (Array.isArray(coords) && coords.length >= 2) {
-          return [parseFloat(coords[0]), parseFloat(coords[1])];
-        }
-        
-        if (typeof coords === 'string') {
-          const match = coords.match(/\(([^,]+),([^)]+)\)/);
-          if (match) {
-            return [parseFloat(match[1]), parseFloat(match[2])];
-          }
-        }
-        
-        return null;
-      };
-
-      const tripWithParsedCoords = {
-        ...result.trip,
-        from_coordinates: parseCoordinates(result.trip.from_coordinates),
-        to_coordinates: parseCoordinates(result.trip.to_coordinates)
-      };
-
-      setActiveRide(tripWithParsedCoords);
+      setActiveRide(rideRequests.find(r => r.id === rideId) || null);
       setRideStatus('accepted');
-      setIsOnline(false);
-    }
-    
-    return result;
-  };
-
-  const updateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
-    if (!activeRide) {
+      
       toast({
-        title: "خطأ",
-        description: "لا توجد رحلة نشطة",
+        title: "تم قبول الطلب",
+        description: "تم قبول طلب الرحلة بنجاح"
+      });
+    } catch (error: any) {
+      console.error('Error accepting ride:', error);
+      toast({
+        title: "خطأ في قبول الطلب",
+        description: error.message,
         variant: "destructive"
       });
-      return;
     }
+  };
+
+  const handleUpdateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
+    if (!activeRide) return;
 
     try {
-      console.log('تحديث حالة الرحلة إلى:', status, 'للرحلة:', activeRide.id);
-      
       const updateData: any = { status };
       
       if (status === 'arrived') {
@@ -487,209 +193,242 @@ const DriverPage = () => {
         updateData.started_at = new Date().toISOString();
       } else if (status === 'completed') {
         updateData.completed_at = new Date().toISOString();
-        if (trackingData) {
-          updateData.actual_duration = Math.floor(trackingData.duration / 60);
-          updateData.distance_km = trackingData.totalDistance;
-          updateData.price = trackingData.totalFare;
-        }
       }
 
-      const { data: updatedTrip, error } = await supabase
+      const { error } = await supabase
         .from('trips')
         .update(updateData)
-        .eq('id', activeRide.id)
-        .select('*')
-        .single();
+        .eq('id', activeRide.id);
 
-      if (error) {
-        console.error('خطأ في تحديث قاعدة البيانات:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('تم تحديث الرحلة بنجاح:', updatedTrip);
-
-      // تحديث الحالة المحلية فقط بدون إعادة تحميل
       setRideStatus(status);
-      setActiveRide(prev => ({ ...prev, ...updatedTrip }));
-
-      if (status === 'started') {
-        startTracking();
-      } else if (status === 'completed') {
-        const finalData = await stopTracking();
-        if (finalData) {
-          setCompletionData({
-            ...finalData,
-            customerName: activeRide.customer_name || activeRide.customerName,
-            fromLocation: activeRide.from_location || activeRide.from,
-            toLocation: activeRide.to_location || activeRide.to
-          });
-          setShowCompletionSummary(true);
-        }
+      
+      if (status === 'completed') {
         setActiveRide(null);
         setRideStatus(null);
+        // إعادة تعيين السائق كمتاح
+        await supabase
+          .from('drivers')
+          .update({ is_online: true })
+          .eq('user_id', user?.id);
       }
 
-      const statusMessages = {
-        arrived: "تم الإعلان عن الوصول للزبون",
-        started: "تم بدء الرحلة وتفعيل التتبع",
-        completed: "تم إنهاء الرحلة بنجاح"
-      };
-
       toast({
-        title: statusMessages[status],
-        description: status === 'completed' ? "يمكنك الآن استقبال طلبات جديدة" : "",
-        className: "bg-green-50 border-green-200 text-green-800"
+        title: "تم تحديث حالة الرحلة",
+        description: `تم تحديث حالة الرحلة إلى ${
+          status === 'arrived' ? 'وصل السائق' : 
+          status === 'started' ? 'بدأت الرحلة' : 'انتهت الرحلة'
+        }`,
       });
-
     } catch (error: any) {
-      console.error('خطأ في تحديث حالة الرحلة:', error);
+      console.error('Error updating ride status:', error);
       toast({
         title: "خطأ في تحديث الحالة",
-        description: error.message || "تعذر تحديث حالة الرحلة. يرجى المحاولة مرة أخرى.",
+        description: error.message,
         variant: "destructive"
       });
     }
   };
 
-  const handleCompletionClose = () => {
-    setShowCompletionSummary(false);
-    setCompletionData(null);
+  const handleSignOut = async () => {
+    await signOut();
   };
 
-  const handleNewRide = () => {
-    setShowCompletionSummary(false);
-    setCompletionData(null);
-    setIsOnline(true);
-  };
-
-  const logout = () => {
-    console.log('بدء عملية تسجيل الخروج');
-    
-    // تنظيف البيانات المحلية
-    setUser(null);
-    setDriverProfile(null);
-    setActiveRide(null);
-    setRideStatus(null);
-    setCurrentLocation(null);
-    setLocationInitialized(false);
-    setIsOnline(false);
-    
-    // إزالة البيانات المحفوظة
-    localStorage.removeItem('user');
-    
-    // التوجه لصفحة المصادقة
-    navigate('/auth');
-  };
-
-  if (isInitialLoading || !user || !driverProfile) {
+  if (!user || !driverData) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-lg font-cairo">جاري تحميل بيانات السائق...</p>
-          <p className="text-sm text-slate-400 mt-2">جاري تحديد موقعك...</p>
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">جاري التحقق من بيانات السائق...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-full relative overflow-hidden bg-slate-900">
-      <Map
-        className="absolute inset-0 w-full h-full z-0"
-        markers={mapMarkers}
-        route={mapRoute}
-        center={currentLocation || [33.5138, 36.2765]}
-        zoom={currentLocation ? 14 : 11}
-        toast={toast}
-        driverLocation={currentLocation}
-        rideStatus={rideStatus}
-      />
-
-      <div className="absolute inset-x-0 top-0 z-50">
-        <DriverHeader 
-          user={user}
-          isOnline={isOnline}
-          toggleOnlineStatus={toggleOnlineStatus}
-          logout={logout}
-        />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header */}
+      <div className="bg-white shadow-md p-4">
+        <div className="container mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Avatar>
+              <AvatarImage src="https://github.com/shadcn.png" />
+              <AvatarFallback>CN</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800 font-cairo">
+                مرحباً {driverData.name}
+              </h1>
+              <p className="text-gray-500 text-sm font-tajawal">
+                {driverData.vehicle_type} - {driverData.vehicle_plate}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge
+              variant={isOnline ? "outline" : "secondary"}
+              className={`font-cairo text-sm cursor-pointer ${isOnline ? 'text-green-600 border-green-600' : 'text-gray-500'
+                }`}
+              onClick={handleToggleOnlineStatus}
+            >
+              {isOnline ? 'أنت متصل الآن' : 'غير متصل'}
+            </Badge>
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              className="border-gray-400 text-gray-700 hover:bg-gray-100 font-cairo"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              تسجيل الخروج
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* عرض العداد الكبير عند قبول الرحلة أو أثناء الرحلة */}
-      {activeRide && (rideStatus === 'accepted' || rideStatus === 'arrived') && (
+      {/* Live Fare Counter for accepted/started rides */}
+      {(rideStatus === 'accepted' || rideStatus === 'arrived') && activeRide && (
         <LiveFareCounter
-          currentFare={0} // ابدأ بصفر قبل بدء الرحلة
-          distance={0}
+          currentFare={activeRide.price || 0}
+          startTime={trackingStartTime}
+          distance={activeRide.distance_km || 0}
           duration={0}
           speed={0}
-          customerName={activeRide?.customer_name}
+          customerName={activeRide.customer?.name}
           isActive={true}
           activeRide={activeRide}
           rideStatus={rideStatus}
-          onUpdateRideStatus={updateRideStatus}
+          onUpdateRideStatus={handleUpdateRideStatus}
         />
       )}
 
-      {/* عرض العداد المتحرك أثناء الرحلة */}
-      {trackingData && rideStatus === 'started' && (
+      {(rideStatus === 'started') && activeRide && (
         <LiveFareCounter
-          currentFare={trackingData.totalFare}
-          distance={trackingData.totalDistance}
-          duration={trackingData.duration}
-          speed={trackingData.currentSpeed}
-          customerName={activeRide?.customer_name}
+          currentFare={activeRide.price || 0}
+          startTime={trackingStartTime}
+          distance={activeRide.distance_km || 0}
+          duration={0}
+          speed={0}
+          customerName={activeRide.customer?.name}
           isActive={true}
           activeRide={activeRide}
           rideStatus={rideStatus}
-          onUpdateRideStatus={updateRideStatus}
+          onUpdateRideStatus={handleUpdateRideStatus}
         />
       )}
 
-      {/* عرض معلومات التتبع فقط عندما لا يكون العداد الكبير ظاهر */}
-      {trackingData && rideStatus !== 'started' && rideStatus !== 'accepted' && rideStatus !== 'arrived' && (
-        <RealTimeTracker 
-          distance={trackingData.totalDistance}
-          duration={trackingData.duration}
-          fare={trackingData.totalFare}
-          speed={trackingData.currentSpeed}
-          isTracking={trackingData.isTracking}
-        />
-      )}
+      {/* Main Content - only show when not in active ride mode */}
+      {(!rideStatus || rideStatus === 'completed') && (
+        <div className="container mx-auto p-6 space-y-8">
+          {/* Ride Request Section */}
+          <Card className="shadow-md">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-lg font-cairo">
+                طلبات الرحلات المتاحة
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {rideRequests.length === 0 ? (
+                <div className="text-center py-6">
+                  <AlertTriangle className="w-6 h-6 mx-auto text-yellow-500 mb-2" />
+                  <p className="text-gray-600 font-cairo">
+                    لا توجد طلبات رحلات متاحة حالياً.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {rideRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="bg-white rounded-lg shadow-sm p-4 border"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-800 font-tajawal">
+                            {request.from_location} - {request.to_location}
+                          </p>
+                          <p className="text-gray-500 text-sm font-tajawal">
+                            الزبون: {request.customer?.name || 'غير محدد'}
+                          </p>
+                          <p className="text-emerald-500 font-bold">
+                            {request.price?.toLocaleString() || 'غير محدد'} ل.س
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-cairo"
+                            onClick={() => handleAcceptRide(request.id)}
+                          >
+                            قبول الطلب
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-gray-400 text-xs mt-2 font-tajawal">
+                        {new Date(request.created_at).toLocaleDateString('ar-SA')}{' '}
+                        -{' '}
+                        {new Date(request.created_at).toLocaleTimeString('ar-SA')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* عرض بطاقة الرحلة النشطة فقط عندما لا يكون العداد الكبير ظاهر */}
-      {activeRide && !['accepted', 'arrived'].includes(rideStatus as string) && (
-        <div className="absolute top-24 right-4 z-40 max-w-sm">
-          <ActiveRideCard 
-            activeRide={activeRide}
-            rideStatus={rideStatus}
-            updateRideStatus={updateRideStatus}
-          />
+          {/* Driver Info Section */}
+          <Card className="shadow-md">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-lg font-cairo">
+                معلومات السائق
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-700 font-cairo">
+                    الاسم:
+                  </span>
+                  <span className="text-gray-800 font-tajawal">
+                    {driverData.name}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700 font-cairo">
+                    رقم الهاتف:
+                  </span>
+                  <span className="text-gray-800 font-tajawal">
+                    {driverData.phone}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700 font-cairo">
+                    نوع المركبة:
+                  </span>
+                  <span className="text-gray-800 font-tajawal">
+                    {driverData.vehicle_type}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700 font-cairo">
+                    رقم اللوحة:
+                  </span>
+                  <span className="text-gray-800 font-tajawal">
+                    {driverData.vehicle_plate}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700 font-cairo">
+                    الحالة:
+                  </span>
+                  <span className={`font-tajawal ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
+                    {isOnline ? 'متاح' : 'غير متاح'}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
-
-      <DriverPageMessages 
-        activeRide={activeRide}
-        isOnline={isOnline}
-        rideRequestsCount={rideRequests.length}
-        toggleOnlineStatus={toggleOnlineStatus}
-      />
-
-      {!activeRide && isOnline && (
-        <RideRequestDrawer 
-          rideRequests={rideRequests}
-          acceptRide={handleAcceptRide}
-          rejectRide={rejectRide}
-          loading={requestsLoading || acceptanceLoading}
-          driverLocation={currentLocation}
-        />
-      )}
-
-      {showCompletionSummary && completionData && (
-        <RideCompletionSummary 
-          rideData={completionData}
-          onClose={handleCompletionClose}
-          onNewRide={handleNewRide}
-        />
       )}
     </div>
   );

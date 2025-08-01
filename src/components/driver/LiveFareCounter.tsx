@@ -159,7 +159,7 @@ const LiveFareCounter: React.FC<EnhancedLiveFareCounterProps> = ({
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white font-cairo text-lg py-4"
                   size="lg"
                 >
-                  أنا ذاهب باتجاه الزبون
+                  وصلت للزبون
                 </Button>
               )}
               {rideStatus === 'arrived' && (
