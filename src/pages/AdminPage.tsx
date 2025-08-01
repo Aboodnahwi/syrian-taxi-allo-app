@@ -9,10 +9,10 @@ import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign } from 'lucide-
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
-import VehiclePricingManager from '@/components/admin/VehiclePricingManager';
-import AdvancedPricingManager from '@/components/admin/AdvancedPricingManager';
 import DriverApplicationsManager from '@/components/admin/DriverApplicationsManager';
 import PricingFactorsManager from '@/components/admin/PricingFactorsManager';
+import DriverAccountingManager from '@/components/admin/DriverAccountingManager';
+import ComprehensiveAccountingManager from '@/components/admin/ComprehensiveAccountingManager';
 
 const AdminPage = () => {
   const { user, signOut } = useAuth();
@@ -186,21 +186,18 @@ const AdminPage = () => {
 
       <div className="container mx-auto p-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-slate-800">
+          <TabsList className="grid w-full grid-cols-5 bg-slate-800">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-slate-700">
               لوحة المعلومات
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="data-[state=active]:bg-slate-700">
-              إدارة التسعير
+            <TabsTrigger value="driver-accounting" className="data-[state=active]:bg-slate-700">
+              محاسبة السائقين
             </TabsTrigger>
-            <TabsTrigger value="advanced-pricing" className="data-[state=active]:bg-slate-700">
-              التسعير المتقدم
+            <TabsTrigger value="comprehensive-accounting" className="data-[state=active]:bg-slate-700">
+              المحاسبة الشاملة
             </TabsTrigger>
             <TabsTrigger value="drivers" className="data-[state=active]:bg-slate-700">
               طلبات السائقين
-            </TabsTrigger>
-            <TabsTrigger value="factors" className="data-[state=active]:bg-slate-700">
-              عوامل التسعير
             </TabsTrigger>
             <TabsTrigger value="map" className="data-[state=active]:bg-slate-700">
               الخريطة التفاعلية
@@ -363,20 +360,16 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="pricing">
-            <VehiclePricingManager />
+          <TabsContent value="driver-accounting">
+            <DriverAccountingManager />
           </TabsContent>
 
-          <TabsContent value="advanced-pricing">
-            <AdvancedPricingManager />
+          <TabsContent value="comprehensive-accounting">
+            <ComprehensiveAccountingManager />
           </TabsContent>
 
           <TabsContent value="drivers">
             <DriverApplicationsManager />
-          </TabsContent>
-
-          <TabsContent value="factors">
-            <PricingFactorsManager />
           </TabsContent>
 
           <TabsContent value="map">

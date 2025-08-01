@@ -137,6 +137,67 @@ export const useRideAcceptance = () => {
     }
   };
 
+  const completeRide = async (tripId: string, finalPrice: number): Promise<{ success: boolean }> => {
+    try {
+      // جلب نسبة العمولة
+      let commissionRate = 15;
+      try {
+        const { data: settingData } = await supabase
+          .from('app_settings')
+          .select('setting_value')
+          .eq('setting_key', 'platform_commission_rate')
+          .single();
+        
+        if (settingData) {
+          commissionRate = parseFloat(settingData.setting_value);
+        }
+      } catch (error) {
+        console.log('استخدام نسبة العمولة الافتراضية: 15%');
+      }
+
+      // حساب العمولة وصافي أرباح السائق
+      const commissionAmount = (finalPrice * commissionRate) / 100;
+      const driverEarnings = finalPrice - commissionAmount;
+
+      console.log('حساب العمولة:', {
+        finalPrice,
+        commissionRate,
+        commissionAmount,
+        driverEarnings
+      });
+
+      // تحديث حالة الرحلة إلى مكتملة مع السعر النهائي
+      const { error: updateError } = await supabase
+        .from('trips')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          price: finalPrice
+        })
+        .eq('id', tripId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      toast({
+        title: "تم إكمال الرحلة بنجاح",
+        description: `تم حساب العمولة تلقائياً: ${commissionAmount.toLocaleString()} ل.س لصالح المنصة، ${driverEarnings.toLocaleString()} ل.س صافي أرباح السائق`,
+        className: "bg-green-50 border-green-200 text-green-800"
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('خطأ في إكمال الرحلة:', error);
+      toast({
+        title: "خطأ في إكمال الرحلة",
+        description: error.message,
+        variant: "destructive"
+      });
+      return { success: false };
+    }
+  };
+
   const rejectRide = async (requestId: string): Promise<{ success: boolean }> => {
     console.log('رفض الرحلة:', requestId);
     toast({
@@ -149,6 +210,7 @@ export const useRideAcceptance = () => {
 
   return {
     acceptRide,
+    completeRide,
     rejectRide,
     loading
   };

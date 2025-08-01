@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, MapPin, Clock, Navigation, User, Play, Stop, Flag } from 'lucide-react';
+import { DollarSign, MapPin, Clock, Navigation, User, Play, Square, Flag } from 'lucide-react';
 
 interface LiveFareCounterProps {
   currentFare: number;
