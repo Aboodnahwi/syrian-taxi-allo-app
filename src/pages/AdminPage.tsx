@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign, Calculator, BarChart3 } from 'lucide-react';
+import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign, Calculator, BarChart3, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
@@ -13,7 +14,7 @@ import AdvancedPricingManager from '@/components/admin/AdvancedPricingManager';
 import DriverApplicationsManager from '@/components/admin/DriverApplicationsManager';
 import PricingFactorsManager from '@/components/admin/PricingFactorsManager';
 import ComprehensiveAccountingManager from '@/components/admin/ComprehensiveAccountingManager';
-import EnhancedVehiclePricingManager from '@/components/admin/EnhancedVehiclePricingManager';
+import DriverAccountingManager from '@/components/admin/DriverAccountingManager';
 
 const AdminPage = () => {
   const { user, signOut } = useAuth();
@@ -55,19 +56,24 @@ const AdminPage = () => {
       try {
         setLoading(true);
 
-        // جلب الرحلات
+        // جلب الرحلات مع معلومات العميل والسائق
         const { data: tripsData, error: tripsError } = await supabase
           .from('trips')
           .select(`
             *,
-            customer:profiles!trips_customer_id_fkey(name, phone),
-            driver:profiles!trips_driver_id_fkey(name, phone)
+            customer:profiles!trips_customer_id_fkey(id, name, phone),
+            driver_profile:profiles!trips_driver_id_fkey(id, name, phone)
           `)
           .order('created_at', { ascending: false })
           .limit(50);
 
-        if (tripsError) throw tripsError;
-        setTrips(tripsData || []);
+        if (tripsError) {
+          console.error('Error fetching trips:', tripsError);
+          // Continue with empty array instead of throwing
+          setTrips([]);
+        } else {
+          setTrips(tripsData || []);
+        }
 
         // حساب الإحصائيات
         const totalTrips = tripsData?.length || 0;
@@ -90,8 +96,12 @@ const AdminPage = () => {
           .select('*')
           .eq('role', 'driver');
 
-        if (driversError) throw driversError;
-        setDrivers(driversData || []);
+        if (driversError) {
+          console.error('Error fetching drivers:', driversError);
+          setDrivers([]);
+        } else {
+          setDrivers(driversData || []);
+        }
 
         // جلب الزبائن
         const { data: customersData, error: customersError } = await supabase
@@ -99,14 +109,18 @@ const AdminPage = () => {
           .select('*')
           .eq('role', 'customer');
 
-        if (customersError) throw customersError;
-        setCustomers(customersData || []);
+        if (customersError) {
+          console.error('Error fetching customers:', customersError);
+          setCustomers([]);
+        } else {
+          setCustomers(customersData || []);
+        }
 
       } catch (error: any) {
         console.error('Error fetching admin data:', error);
         toast({
           title: "خطأ في تحميل البيانات",
-          description: error.message,
+          description: "تم تحميل البيانات المتاحة فقط",
           variant: "destructive"
         });
       } finally {
@@ -119,7 +133,7 @@ const AdminPage = () => {
     }
   }, [user, toast]);
 
-  // تحضير البيانات للخريطة - تصحيح تحويل الإحداثيات
+  // تحضير البيانات للخريطة
   const mapMarkers = trips
     .filter(trip => trip.from_coordinates && trip.to_coordinates)
     .map(trip => {
@@ -129,7 +143,8 @@ const AdminPage = () => {
         const toCoords = trip.to_coordinates.replace(/[()]/g, '').split(',').map(Number);
         
         // التأكد من صحة الإحداثيات
-        if (fromCoords.length !== 2 || toCoords.length !== 2) {
+        if (fromCoords.length !== 2 || toCoords.length !== 2 || 
+            isNaN(fromCoords[0]) || isNaN(fromCoords[1])) {
           console.warn('Invalid coordinates for trip:', trip.id);
           return null;
         }
@@ -137,9 +152,16 @@ const AdminPage = () => {
         return {
           id: trip.id,
           position: [fromCoords[0], fromCoords[1]] as [number, number],
-          popup: `${trip.customer?.name || 'غير محدد'} - ${trip.status === 'completed' ? 'مكتملة' : trip.status === 'pending' ? 'قيد الانتظار' : trip.status === 'in_progress' ? 'جارية' : 'ملغية'}`,
+          popup: `${trip.customer?.name || 'غير محدد'} - ${
+            trip.status === 'completed' ? 'مكتملة' : 
+            trip.status === 'pending' ? 'قيد الانتظار' : 
+            trip.status === 'in_progress' ? 'جارية' : 'ملغية'
+          }`,
           icon: {
-            html: `<div class="w-6 h-6 rounded-full ${trip.status === 'completed' ? 'bg-green-500' : trip.status === 'in_progress' ? 'bg-blue-500' : 'bg-yellow-500'} border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>`,
+            html: `<div class="w-6 h-6 rounded-full ${
+              trip.status === 'completed' ? 'bg-green-500' : 
+              trip.status === 'in_progress' ? 'bg-blue-500' : 'bg-yellow-500'
+            } border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>`,
             className: 'custom-marker',
             iconSize: [24, 24] as [number, number],
             iconAnchor: [12, 12] as [number, number]
@@ -187,24 +209,21 @@ const AdminPage = () => {
 
       <div className="container mx-auto p-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 bg-slate-800">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-slate-700">
               لوحة المعلومات
             </TabsTrigger>
+            <TabsTrigger value="driver-accounting" className="data-[state=active]:bg-slate-700">
+              محاسبة السائقين
+            </TabsTrigger>
             <TabsTrigger value="accounting" className="data-[state=active]:bg-slate-700">
               المحاسبة الشاملة
-            </TabsTrigger>
-            <TabsTrigger value="vehicle-pricing" className="data-[state=active]:bg-slate-700">
-              إدارة وسائل النقل
             </TabsTrigger>
             <TabsTrigger value="advanced-pricing" className="data-[state=active]:bg-slate-700">
               التسعير المتقدم
             </TabsTrigger>
             <TabsTrigger value="drivers" className="data-[state=active]:bg-slate-700">
               طلبات السائقين
-            </TabsTrigger>
-            <TabsTrigger value="factors" className="data-[state=active]:bg-slate-700">
-              عوامل التسعير
             </TabsTrigger>
             <TabsTrigger value="map" className="data-[state=active]:bg-slate-700">
               الخريطة التفاعلية
@@ -333,9 +352,9 @@ const AdminPage = () => {
                         <p className="text-slate-400 text-sm font-tajawal">
                           الزبون: {trip.customer?.name || 'غير محدد'}
                         </p>
-                        {trip.driver && (
+                        {trip.driver_profile && (
                           <p className="text-slate-400 text-sm font-tajawal">
-                            السائق: {trip.driver.name}
+                            السائق: {trip.driver_profile.name}
                           </p>
                         )}
                         <p className="text-emerald-400 font-semibold">
@@ -367,12 +386,12 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="accounting">
-            <ComprehensiveAccountingManager />
+          <TabsContent value="driver-accounting">
+            <DriverAccountingManager />
           </TabsContent>
 
-          <TabsContent value="vehicle-pricing">
-            <EnhancedVehiclePricingManager />
+          <TabsContent value="accounting">
+            <ComprehensiveAccountingManager />
           </TabsContent>
 
           <TabsContent value="advanced-pricing">
@@ -381,10 +400,6 @@ const AdminPage = () => {
 
           <TabsContent value="drivers">
             <DriverApplicationsManager />
-          </TabsContent>
-
-          <TabsContent value="factors">
-            <PricingFactorsManager />
           </TabsContent>
 
           <TabsContent value="map">

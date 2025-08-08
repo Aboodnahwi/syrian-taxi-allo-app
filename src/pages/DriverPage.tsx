@@ -1,228 +1,184 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut, Car, Users, MapPin, Clock, Settings, DollarSign, Calculator, BarChart3, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { MapPin, Car, Clock, DollarSign, Star, Navigation, Phone, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
-import LiveFareCounter from '@/components/driver/LiveFareCounter';
-
-interface RideRequest {
-  id: string;
-  created_at: string;
-  from_location: string;
-  to_location: string;
-  customer_id: string;
-  driver_id: string | null;
-  price: number | null;
-  status: 'pending' | 'accepted' | 'started' | 'completed' | 'cancelled';
-  distance_km: number;
-  customer?: {
-    name: string;
-    phone: string;
-  };
-}
+import RideRequestList from '@/components/driver/RideRequestList';
+import ActiveRideCard from '@/components/driver/ActiveRideCard';
+import RideCompletionSummary from '@/components/driver/RideCompletionSummary';
+import DriverHeader from '@/components/driver/DriverHeader';
+import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
+import DriverPageMessages from '@/components/driver/DriverPageMessages';
+import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests';
+import { useRideAcceptance } from '@/hooks/driver/useRideAcceptance';
+import { useActiveRideTracking } from '@/hooks/driver/useActiveRideTracking';
 
 interface Driver {
   id: string;
   user_id: string;
   name: string;
   phone: string;
+  is_online: boolean;
   is_active: boolean;
   is_available: boolean;
-  license_number: string;
+  current_location: [number, number] | null;
+  rating: number;
+  total_trips: number;
+  license_plate: string;
   vehicle_type: string;
+  vehicle_model?: string;
+  vehicle_color?: string;
   vehicle_plate: string;
+  license_number: string;
+  created_at: string;
+  updated_at: string;
+}
+
+type RideStatus = 'pending' | 'accepted' | 'started' | 'completed' | 'cancelled';
+
+interface RideRequest {
+  id: string;
+  customer_id: string;
+  driver_id?: string;
+  from_location: string;
+  to_location: string;
+  from_coordinates: string;
+  to_coordinates: string;
+  vehicle_type: string;
+  price: number;
+  distance_km: number;
+  status: RideStatus;
+  created_at: string;
+  customer?: {
+    name: string;
+    phone: string;
+  };
 }
 
 const DriverPage = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const mapRef = useRef<any>();
 
-  const [driverData, setDriverData] = useState<Driver | null>(null);
-  const [rideRequests, setRideRequests] = useState<RideRequest[]>([]);
-  const [activeRide, setActiveRide] = useState<RideRequest | null>(null);
-  const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
-  const [isOnline, setIsOnline] = useState(false);
+  const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
-  const [trackingStartTime, setTrackingStartTime] = useState<Date>(new Date());
+  const [currentLocation, setCurrentLocation] = useState<[number, number]>([33.5138, 36.2765]);
+  
+  const { 
+    rideRequests, 
+    activeRide, 
+    completedRide 
+  } = useRealTimeRideRequests(driver?.user_id || '');
+  
+  const { acceptRide, rejectRide } = useRideAcceptance(driver?.user_id || '');
+  const { updateRideStatus } = useActiveRideTracking();
 
   useEffect(() => {
     if (!user) {
       navigate('/auth');
       return;
     }
-
-    fetchDriverData();
-    fetchRideRequests();
+    
+    if (user.role !== 'driver') {
+      toast({
+        title: "غير مسموح",
+        description: "ليس لديك صلاحية للوصول لهذه الصفحة",
+        variant: "destructive"
+      });
+      navigate('/');
+      return;
+    }
   }, [user, navigate, toast]);
 
-  const fetchDriverData = async () => {
-    try {
-      setLoading(true);
-
-      const { data: driver, error } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error) throw error;
-
-      setDriverData(driver);
-      setIsOnline(driver?.is_available || false);
-    } catch (error: any) {
-      console.error('Error fetching driver data:', error);
-      toast({
-        title: "خطأ في تحميل بيانات السائق",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRideRequests = async () => {
-    try {
-      setLoading(true);
-
-      const { data: requests, error } = await supabase
-        .from('trips')
-        .select(`
-          *,
-          customer:profiles!trips_customer_id_fkey(name, phone)
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setRideRequests(requests || []);
-    } catch (error: any) {
-      console.error('Error fetching ride requests:', error);
-      toast({
-        title: "خطأ في تحميل طلبات الرحلات",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggleOnlineStatus = async () => {
-    if (!driverData) return;
-
-    try {
-      setLoading(true);
-      const newStatus = !isOnline;
-
-      const { error } = await supabase
-        .from('drivers')
-        .update({ is_available: newStatus })
-        .eq('id', driverData.id);
-
-      if (error) throw error;
-
-      setIsOnline(newStatus);
-      setDriverData({ ...driverData, is_available: newStatus });
-
-      toast({
-        title: "تم تحديث الحالة",
-        description: `تم تغيير حالتك إلى ${newStatus ? 'متاح' : 'غير متاح'}`,
-      });
-    } catch (error: any) {
-      console.error('Error updating online status:', error);
-      toast({
-        title: "خطأ في تحديث الحالة",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAcceptRide = async (rideId: string) => {
-    try {
-      setTrackingStartTime(new Date()); // تسجيل وقت بدء التتبع
+  useEffect(() => {
+    const fetchDriverData = async () => {
+      if (!user?.id) return;
       
-      const { error } = await supabase
-        .from('trips')
-        .update({ 
-          status: 'accepted', 
-          driver_id: driverData?.id,
-          accepted_at: new Date().toISOString()
-        })
-        .eq('id', rideId);
-
-      if (error) throw error;
-
-      setActiveRide(rideRequests.find(r => r.id === rideId) || null);
-      setRideStatus('accepted');
-      
-      toast({
-        title: "تم قبول الطلب",
-        description: "تم قبول طلب الرحلة بنجاح"
-      });
-    } catch (error: any) {
-      console.error('Error accepting ride:', error);
-      toast({
-        title: "خطأ في قبول الطلب",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleUpdateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
-    if (!activeRide) return;
-
-    try {
-      const updateData: any = { status };
-      
-      if (status === 'arrived') {
-        updateData.arrived_at = new Date().toISOString();
-      } else if (status === 'started') {
-        updateData.started_at = new Date().toISOString();
-      } else if (status === 'completed') {
-        updateData.completed_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('trips')
-        .update(updateData)
-        .eq('id', activeRide.id);
-
-      if (error) throw error;
-
-      setRideStatus(status);
-      
-      if (status === 'completed') {
-        setActiveRide(null);
-        setRideStatus(null);
-        // إعادة تعيين السائق كمتاح
-        await supabase
+      try {
+        setLoading(true);
+        
+        const { data: driverData, error } = await supabase
           .from('drivers')
-          .update({ is_online: true })
-          .eq('user_id', user?.id);
-      }
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
 
+        if (error) throw error;
+
+        // Map the database data to our Driver interface
+        const mappedDriver: Driver = {
+          id: driverData.id,
+          user_id: driverData.user_id,
+          name: user.name || 'سائق',
+          phone: user.phone || '',
+          is_online: driverData.is_online || false,
+          is_active: true,
+          is_available: driverData.is_online || false,
+          current_location: driverData.current_location ? 
+            [parseFloat(driverData.current_location.split(',')[0]), parseFloat(driverData.current_location.split(',')[1])] : 
+            null,
+          rating: driverData.rating || 5.0,
+          total_trips: driverData.total_trips || 0,
+          license_plate: driverData.license_plate || '',
+          vehicle_type: driverData.vehicle_type || '',
+          vehicle_model: driverData.vehicle_model || '',
+          vehicle_color: driverData.vehicle_color || '',
+          vehicle_plate: driverData.license_plate || '',
+          license_number: driverData.license_number || '',
+          created_at: driverData.created_at,
+          updated_at: driverData.updated_at
+        };
+
+        setDriver(mappedDriver);
+        
+        if (mappedDriver.current_location) {
+          setCurrentLocation(mappedDriver.current_location);
+        }
+      } catch (error: any) {
+        console.error('خطأ في جلب بيانات السائق:', error);
+        toast({
+          title: "خطأ في جلب البيانات",
+          description: error.message,
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDriverData();
+  }, [user, toast]);
+
+  const toggleOnlineStatus = async (online: boolean) => {
+    if (!driver) return;
+    
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ 
+          is_online: online,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', driver.user_id);
+
+      if (error) throw error;
+
+      setDriver(prev => prev ? { ...prev, is_online: online, is_available: online } : null);
+      
       toast({
-        title: "تم تحديث حالة الرحلة",
-        description: `تم تحديث حالة الرحلة إلى ${
-          status === 'arrived' ? 'وصل السائق' : 
-          status === 'started' ? 'بدأت الرحلة' : 'انتهت الرحلة'
-        }`,
+        title: online ? "أصبحت متاحاً" : "أصبحت غير متاح",
+        description: online ? "يمكن للعملاء الآن رؤيتك وطلب رحلات" : "لن يتمكن العملاء من رؤيتك",
       });
     } catch (error: any) {
-      console.error('Error updating ride status:', error);
+      console.error('خطأ في تحديث الحالة:', error);
       toast({
         title: "خطأ في تحديث الحالة",
         description: error.message,
@@ -231,204 +187,161 @@ const DriverPage = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
+  const updateLocation = async (newLocation: [number, number]) => {
+    if (!driver) return;
+    
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ 
+          current_location: `(${newLocation[0]},${newLocation[1]})`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', driver.user_id);
+
+      if (error) throw error;
+      
+      setCurrentLocation(newLocation);
+      setDriver(prev => prev ? { ...prev, current_location: newLocation } : null);
+    } catch (error: any) {
+      console.error('خطأ في تحديث الموقع:', error);
+    }
   };
 
-  if (!user || !driverData) {
+  if (!user || user.role !== 'driver') {
+    return null;
+  }
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">جاري التحقق من بيانات السائق...</p>
+          <p className="font-cairo">جاري التحقق من بيانات السائق...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white shadow-md p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Avatar>
-              <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback>CN</AvatarFallback>
-            </Avatar>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800 font-cairo">
-                مرحباً {driverData.name}
-              </h1>
-              <p className="text-gray-500 text-sm font-tajawal">
-                {driverData.vehicle_type} - {driverData.vehicle_plate}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Badge
-              variant={isOnline ? "outline" : "secondary"}
-              className={`font-cairo text-sm cursor-pointer ${isOnline ? 'text-green-600 border-green-600' : 'text-gray-500'
-                }`}
-              onClick={handleToggleOnlineStatus}
-            >
-              {isOnline ? 'أنت متصل الآن' : 'غير متصل'}
-            </Badge>
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              className="border-gray-400 text-gray-700 hover:bg-gray-100 font-cairo"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              تسجيل الخروج
+  if (!driver) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <Card className="bg-slate-800 border-slate-700 max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <Car className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-4 font-cairo">مرحباً بك كسائق!</h2>
+            <p className="text-slate-300 mb-6 font-tajawal">يبدو أنك لم تكمل ملفك الشخصي كسائق بعد.</p>
+            <Button onClick={() => navigate('/auth')} className="w-full">
+              العودة لإكمال التسجيل
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-white relative">
+      <DriverHeader driver={driver} onToggleOnline={toggleOnlineStatus} />
+      
+      <div className="container mx-auto p-4 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-lg font-cairo text-white flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-400" />
+                  خريطة الرحلات
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-[500px]">
+                  <Map
+                    ref={mapRef}
+                    center={currentLocation}
+                    zoom={13}
+                    markers={[
+                      {
+                        id: 'driver',
+                        position: currentLocation,
+                        popup: 'موقعك الحالي',
+                        icon: {
+                          html: '<div class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">🚗</div>',
+                          className: 'driver-marker',
+                          iconSize: [24, 24] as [number, number],
+                          iconAnchor: [12, 12] as [number, number]
+                        }
+                      }
+                    ]}
+                    onLocationSelect={updateLocation}
+                    className="w-full h-full rounded-lg"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {activeRide && (
+              <ActiveRideCard 
+                ride={activeRide}
+                driverLocation={currentLocation}
+                onUpdateStatus={updateRideStatus}
+              />
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <DriverStatusBadge 
+              isOnline={driver.is_online}
+              rating={driver.rating}
+              totalTrips={driver.total_trips}
+            />
+
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-lg font-cairo text-white">معلومات المركبة</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">نوع المركبة:</span>
+                  <span className="text-white font-medium">{driver.vehicle_type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">رقم اللوحة:</span>
+                  <span className="text-white font-medium">{driver.license_plate}</span>
+                </div>
+                {driver.vehicle_model && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">الموديل:</span>
+                    <span className="text-white font-medium">{driver.vehicle_model}</span>
+                  </div>
+                )}
+                {driver.vehicle_color && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">اللون:</span>
+                    <span className="text-white font-medium">{driver.vehicle_color}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <DriverPageMessages userId={driver.user_id} />
           </div>
         </div>
+
+        {completedRide && (
+          <RideCompletionSummary 
+            ride={completedRide}
+            onClose={() => window.location.reload()}
+          />
+        )}
       </div>
 
-      {/* Live Fare Counter for accepted/started rides */}
-      {(rideStatus === 'accepted' || rideStatus === 'arrived') && activeRide && (
-        <LiveFareCounter
-          currentFare={activeRide.price || 0}
-          startTime={trackingStartTime}
-          distance={activeRide.distance_km || 0}
-          duration={0}
-          speed={0}
-          customerName={activeRide.customer?.name}
-          isActive={true}
-          activeRide={activeRide}
-          rideStatus={rideStatus}
-          onUpdateRideStatus={handleUpdateRideStatus}
+      {rideRequests.length > 0 && (
+        <RideRequestList
+          rideRequests={rideRequests}
+          acceptRide={acceptRide}
+          rejectRide={rejectRide}
         />
-      )}
-
-      {(rideStatus === 'started') && activeRide && (
-        <LiveFareCounter
-          currentFare={activeRide.price || 0}
-          startTime={trackingStartTime}
-          distance={activeRide.distance_km || 0}
-          duration={0}
-          speed={0}
-          customerName={activeRide.customer?.name}
-          isActive={true}
-          activeRide={activeRide}
-          rideStatus={rideStatus}
-          onUpdateRideStatus={handleUpdateRideStatus}
-        />
-      )}
-
-      {/* Main Content - only show when not in active ride mode */}
-      {(!rideStatus || rideStatus === 'completed') && (
-        <div className="container mx-auto p-6 space-y-8">
-          {/* Ride Request Section */}
-          <Card className="shadow-md">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-lg font-cairo">
-                طلبات الرحلات المتاحة
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {rideRequests.length === 0 ? (
-                <div className="text-center py-6">
-                  <AlertTriangle className="w-6 h-6 mx-auto text-yellow-500 mb-2" />
-                  <p className="text-gray-600 font-cairo">
-                    لا توجد طلبات رحلات متاحة حالياً.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {rideRequests.map((request) => (
-                    <div
-                      key={request.id}
-                      className="bg-white rounded-lg shadow-sm p-4 border"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold text-gray-800 font-tajawal">
-                            {request.from_location} - {request.to_location}
-                          </p>
-                          <p className="text-gray-500 text-sm font-tajawal">
-                            الزبون: {request.customer?.name || 'غير محدد'}
-                          </p>
-                          <p className="text-emerald-500 font-bold">
-                            {request.price?.toLocaleString() || 'غير محدد'} ل.س
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-cairo"
-                            onClick={() => handleAcceptRide(request.id)}
-                          >
-                            قبول الطلب
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-gray-400 text-xs mt-2 font-tajawal">
-                        {new Date(request.created_at).toLocaleDateString('ar-SA')}{' '}
-                        -{' '}
-                        {new Date(request.created_at).toLocaleTimeString('ar-SA')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Driver Info Section */}
-          <Card className="shadow-md">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-lg font-cairo">
-                معلومات السائق
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-cairo">
-                    الاسم:
-                  </span>
-                  <span className="text-gray-800 font-tajawal">
-                    {driverData.name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-cairo">
-                    رقم الهاتف:
-                  </span>
-                  <span className="text-gray-800 font-tajawal">
-                    {driverData.phone}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-cairo">
-                    نوع المركبة:
-                  </span>
-                  <span className="text-gray-800 font-tajawal">
-                    {driverData.vehicle_type}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-cairo">
-                    رقم اللوحة:
-                  </span>
-                  <span className="text-gray-800 font-tajawal">
-                    {driverData.vehicle_plate}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700 font-cairo">
-                    الحالة:
-                  </span>
-                  <span className={`font-tajawal ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
-                    {isOnline ? 'متاح' : 'غير متاح'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       )}
     </div>
   );
