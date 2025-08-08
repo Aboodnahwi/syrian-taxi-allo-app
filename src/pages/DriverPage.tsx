@@ -271,8 +271,8 @@ const DriverPage = () => {
     }
   };
 
-  const acceptRide = async (ride: RideRequest) => {
-    if (!driverData) return;
+  const acceptRide = async (ride: RideRequest): Promise<{ success: boolean; }> => {
+    if (!driverData) return { success: false };
 
     try {
       setRequestsLoading(true);
@@ -296,6 +296,8 @@ const DriverPage = () => {
         description: `You have accepted ride to ${ride.to_location}`,
         variant: "default"
       });
+
+      return { success: true };
     } catch (error) {
       console.error('Error accepting ride:', error);
       toast({
@@ -303,12 +305,13 @@ const DriverPage = () => {
         description: "Failed to accept ride",
         variant: "destructive"
       });
+      return { success: false };
     } finally {
       setRequestsLoading(false);
     }
   };
 
-  const rejectRide = async (requestId: string) => {
+  const rejectRide = async (requestId: string): Promise<void> => {
     setRideRequests((prevRequests) => prevRequests.filter((req) => req.id !== requestId));
   };
 
@@ -399,11 +402,10 @@ const DriverPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <DriverHeader 
-        name={driverProfile?.name || 'السائق'}
+        user={driverProfile || { name: 'السائق' }}
         isOnline={driverData?.is_online || false}
-        onToggleOnline={toggleOnlineStatus}
-        totalEarnings={driverStats.totalEarnings}
-        todayTrips={driverStats.todayTrips}
+        toggleOnlineStatus={toggleOnlineStatus}
+        logout={signOut}
       />
 
       <div className="container mx-auto px-4 py-8">
@@ -412,21 +414,19 @@ const DriverPage = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* RealTimeTracker يتضمن خريطة تفاعلية */}
             <RealTimeTracker 
-              userId={driverData?.id || ''}
-              isOnline={driverData?.is_online || false}
-              activeRide={activeRide}
-              onLocationUpdate={handleLocationUpdate}
+              distance={activeRide?.distance_km || 0}
+              duration={0}
+              fare={activeRide?.price || 0}
+              speed={0}
+              isTracking={!!activeRide}
             />
 
             {/* معلومات الرحلة النشطة أو إحصائيات السائق */}
             {activeRide ? (
               <ActiveRideCard
-                rideData={activeRide}
-                onUpdateStatus={updateRideStatus}
-                currentLocation={currentLocation}
-                onNavigate={() => {/* منطق التنقل */}}
-                onContact={() => {/* منطق الاتصال */}}
-                onMessage={() => {/* منطق المراسلة */}}
+                activeRide={activeRide}
+                rideStatus={activeRide?.status || null}
+                updateRideStatus={updateRideStatus}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
