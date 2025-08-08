@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
-import { useUser } from '@/hooks/useUser';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,7 +48,7 @@ interface Trip {
 }
 
 const DriverPage = () => {
-  const { user, session, isLoading: isUserLoading } = useUser();
+  const { user, logout } = useAuth();
   const { trips, loading } = useRealTimeTrips('driver', user?.id);
   const [isOnline, setIsOnline] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
@@ -58,7 +59,7 @@ const DriverPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user || !session) return;
+    if (!user) return;
 
     const fetchDriverData = async () => {
       try {
@@ -80,7 +81,7 @@ const DriverPage = () => {
     };
 
     fetchDriverData();
-  }, [user, session]);
+  }, [user]);
 
   useEffect(() => {
     if (!trips) return;
@@ -158,8 +159,8 @@ const DriverPage = () => {
     }
   };
 
-  const acceptRide = async (tripId: string) => {
-    if (!user) return;
+  const acceptRide = async (request: any) => {
+    if (!user) return { success: false };
 
     try {
       const { error } = await supabase
@@ -169,7 +170,7 @@ const DriverPage = () => {
           driver_id: user.id,
           accepted_at: new Date().toISOString()
         })
-        .eq('id', tripId);
+        .eq('id', request.id);
 
       if (error) {
         throw error;
@@ -178,13 +179,40 @@ const DriverPage = () => {
       toast({
         title: "تم قبول الرحلة",
         description: "الرحلة في انتظارك",
-        
       });
+
+      return { success: true };
     } catch (error) {
       console.error('Error accepting ride:', error);
       toast({
         title: "فشل قبول الرحلة",
         description: "حدث خطأ أثناء قبول الرحلة",
+        variant: "destructive"
+      });
+      return { success: false };
+    }
+  };
+
+  const rejectRide = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .update({ status: 'cancelled' })
+        .eq('id', requestId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "تم رفض الرحلة",
+        description: "تم رفض الرحلة بنجاح",
+      });
+    } catch (error) {
+      console.error('Error rejecting ride:', error);
+      toast({
+        title: "فشل رفض الرحلة",
+        description: "حدث خطأ أثناء رفض الرحلة",
         variant: "destructive"
       });
     }
@@ -220,7 +248,6 @@ const DriverPage = () => {
       toast({
         title: "تم تحديث حالة الرحلة",
         description: `تم تحديث حالة الرحلة إلى ${status}`,
-        
       });
     } catch (error) {
       console.error('Error updating ride status:', error);
@@ -241,28 +268,27 @@ const DriverPage = () => {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <DriverHeader
+          user={user}
           isOnline={isOnline}
-          onToggleOnline={toggleOnlineStatus}
-          totalEarnings={totalEarnings}
-          todayTrips={todayTrips}
+          toggleOnlineStatus={toggleOnlineStatus}
+          logout={logout}
         />
 
         {/* Real-time Tracker */}
         <RealTimeTracker
-          isOnline={isOnline}
-          activeRide={activeRide}
-          onLocationUpdate={handleLocationUpdate}
+          distance={activeRide?.distance_km || 0}
+          duration={activeRide ? Math.floor((Date.now() - new Date(activeRide.started_at || activeRide.accepted_at || Date.now()).getTime()) / 1000) : 0}
+          fare={activeRide?.price || 0}
+          speed={0}
+          isTracking={!!activeRide && activeRide.status === 'started'}
         />
 
         {/* Active Ride Display */}
         {activeRide && (
           <ActiveRideCard
             activeRide={activeRide}
-            onUpdateStatus={handleUpdateRideStatus}
-            currentLocation={currentLocation}
-            onNavigate={() => {}}
-            onContact={() => {}}
-            onMessage={() => {}}
+            rideStatus={activeRide.status as 'accepted' | 'arrived' | 'started' | 'completed'}
+            updateRideStatus={handleUpdateRideStatus}
           />
         )}
 
@@ -328,7 +354,7 @@ const DriverPage = () => {
                   </div>
                   <div className="bg-purple-50 p-3 rounded-lg">
                     <p className="text-lg font-bold text-purple-600">
-                      {Math.floor((Date.now() - new Date(activeRide.started_at || activeRide.accepted_at).getTime()) / 60000)} د
+                      {Math.floor((Date.now() - new Date(activeRide.started_at || activeRide.accepted_at || Date.now()).getTime()) / 60000)} د
                     </p>
                     <p className="text-xs text-gray-600">المدة</p>
                   </div>
@@ -355,14 +381,19 @@ const DriverPage = () => {
             
             <RideRequestList
               rideRequests={rideRequests}
-              onAcceptRide={acceptRide}
-              loading={loading}
+              acceptRide={acceptRide}
+              rejectRide={rejectRide}
             />
           </div>
         )}
 
         {/* Messages and Notifications */}
-        <DriverPageMessages />
+        <DriverPageMessages
+          activeRide={activeRide}
+          isOnline={isOnline}
+          rideRequestsCount={rideRequests.length}
+          toggleOnlineStatus={toggleOnlineStatus}
+        />
 
         {/* Offline Message */}
         {!isOnline && !activeRide && (
