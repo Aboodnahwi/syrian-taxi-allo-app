@@ -46,8 +46,8 @@ interface RideRequest {
   driver_id?: string;
   from_location: string;
   to_location: string;
-  from_coordinates: string;
-  to_coordinates: string;
+  from_coordinates: [number, number];
+  to_coordinates: [number, number];
   vehicle_type: string;
   price: number;
   distance_km: number;
@@ -114,10 +114,11 @@ const DriverPage = () => {
         if (driverData.current_location) {
           try {
             const locationStr = String(driverData.current_location);
-            const coordinates = locationStr.replace(/[()]/g, '').split(',');
+            const cleanLocationStr = locationStr.replace(/[()]/g, '');
+            const coordinates = cleanLocationStr.split(',');
             if (coordinates.length === 2) {
-              const lat = parseFloat(coordinates[0]);
-              const lng = parseFloat(coordinates[1]);
+              const lat = parseFloat(coordinates[0].trim());
+              const lng = parseFloat(coordinates[1].trim());
               if (!isNaN(lat) && !isNaN(lng)) {
                 parsedLocation = [lat, lng];
               }
@@ -262,21 +263,20 @@ const DriverPage = () => {
     }
   };
 
-  const handleAcceptRide = async (request: RideRequest) => {
-    if (!driver) return;
+  const handleAcceptRide = async (request: RideRequest): Promise<{ success: boolean }> => {
+    if (!driver) return { success: false };
 
     const result = await acceptRide(request, driver.id, driver.name);
     if (result.success && result.trip) {
       setActiveRide(result.trip);
       setRideStatus('accepted');
+      return { success: true };
     }
+    return { success: false };
   };
 
-  const handleRejectRide = async (requestId: string) => {
-    const result = await rejectRide(requestId);
-    if (result.success) {
-      // Handle successful rejection
-    }
+  const handleRejectRide = async (requestId: string): Promise<void> => {
+    await rejectRide(requestId);
   };
 
   if (!user || user.role !== 'driver') {
@@ -408,7 +408,7 @@ const DriverPage = () => {
 
         {completedRide && (
           <RideCompletionSummary 
-            ride={completedRide}
+            completedRide={completedRide}
             onClose={() => window.location.reload()}
           />
         )}
@@ -417,8 +417,8 @@ const DriverPage = () => {
       {rideRequests.length > 0 && (
         <RideRequestList
           rideRequests={rideRequests}
-          acceptRide={(request) => handleAcceptRide(request)}
-          rejectRide={(requestId) => handleRejectRide(requestId)}
+          acceptRide={handleAcceptRide}
+          rejectRide={handleRejectRide}
         />
       )}
     </div>

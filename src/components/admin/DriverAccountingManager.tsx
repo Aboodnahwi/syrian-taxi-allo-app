@@ -130,7 +130,7 @@ const DriverAccountingManager = () => {
               net_balance: netEarning,
               total_trips: 1,
               last_trip_date: trip.completed_at,
-              account_status: 'active' as const
+              account_status: 'active'
             });
           }
         }
@@ -149,7 +149,7 @@ const DriverAccountingManager = () => {
             net_balance: 0,
             total_trips: 0,
             last_trip_date: '',
-            account_status: (driverProfile?.is_active ? 'active' : 'suspended') as const
+            account_status: (driverProfile?.is_active ? 'active' : 'suspended')
           });
         }
       });
