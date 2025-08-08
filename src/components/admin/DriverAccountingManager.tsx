@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -15,13 +15,8 @@ import {
   TrendingDown, 
   Users, 
   DollarSign,
-  Eye,
   CreditCard,
-  Calculator,
-  Search,
-  Filter,
-  Download,
-  Plus
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,36 +68,46 @@ const DriverAccountingManager = () => {
     try {
       setLoading(true);
       
-      // جلب الرحلات المكتملة للسائقين
+      // جلب الرحلات المكتملة للسائقين مع معلومات الزبائن
       const { data: completedTrips, error: tripsError } = await supabase
         .from('trips')
         .select(`
           *,
-          driver_profile:profiles!trips_driver_id_fkey(id, name, phone)
+          customer_profile:profiles!trips_customer_id_fkey(name, phone)
         `)
         .eq('status', 'completed')
         .not('driver_id', 'is', null);
 
       if (tripsError) throw tripsError;
 
-      // جلب معلومات السائقين
+      // جلب معلومات السائقين مع ملفاتهم الشخصية
       const { data: drivers, error: driversError } = await supabase
-        .from('profiles')
-        .select('id, name, phone, is_active')
-        .eq('role', 'driver');
+        .from('drivers')
+        .select(`
+          *,
+          profile:profiles!drivers_user_id_fkey(name, phone, is_active)
+        `);
 
       if (driversError) throw driversError;
+
+      console.log('Drivers data:', drivers);
+      console.log('Completed trips:', completedTrips);
 
       // حساب أرصدة السائقين
       const driverAccountsMap = new Map();
 
       // تجميع الرحلات حسب السائق
-      completedTrips?.forEach(trip => {
-        if (trip.driver_id && trip.driver_profile) {
+      completedTrips?.forEach((trip: any) => {
+        if (trip.driver_id) {
           const driverId = trip.driver_id;
           const tripEarning = trip.price || 0;
           const commission = tripEarning * COMMISSION_RATE;
           const netEarning = tripEarning - commission;
+
+          // العثور على معلومات السائق
+          const driverInfo = drivers?.find(d => d.id === driverId);
+          const driverName = driverInfo?.profile?.name || 'سائق غير معروف';
+          const driverPhone = driverInfo?.profile?.phone || '';
 
           if (driverAccountsMap.has(driverId)) {
             const account = driverAccountsMap.get(driverId);
@@ -116,8 +121,8 @@ const DriverAccountingManager = () => {
           } else {
             driverAccountsMap.set(driverId, {
               driver_id: driverId,
-              driver_name: trip.driver_profile.name,
-              driver_phone: trip.driver_profile.phone,
+              driver_name: driverName,
+              driver_phone: driverPhone,
               total_earnings: tripEarning,
               commission_deducted: commission,
               net_balance: netEarning,
@@ -130,18 +135,18 @@ const DriverAccountingManager = () => {
       });
 
       // إضافة السائقين الذين لم يقوموا برحلات بعد
-      drivers?.forEach(driver => {
+      drivers?.forEach((driver: any) => {
         if (!driverAccountsMap.has(driver.id)) {
           driverAccountsMap.set(driver.id, {
             driver_id: driver.id,
-            driver_name: driver.name,
-            driver_phone: driver.phone,
+            driver_name: driver.profile?.name || 'سائق',
+            driver_phone: driver.profile?.phone || '',
             total_earnings: 0,
             commission_deducted: 0,
             net_balance: 0,
             total_trips: 0,
             last_trip_date: '',
-            account_status: driver.is_active ? 'active' as const : 'suspended' as const
+            account_status: (driver.profile?.is_active ? 'active' : 'suspended') as const
           });
         }
       });
@@ -166,7 +171,7 @@ const DriverAccountingManager = () => {
         .from('trips')
         .select(`
           *,
-          driver_profile:profiles!trips_driver_id_fkey(name)
+          customer_profile:profiles!trips_customer_id_fkey(name)
         `)
         .eq('status', 'completed')
         .not('driver_id', 'is', null)
@@ -174,18 +179,30 @@ const DriverAccountingManager = () => {
 
       if (error) throw error;
 
+      // جلب معلومات السائقين
+      const { data: drivers } = await supabase
+        .from('drivers')
+        .select(`
+          id,
+          profile:profiles!drivers_user_id_fkey(name)
+        `);
+
       const transactionsList: DriverTransaction[] = [];
 
-      trips?.forEach(trip => {
-        if (trip.driver_id && trip.driver_profile) {
+      trips?.forEach((trip: any) => {
+        if (trip.driver_id) {
           const tripEarning = trip.price || 0;
           const commission = tripEarning * COMMISSION_RATE;
+          
+          // العثور على اسم السائق
+          const driverInfo = drivers?.find(d => d.id === trip.driver_id);
+          const driverName = driverInfo?.profile?.name || 'سائق غير معروف';
 
           // معاملة الأرباح
           transactionsList.push({
             id: `earning-${trip.id}`,
             driver_id: trip.driver_id,
-            driver_name: trip.driver_profile.name,
+            driver_name: driverName,
             trip_id: trip.id,
             amount: tripEarning,
             type: 'earning',
@@ -198,7 +215,7 @@ const DriverAccountingManager = () => {
           transactionsList.push({
             id: `commission-${trip.id}`,
             driver_id: trip.driver_id,
-            driver_name: trip.driver_profile.name,
+            driver_name: driverName,
             trip_id: trip.id,
             amount: commission,
             type: 'commission',

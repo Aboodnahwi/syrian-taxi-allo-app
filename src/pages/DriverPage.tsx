@@ -4,9 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { MapPin, Car, Clock, DollarSign, Star, Navigation, Phone, MessageSquare } from 'lucide-react';
+import { MapPin, Car } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import Map from '@/components/map/Map';
@@ -18,7 +16,6 @@ import DriverStatusBadge from '@/components/driver/DriverStatusBadge';
 import DriverPageMessages from '@/components/driver/DriverPageMessages';
 import { useRealTimeRideRequests } from '@/hooks/driver/useRealTimeRideRequests';
 import { useRideAcceptance } from '@/hooks/driver/useRideAcceptance';
-import { useActiveRideTracking } from '@/hooks/driver/useActiveRideTracking';
 
 interface Driver {
   id: string;
@@ -71,15 +68,12 @@ const DriverPage = () => {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<[number, number]>([33.5138, 36.2765]);
+  const [activeRide, setActiveRide] = useState<any>(null);
+  const [completedRide, setCompletedRide] = useState<any>(null);
+  const [rideStatus, setRideStatus] = useState<'accepted' | 'arrived' | 'started' | 'completed' | null>(null);
   
-  const { 
-    rideRequests, 
-    activeRide, 
-    completedRide 
-  } = useRealTimeRideRequests(driver?.user_id || '');
-  
-  const { acceptRide, rejectRide } = useRideAcceptance(driver?.user_id || '');
-  const { updateRideStatus } = useActiveRideTracking();
+  const { rideRequests } = useRealTimeRideRequests(currentLocation);
+  const { acceptRide, rejectRide } = useRideAcceptance();
 
   useEffect(() => {
     if (!user) {
@@ -113,6 +107,24 @@ const DriverPage = () => {
 
         if (error) throw error;
 
+        // Parse location coordinates safely
+        let parsedLocation: [number, number] | null = null;
+        if (driverData.current_location) {
+          try {
+            const locationStr = String(driverData.current_location);
+            const match = locationStr.match(/\(([^,]+),([^)]+)\)/);
+            if (match) {
+              const lat = parseFloat(match[1]);
+              const lng = parseFloat(match[2]);
+              if (!isNaN(lat) && !isNaN(lng)) {
+                parsedLocation = [lat, lng];
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing location:', e);
+          }
+        }
+
         // Map the database data to our Driver interface
         const mappedDriver: Driver = {
           id: driverData.id,
@@ -122,9 +134,7 @@ const DriverPage = () => {
           is_online: driverData.is_online || false,
           is_active: true,
           is_available: driverData.is_online || false,
-          current_location: driverData.current_location ? 
-            [parseFloat(driverData.current_location.split(',')[0]), parseFloat(driverData.current_location.split(',')[1])] : 
-            null,
+          current_location: parsedLocation,
           rating: driverData.rating || 5.0,
           total_trips: driverData.total_trips || 0,
           license_plate: driverData.license_plate || '',
@@ -139,8 +149,8 @@ const DriverPage = () => {
 
         setDriver(mappedDriver);
         
-        if (mappedDriver.current_location) {
-          setCurrentLocation(mappedDriver.current_location);
+        if (parsedLocation) {
+          setCurrentLocation(parsedLocation);
         }
       } catch (error: any) {
         console.error('خطأ في جلب بيانات السائق:', error);
@@ -187,25 +197,81 @@ const DriverPage = () => {
     }
   };
 
-  const updateLocation = async (newLocation: [number, number]) => {
+  const updateLocation = async (lat: number, lng: number, address: string) => {
     if (!driver) return;
     
     try {
       const { error } = await supabase
         .from('drivers')
         .update({ 
-          current_location: `(${newLocation[0]},${newLocation[1]})`,
+          current_location: `(${lat},${lng})`,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', driver.user_id);
 
       if (error) throw error;
       
-      setCurrentLocation(newLocation);
-      setDriver(prev => prev ? { ...prev, current_location: newLocation } : null);
+      setCurrentLocation([lat, lng]);
+      setDriver(prev => prev ? { ...prev, current_location: [lat, lng] } : null);
     } catch (error: any) {
       console.error('خطأ في تحديث الموقع:', error);
     }
+  };
+
+  const updateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
+    if (!activeRide) return;
+
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .update({
+          status: status,
+          ...(status === 'started' && { started_at: new Date().toISOString() }),
+          ...(status === 'completed' && { 
+            completed_at: new Date().toISOString(),
+            status: 'completed'
+          })
+        })
+        .eq('id', activeRide.id);
+
+      if (error) throw error;
+
+      setRideStatus(status);
+
+      if (status === 'completed') {
+        setCompletedRide(activeRide);
+        setActiveRide(null);
+        setRideStatus(null);
+      }
+
+      toast({
+        title: "تم تحديث حالة الرحلة",
+        description: status === 'arrived' ? 'تم تأكيد الوصول للزبون' : 
+                    status === 'started' ? 'تم بدء الرحلة' : 
+                    'تم إنهاء الرحلة بنجاح'
+      });
+    } catch (error: any) {
+      console.error('خطأ في تحديث حالة الرحلة:', error);
+      toast({
+        title: "خطأ في تحديث الحالة",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAcceptRide = async (request: RideRequest) => {
+    if (!driver) return;
+
+    const result = await acceptRide(request, driver.id, driver.name);
+    if (result.success && result.trip) {
+      setActiveRide(result.trip);
+      setRideStatus('accepted');
+    }
+  };
+
+  const handleRejectRide = async (requestId: string) => {
+    await rejectRide(requestId);
   };
 
   if (!user || user.role !== 'driver') {
@@ -242,9 +308,14 @@ const DriverPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white relative">
-      <DriverHeader driver={driver} onToggleOnline={toggleOnlineStatus} />
+      <DriverHeader 
+        user={user}
+        isOnline={driver.is_online}
+        toggleOnlineStatus={() => toggleOnlineStatus(!driver.is_online)}
+        logout={() => navigate('/auth')}
+      />
       
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="container mx-auto p-4 space-y-6 pt-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className="bg-slate-800 border-slate-700">
@@ -282,9 +353,9 @@ const DriverPage = () => {
 
             {activeRide && (
               <ActiveRideCard 
-                ride={activeRide}
-                driverLocation={currentLocation}
-                onUpdateStatus={updateRideStatus}
+                activeRide={activeRide}
+                rideStatus={rideStatus}
+                updateRideStatus={updateRideStatus}
               />
             )}
           </div>
@@ -292,8 +363,7 @@ const DriverPage = () => {
           <div className="space-y-6">
             <DriverStatusBadge 
               isOnline={driver.is_online}
-              rating={driver.rating}
-              totalTrips={driver.total_trips}
+              driver={driver}
             />
 
             <Card className="bg-slate-800 border-slate-700">
@@ -324,7 +394,7 @@ const DriverPage = () => {
               </CardContent>
             </Card>
 
-            <DriverPageMessages userId={driver.user_id} />
+            <DriverPageMessages driverId={driver.user_id} />
           </div>
         </div>
 
@@ -339,8 +409,8 @@ const DriverPage = () => {
       {rideRequests.length > 0 && (
         <RideRequestList
           rideRequests={rideRequests}
-          acceptRide={acceptRide}
-          rejectRide={rejectRide}
+          acceptRide={handleAcceptRide}
+          rejectRide={handleRejectRide}
         />
       )}
     </div>
