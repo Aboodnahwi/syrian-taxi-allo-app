@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useRealTimeTrips } from '@/hooks/useRealTime';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,7 +47,7 @@ interface Trip {
 }
 
 const DriverPage = () => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { trips, loading } = useRealTimeTrips('driver', user?.id);
   const [isOnline, setIsOnline] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
@@ -271,7 +270,7 @@ const DriverPage = () => {
           user={user}
           isOnline={isOnline}
           toggleOnlineStatus={toggleOnlineStatus}
-          logout={logout}
+          logout={signOut}
         />
 
         {/* Real-time Tracker */}
