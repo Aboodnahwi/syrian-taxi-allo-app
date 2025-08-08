@@ -53,6 +53,8 @@ interface RideRequest {
   distance_km: number;
   status: RideStatus;
   created_at: string;
+  customer_name: string;
+  customer_phone: string;
   customer?: {
     name: string;
     phone: string;
@@ -112,10 +114,10 @@ const DriverPage = () => {
         if (driverData.current_location) {
           try {
             const locationStr = String(driverData.current_location);
-            const match = locationStr.match(/\(([^,]+),([^)]+)\)/);
-            if (match) {
-              const lat = parseFloat(match[1]);
-              const lng = parseFloat(match[2]);
+            const coordinates = locationStr.replace(/[()]/g, '').split(',');
+            if (coordinates.length === 2) {
+              const lat = parseFloat(coordinates[0]);
+              const lng = parseFloat(coordinates[1]);
               if (!isNaN(lat) && !isNaN(lng)) {
                 parsedLocation = [lat, lng];
               }
@@ -271,7 +273,10 @@ const DriverPage = () => {
   };
 
   const handleRejectRide = async (requestId: string) => {
-    await rejectRide(requestId);
+    const result = await rejectRide(requestId);
+    if (result.success) {
+      // Handle successful rejection
+    }
   };
 
   if (!user || user.role !== 'driver') {
@@ -328,7 +333,6 @@ const DriverPage = () => {
               <CardContent className="p-0">
                 <div className="h-[500px]">
                   <Map
-                    ref={mapRef}
                     center={currentLocation}
                     zoom={13}
                     markers={[
@@ -363,7 +367,6 @@ const DriverPage = () => {
           <div className="space-y-6">
             <DriverStatusBadge 
               isOnline={driver.is_online}
-              driver={driver}
             />
 
             <Card className="bg-slate-800 border-slate-700">
@@ -394,7 +397,12 @@ const DriverPage = () => {
               </CardContent>
             </Card>
 
-            <DriverPageMessages driverId={driver.user_id} />
+            <DriverPageMessages 
+              activeRide={activeRide}
+              isOnline={driver.is_online}
+              rideRequestsCount={rideRequests.length}
+              toggleOnlineStatus={() => toggleOnlineStatus(!driver.is_online)}
+            />
           </div>
         </div>
 
@@ -409,8 +417,8 @@ const DriverPage = () => {
       {rideRequests.length > 0 && (
         <RideRequestList
           rideRequests={rideRequests}
-          acceptRide={handleAcceptRide}
-          rejectRide={handleRejectRide}
+          acceptRide={(request) => handleAcceptRide(request)}
+          rejectRide={(requestId) => handleRejectRide(requestId)}
         />
       )}
     </div>
