@@ -4,7 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Car, Snowflake, Bus, Crown, Users, Bike } from 'lucide-react';
-import { useVehiclePricing } from '@/hooks/useVehiclePricing';
 
 interface VehiclePricingProps {
   distance: number;
@@ -13,16 +12,73 @@ interface VehiclePricingProps {
 }
 
 const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehiclePricingProps) => {
-  const { pricing, loading, calculatePrice, getVehicleDisplayName, getVehicleIcon } = useVehiclePricing();
+  // معلومات وسائل النقل مع التسعير
+  const vehicleTypes = [
+    {
+      type: 'regular',
+      name: 'سيارة عادية',
+      icon: Car,
+      basePrice: 1000,
+      pricePerKm: 100,
+      minFare: 500,
+      color: 'bg-blue-500',
+      description: 'سيارة عادية مريحة'
+    },
+    {
+      type: 'ac',
+      name: 'سيارة مكيفة',
+      icon: Snowflake,
+      basePrice: 1500,
+      pricePerKm: 150,
+      minFare: 750,
+      color: 'bg-cyan-500',
+      description: 'سيارة مكيفة للراحة'
+    },
+    {
+      type: 'public',
+      name: 'نقل عام',
+      icon: Bus,
+      basePrice: 500,
+      pricePerKm: 75,
+      minFare: 300,
+      color: 'bg-green-500',
+      description: 'وسيلة اقتصادية'
+    },
+    {
+      type: 'vip',
+      name: 'سيارة VIP',
+      icon: Crown,
+      basePrice: 3000,
+      pricePerKm: 300,
+      minFare: 1500,
+      color: 'bg-purple-500',
+      description: 'خدمة فاخرة'
+    },
+    {
+      type: 'microbus',
+      name: 'ميكروباص',
+      icon: Users,
+      basePrice: 800,
+      pricePerKm: 120,
+      minFare: 600,
+      color: 'bg-orange-500',
+      description: 'للمجموعات الكبيرة'
+    },
+    {
+      type: 'bike',
+      name: 'دراجة نارية',
+      icon: Bike,
+      basePrice: 700,
+      pricePerKm: 80,
+      minFare: 400,
+      color: 'bg-red-500',
+      description: 'سريع واقتصادي'
+    }
+  ];
 
-  // معلومات الأيقونات والألوان لكل نوع مركبة
-  const vehicleIcons = {
-    regular: { icon: Car, color: 'bg-blue-500' },
-    ac: { icon: Snowflake, color: 'bg-cyan-500' },
-    public: { icon: Bus, color: 'bg-green-500' },
-    vip: { icon: Crown, color: 'bg-purple-500' },
-    microbus: { icon: Users, color: 'bg-orange-500' },
-    bike: { icon: Bike, color: 'bg-red-500' }
+  const calculatePrice = (vehicle: any) => {
+    const totalPrice = vehicle.basePrice + (distance * vehicle.pricePerKm);
+    return Math.max(totalPrice, vehicle.minFare);
   };
 
   const getEstimatedTime = (vehicleType: string) => {
@@ -38,29 +94,6 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
     return Math.ceil((distance / speed) * 60);
   };
 
-  const getVehicleDescription = (vehicleType: string) => {
-    const descriptions = {
-      regular: 'سيارة عادية مريحة',
-      ac: 'سيارة مكيفة للراحة',
-      public: 'وسيلة اقتصادية',
-      vip: 'خدمة فاخرة',
-      microbus: 'للمجموعات الكبيرة',
-      bike: 'سريع واقتصادي'
-    };
-    return descriptions[vehicleType as keyof typeof descriptions] || 'وسيلة نقل';
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <p className="text-sm text-slate-600 font-tajawal">جاري تحميل التسعير...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="text-center mb-6">
@@ -73,46 +106,43 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
       </div>
 
       <div className="grid gap-3">
-        {pricing.map((vehicle) => {
-          const vehicleInfo = vehicleIcons[vehicle.vehicle_type as keyof typeof vehicleIcons];
-          if (!vehicleInfo) return null;
-          
-          const Icon = vehicleInfo.icon;
-          const price = calculatePrice(distance, vehicle.vehicle_type);
-          const estimatedTime = getEstimatedTime(vehicle.vehicle_type);
-          const isSelected = selectedVehicle === vehicle.vehicle_type;
+        {vehicleTypes.map((vehicle) => {
+          const Icon = vehicle.icon;
+          const price = calculatePrice(vehicle);
+          const estimatedTime = getEstimatedTime(vehicle.type);
+          const isSelected = selectedVehicle === vehicle.type;
 
           return (
             <Card 
-              key={vehicle.id}
+              key={vehicle.type}
               className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                 isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50' : 'hover:bg-slate-50'
               }`}
-              onClick={() => onSelectVehicle(vehicle.vehicle_type, price)}
+              onClick={() => onSelectVehicle(vehicle.type, price)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`${vehicleInfo.color} text-white p-2 rounded-full`}>
+                    <div className={`${vehicle.color} text-white p-2 rounded-full`}>
                       <Icon className="w-6 h-6" />
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800 font-cairo">
-                        {getVehicleDisplayName(vehicle.vehicle_type)}
+                        {vehicle.name}
                       </h4>
                       <p className="text-sm text-slate-600 font-tajawal">
-                        {getVehicleDescription(vehicle.vehicle_type)}
+                        {vehicle.description}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">
                           ~{estimatedTime} دقيقة
                         </Badge>
-                        {vehicle.vehicle_type === 'ac' && (
+                        {vehicle.type === 'ac' && (
                           <Badge className="bg-cyan-100 text-cyan-700 text-xs">
                             مكيف
                           </Badge>
                         )}
-                        {vehicle.vehicle_type === 'vip' && (
+                        {vehicle.type === 'vip' && (
                           <Badge className="bg-purple-100 text-purple-700 text-xs">
                             فاخر
                           </Badge>
