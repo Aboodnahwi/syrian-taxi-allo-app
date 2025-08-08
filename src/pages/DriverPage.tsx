@@ -242,7 +242,19 @@ const DriverPage = () => {
       setRideStatus(status);
 
       if (status === 'completed') {
-        setCompletedRide(activeRide);
+        // Create the ride data in the format expected by RideCompletionSummary
+        const rideCompletionData = {
+          totalDistance: activeRide.distance_km || 0,
+          totalFare: activeRide.price || 0,
+          duration: activeRide.estimated_duration || 0,
+          customerName: activeRide.customer_name || 'غير محدد',
+          fromLocation: activeRide.from_location || '',
+          toLocation: activeRide.to_location || '',
+          averageSpeed: activeRide.distance_km && activeRide.estimated_duration ? 
+            (activeRide.distance_km / (activeRide.estimated_duration / 3600)) : 0
+        };
+        
+        setCompletedRide(rideCompletionData);
         setActiveRide(null);
         setRideStatus(null);
       }
@@ -408,8 +420,9 @@ const DriverPage = () => {
 
         {completedRide && (
           <RideCompletionSummary 
-            completedRide={completedRide}
+            rideData={completedRide}
             onClose={() => window.location.reload()}
+            onNewRide={() => window.location.reload()}
           />
         )}
       </div>
