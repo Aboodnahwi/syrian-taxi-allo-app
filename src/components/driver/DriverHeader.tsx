@@ -20,7 +20,7 @@ const DriverHeader = ({ user, isOnline, toggleOnlineStatus, logout }: DriverHead
           </div>
           <div>
             <h1 className="text-white font-bold font-cairo">سائق ألو تكسي</h1>
-            <p className="text-slate-300 text-sm font-tajawal">مرحباً، {user.name || 'سائق'}</p>
+            <p className="text-slate-300 text-sm font-tajawal">مرحباً، {user?.name || 'سائق'}</p>
           </div>
         </div>
         
