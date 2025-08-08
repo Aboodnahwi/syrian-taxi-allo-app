@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,9 +15,7 @@ import {
   Filter,
   Eye,
   CreditCard,
-  Wallet,
-  UserCheck,
-  Receipt
+  Wallet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -45,17 +42,6 @@ interface AccountingSummary {
   totalTrips: number;
 }
 
-interface DriverDetails {
-  driver_id: string;
-  driver_name: string;
-  driver_phone: string;
-  totalEarnings: number;
-  totalCommissions: number;
-  tripsCount: number;
-  lastTrip: string;
-  trips: any[];
-}
-
 const ComprehensiveAccountingManager = () => {
   const [summary, setSummary] = useState<AccountingSummary>({
     totalRevenue: 0,
@@ -69,10 +55,8 @@ const ComprehensiveAccountingManager = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [driverBalances, setDriverBalances] = useState<any[]>([]);
   const [customerPayments, setCustomerPayments] = useState<any[]>([]);
-  const [selectedDriver, setSelectedDriver] = useState<DriverDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [driverSearchTerm, setDriverSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   
@@ -86,6 +70,7 @@ const ComprehensiveAccountingManager = () => {
     try {
       setLoading(true);
       
+      // حساب التواريخ حسب الفترة المحددة
       const now = new Date();
       const startDate = new Date();
       
@@ -104,17 +89,13 @@ const ComprehensiveAccountingManager = () => {
           break;
       }
 
-      // جلب الرحلات المكتملة
+      // جلب الرحلات المكتملة مع معلومات السائق والزبون
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
         .select(`
           *,
-          customer:profiles!trips_customer_id_fkey(name, phone),
-          driver:drivers!trips_driver_id_fkey(
-            id,
-            user_id,
-            profiles:profiles!drivers_user_id_fkey(name, phone)
-          )
+          driver:profiles!trips_driver_id_fkey(name),
+          customer:profiles!trips_customer_id_fkey(name)
         `)
         .eq('status', 'completed')
         .gte('completed_at', startDate.toISOString());
@@ -124,8 +105,9 @@ const ComprehensiveAccountingManager = () => {
         throw tripsError;
       }
 
+      // حساب الإحصائيات العامة
       const totalRevenue = trips?.reduce((sum, trip) => sum + (trip.price || 0), 0) || 0;
-      const siteCommissionRate = 0.10;
+      const siteCommissionRate = 0.10; // 10% عمولة الموقع
       const totalCommissions = totalRevenue * siteCommissionRate;
       const totalDriverEarnings = totalRevenue - totalCommissions;
       
@@ -134,27 +116,20 @@ const ComprehensiveAccountingManager = () => {
       trips?.forEach(trip => {
         if (trip.driver_id && trip.driver) {
           const driverId = trip.driver_id;
-          const driverName = trip.driver.profiles?.name || 'سائق غير معروف';
-          const driverPhone = trip.driver.profiles?.phone || '';
-          const tripEarnings = (trip.price || 0) * 0.9;
-          const tripCommission = (trip.price || 0) * 0.1;
+          const driverName = trip.driver.name || 'سائق غير معروف';
+          const tripEarnings = (trip.price || 0) * 0.9; // 90% للسائق
           
           if (driverBalancesMap.has(driverId)) {
             const existing = driverBalancesMap.get(driverId);
             existing.totalEarnings += tripEarnings;
-            existing.totalCommissions += tripCommission;
             existing.tripsCount += 1;
-            existing.trips.push(trip);
           } else {
             driverBalancesMap.set(driverId, {
               driver_id: driverId,
               driver_name: driverName,
-              driver_phone: driverPhone,
               totalEarnings: tripEarnings,
-              totalCommissions: tripCommission,
               tripsCount: 1,
-              lastTrip: trip.completed_at,
-              trips: [trip]
+              lastTrip: trip.completed_at
             });
           }
         }
@@ -165,7 +140,7 @@ const ComprehensiveAccountingManager = () => {
       trips?.forEach(trip => {
         if (trip.customer_id && trip.customer) {
           const customerId = trip.customer_id;
-          const customerName = trip.customer?.name || 'زبون غير معروف';
+          const customerName = trip.customer.name || 'زبون غير معروف';
           
           if (customerPaymentsMap.has(customerId)) {
             const existing = customerPaymentsMap.get(customerId);
@@ -183,6 +158,7 @@ const ComprehensiveAccountingManager = () => {
         }
       });
 
+      // تحديث الحالة
       setSummary({
         totalRevenue,
         totalCommissions,
@@ -207,8 +183,8 @@ const ComprehensiveAccountingManager = () => {
             created_at: trip.completed_at || trip.created_at,
             user_id: trip.driver_id,
             trip_id: trip.id,
-            driver_name: trip.driver.profiles?.name,
-            customer_name: trip.customer?.name
+            driver_name: trip.driver.name,
+            customer_name: trip.customer.name
           });
         }
       });
@@ -227,10 +203,6 @@ const ComprehensiveAccountingManager = () => {
     }
   };
 
-  const viewDriverDetails = (driver: any) => {
-    setSelectedDriver(driver);
-  };
-
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
       transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -241,11 +213,6 @@ const ComprehensiveAccountingManager = () => {
     
     return matchesSearch && matchesType;
   });
-
-  const filteredDrivers = driverBalances.filter(driver => 
-    driver.driver_name.toLowerCase().includes(driverSearchTerm.toLowerCase()) ||
-    driver.driver_phone.includes(driverSearchTerm)
-  );
 
   const formatCurrency = (amount: number) => {
     return `${amount.toLocaleString()} ل.س`;
@@ -436,38 +403,19 @@ const ComprehensiveAccountingManager = () => {
           <Card>
             <CardHeader>
               <CardTitle>أرصدة السائقين</CardTitle>
-              <div className="flex gap-4">
-                <Input
-                  placeholder="البحث عن سائق..."
-                  value={driverSearchTerm}
-                  onChange={(e) => setDriverSearchTerm(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredDrivers.map((driver) => (
+                {driverBalances.map((driver) => (
                   <div key={driver.driver_id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
                       <p className="font-semibold">{driver.driver_name}</p>
-                      <p className="text-sm text-gray-600">الهاتف: {driver.driver_phone}</p>
                       <p className="text-sm text-gray-600">عدد الرحلات: {driver.tripsCount}</p>
                       <p className="text-xs text-gray-500">آخر رحلة: {formatDate(driver.lastTrip)}</p>
                     </div>
-                    <div className="text-right flex flex-col gap-2">
-                      <div>
-                        <p className="text-lg font-bold text-green-600">{formatCurrency(driver.totalEarnings)}</p>
-                        <p className="text-sm text-red-600">عمولة الموقع: {formatCurrency(driver.totalCommissions)}</p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        onClick={() => viewDriverDetails(driver)}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        عرض التفاصيل
-                      </Button>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(driver.totalEarnings)}</p>
+                      <Badge variant="default">متاح للسحب</Badge>
                     </div>
                   </div>
                 ))}
@@ -557,94 +505,6 @@ const ComprehensiveAccountingManager = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* نافذة تفاصيل السائق */}
-      {selectedDriver && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>تفاصيل حساب السائق: {selectedDriver.driver_name}</CardTitle>
-                <Button variant="ghost" onClick={() => setSelectedDriver(null)}>✕</Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* ملخص الحساب */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <UserCheck className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">إجمالي الأرباح</p>
-                    <p className="text-xl font-bold text-green-600">{formatCurrency(selectedDriver.totalEarnings)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Receipt className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">عمولة الموقع</p>
-                    <p className="text-xl font-bold text-red-600">{formatCurrency(selectedDriver.totalCommissions)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Calendar className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">عدد الرحلات</p>
-                    <p className="text-xl font-bold text-blue-600">{selectedDriver.tripsCount}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* معلومات السائق */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-bold mb-2">معلومات السائق:</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="font-semibold">الاسم: </span>
-                    <span>{selectedDriver.driver_name}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">الهاتف: </span>
-                    <span>{selectedDriver.driver_phone}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">متوسط الربح لكل رحلة: </span>
-                    <span>{formatCurrency(selectedDriver.totalEarnings / selectedDriver.tripsCount)}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">آخر رحلة: </span>
-                    <span>{formatDate(selectedDriver.lastTrip)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* تفاصيل الرحلات */}
-              <div>
-                <h4 className="font-bold mb-4">تفاصيل الرحلات:</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {selectedDriver.trips.map((trip: any) => (
-                    <div key={trip.id} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-semibold">من {trip.from_location} إلى {trip.to_location}</p>
-                          <p className="text-sm text-gray-600">
-                            الزبون: {trip.customer?.name} | المسافة: {trip.distance_km} كم
-                          </p>
-                          <p className="text-xs text-gray-500">{formatDate(trip.completed_at)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg">{formatCurrency(trip.price)}</p>
-                          <p className="text-sm text-green-600">ربح السائق: {formatCurrency(trip.price * 0.9)}</p>
-                          <p className="text-sm text-red-600">عمولة الموقع: {formatCurrency(trip.price * 0.1)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 };

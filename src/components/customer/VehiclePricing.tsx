@@ -4,7 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Car, Snowflake, Bus, Crown, Users, Bike } from 'lucide-react';
-import { useVehiclePricing } from '@/hooks/useVehiclePricing';
 
 interface VehiclePricingProps {
   distance: number;
@@ -13,47 +12,74 @@ interface VehiclePricingProps {
 }
 
 const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehiclePricingProps) => {
-  const { pricing, loading, calculatePrice, getVehicleDisplayName, getVehicleIcon } = useVehiclePricing();
-
-  // معلومات وسائل النقل مع أيقوناتها
+  // معلومات وسائل النقل مع التسعير
   const vehicleTypes = [
     {
       type: 'regular',
+      name: 'سيارة عادية',
       icon: Car,
+      basePrice: 1000,
+      pricePerKm: 100,
+      minFare: 500,
       color: 'bg-blue-500',
       description: 'سيارة عادية مريحة'
     },
     {
       type: 'ac',
+      name: 'سيارة مكيفة',
       icon: Snowflake,
+      basePrice: 1500,
+      pricePerKm: 150,
+      minFare: 750,
       color: 'bg-cyan-500',
       description: 'سيارة مكيفة للراحة'
     },
     {
       type: 'public',
+      name: 'نقل عام',
       icon: Bus,
+      basePrice: 500,
+      pricePerKm: 75,
+      minFare: 300,
       color: 'bg-green-500',
       description: 'وسيلة اقتصادية'
     },
     {
       type: 'vip',
+      name: 'سيارة VIP',
       icon: Crown,
+      basePrice: 3000,
+      pricePerKm: 300,
+      minFare: 1500,
       color: 'bg-purple-500',
       description: 'خدمة فاخرة'
     },
     {
       type: 'microbus',
+      name: 'ميكروباص',
       icon: Users,
+      basePrice: 800,
+      pricePerKm: 120,
+      minFare: 600,
       color: 'bg-orange-500',
       description: 'للمجموعات الكبيرة'
     },
     {
       type: 'bike',
+      name: 'دراجة نارية',
       icon: Bike,
+      basePrice: 700,
+      pricePerKm: 80,
+      minFare: 400,
       color: 'bg-red-500',
       description: 'سريع واقتصادي'
     }
   ];
+
+  const calculatePrice = (vehicle: any) => {
+    const totalPrice = vehicle.basePrice + (distance * vehicle.pricePerKm);
+    return Math.max(totalPrice, vehicle.minFare);
+  };
 
   const getEstimatedTime = (vehicleType: string) => {
     const speeds = {
@@ -67,15 +93,6 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
     const speed = speeds[vehicleType as keyof typeof speeds] || 40;
     return Math.ceil((distance / speed) * 60);
   };
-
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-slate-600">جاري تحميل أسعار المركبات...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -91,10 +108,9 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
       <div className="grid gap-3">
         {vehicleTypes.map((vehicle) => {
           const Icon = vehicle.icon;
-          const price = calculatePrice(distance, vehicle.type, false);
+          const price = calculatePrice(vehicle);
           const estimatedTime = getEstimatedTime(vehicle.type);
           const isSelected = selectedVehicle === vehicle.type;
-          const displayName = getVehicleDisplayName(vehicle.type);
 
           return (
             <Card 
@@ -112,7 +128,7 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800 font-cairo">
-                        {displayName}
+                        {vehicle.name}
                       </h4>
                       <p className="text-sm text-slate-600 font-tajawal">
                         {vehicle.description}
@@ -167,7 +183,7 @@ const VehiclePricing = ({ distance, onSelectVehicle, selectedVehicle }: VehicleP
           <li>• السعر يشمل: الأجرة الأساسية + سعر الكيلومتر</li>
           <li>• الحد الأدنى للأجرة مطبق حسب نوع المركبة</li>
           <li>• الأوقات الذروة قد تتضمن رسوم إضافية</li>
-          <li>• التسعير وفقاً لعوامل التسعير المحددة من الإدارة</li>
+          <li>• التسعير وفقاً لمعايير الإدارة</li>
         </ul>
       </div>
     </div>
