@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useRealTime } from '@/hooks/useRealTime';
+import { useRealTimeTrips } from '@/hooks/useRealTime';
 import DriverHeader from '@/components/driver/DriverHeader';
 import RideRequestList from '@/components/driver/RideRequestList';
 import ActiveRideCard from '@/components/driver/ActiveRideCard';
@@ -99,12 +100,6 @@ const DriverPage = () => {
     }
   }, [user]);
 
-  useRealTime('drivers', (payload: any) => {
-    if (payload.new && driverData?.id === payload.new.id) {
-      setDriverData(payload.new);
-    }
-  });
-
   const fetchDriverData = async () => {
     try {
       setLoading(true);
@@ -133,18 +128,19 @@ const DriverPage = () => {
       const { data: stats, error: statsError } = await supabase
         .from('trips')
         .select(`
-          count(id),
-          sum(price)
+          id,
+          price
         `)
         .eq('driver_id', driver.id)
         .eq('status', 'completed');
 
       if (statsError) throw statsError;
 
-      const { count, sum } = stats[0];
+      const totalCount = stats?.length || 0;
+      const totalSum = stats?.reduce((acc, trip) => acc + (trip.price || 0), 0) || 0;
 
       setDriverStats({
-        totalEarnings: sum || 0,
+        totalEarnings: totalSum,
         todayEarnings: 5000, // Replace with actual today earnings
         todayTrips: 5, // Replace with actual today trips
       });
@@ -185,7 +181,7 @@ const DriverPage = () => {
         { event: '*', schema: 'public', table: 'trips', filter: 'status=eq.pending' },
         (payload) => {
           if (payload.new) {
-            setRideRequests((prevRequests) => [...prevRequests, payload.new]);
+            setRideRequests((prevRequests) => [...prevRequests, payload.new as RideRequest]);
           }
         }
       )
@@ -312,6 +308,10 @@ const DriverPage = () => {
     }
   };
 
+  const rejectRide = async (requestId: string) => {
+    setRideRequests((prevRequests) => prevRequests.filter((req) => req.id !== requestId));
+  };
+
   const updateRideStatus = async (status: 'arrived' | 'started' | 'completed') => {
     if (!activeRide) return;
 
@@ -327,7 +327,19 @@ const DriverPage = () => {
         updates.started_at = new Date().toISOString();
       } else if (status === 'completed') {
         updates.completed_at = new Date().toISOString();
-        setCompletedRide(activeRide);
+        
+        // Create ride completion data
+        const rideCompletionData = {
+          totalDistance: activeRide.distance_km || 0,
+          totalFare: activeRide.price || 0,
+          duration: 1800, // 30 minutes default
+          customerName: 'زبون',
+          fromLocation: activeRide.from_location,
+          toLocation: activeRide.to_location,
+          averageSpeed: 30
+        };
+        
+        setCompletedRide(rideCompletionData);
         setShowCompletionSummary(true);
         setActiveRide(null);
         await updateDriverStatus('online');
@@ -387,7 +399,7 @@ const DriverPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <DriverHeader 
-        driverName={driverProfile?.name || 'السائق'}
+        name={driverProfile?.name || 'السائق'}
         isOnline={driverData?.is_online || false}
         onToggleOnline={toggleOnlineStatus}
         totalEarnings={driverStats.totalEarnings}
@@ -400,7 +412,7 @@ const DriverPage = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* RealTimeTracker يتضمن خريطة تفاعلية */}
             <RealTimeTracker 
-              driverId={driverData?.id}
+              userId={driverData?.id || ''}
               isOnline={driverData?.is_online || false}
               activeRide={activeRide}
               onLocationUpdate={handleLocationUpdate}
@@ -409,7 +421,7 @@ const DriverPage = () => {
             {/* معلومات الرحلة النشطة أو إحصائيات السائق */}
             {activeRide ? (
               <ActiveRideCard
-                ride={activeRide}
+                rideData={activeRide}
                 onUpdateStatus={updateRideStatus}
                 currentLocation={currentLocation}
                 onNavigate={() => {/* منطق التنقل */}}
@@ -513,12 +525,17 @@ const DriverPage = () => {
           {/* الجانب الأيسر - طلبات الرحلات والرسائل */}
           <div className="space-y-6">
             <RideRequestList 
-              requests={rideRequests}
-              onAcceptRide={acceptRide}
-              loading={requestsLoading}
+              rideRequests={rideRequests}
+              acceptRide={acceptRide}
+              rejectRide={rejectRide}
             />
             
-            <DriverPageMessages />
+            <DriverPageMessages 
+              activeRide={activeRide}
+              isOnline={driverData?.is_online || false}
+              rideRequestsCount={rideRequests.length}
+              toggleOnlineStatus={toggleOnlineStatus}
+            />
           </div>
         </div>
       </div>
