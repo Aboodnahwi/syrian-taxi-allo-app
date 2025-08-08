@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,11 +16,14 @@ import {
   Filter,
   Eye,
   CreditCard,
-  Wallet
+  Wallet,
+  FileText,
+  Calculator
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DriverAccountingSearch from './DriverAccountingSearch';
 
 interface Transaction {
   id: string;
@@ -89,13 +93,11 @@ const ComprehensiveAccountingManager = () => {
           break;
       }
 
-      // جلب الرحلات المكتملة مع معلومات السائق والزبون
+      // جلب الرحلات المكتملة
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
         .select(`
-          *,
-          driver:profiles!trips_driver_id_fkey(name),
-          customer:profiles!trips_customer_id_fkey(name)
+          *
         `)
         .eq('status', 'completed')
         .gte('completed_at', startDate.toISOString());
@@ -104,6 +106,33 @@ const ComprehensiveAccountingManager = () => {
         console.error('خطأ في جلب الرحلات:', tripsError);
         throw tripsError;
       }
+
+      // جلب معلومات العملاء والسائقين
+      const customerIds = [...new Set(trips?.map(trip => trip.customer_id))];
+      const driverIds = [...new Set(trips?.map(trip => trip.driver_id).filter(Boolean))];
+
+      let customersData = [];
+      let driversData = [];
+
+      if (customerIds.length > 0) {
+        const { data: customers } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', customerIds);
+        customersData = customers || [];
+      }
+
+      if (driverIds.length > 0) {
+        const { data: drivers } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', driverIds);
+        driversData = drivers || [];
+      }
+
+      // إنشاء خرائط للأسماء
+      const customerNames = new Map(customersData.map(c => [c.id, c.name]));
+      const driverNames = new Map(driversData.map(d => [d.id, d.name]));
 
       // حساب الإحصائيات العامة
       const totalRevenue = trips?.reduce((sum, trip) => sum + (trip.price || 0), 0) || 0;
@@ -114,9 +143,9 @@ const ComprehensiveAccountingManager = () => {
       // حساب أرصدة السائقين
       const driverBalancesMap = new Map();
       trips?.forEach(trip => {
-        if (trip.driver_id && trip.driver) {
+        if (trip.driver_id) {
           const driverId = trip.driver_id;
-          const driverName = trip.driver.name || 'سائق غير معروف';
+          const driverName = driverNames.get(driverId) || 'سائق غير معروف';
           const tripEarnings = (trip.price || 0) * 0.9; // 90% للسائق
           
           if (driverBalancesMap.has(driverId)) {
@@ -138,9 +167,9 @@ const ComprehensiveAccountingManager = () => {
       // حساب مدفوعات الزبائن
       const customerPaymentsMap = new Map();
       trips?.forEach(trip => {
-        if (trip.customer_id && trip.customer) {
+        if (trip.customer_id) {
           const customerId = trip.customer_id;
-          const customerName = trip.customer.name || 'زبون غير معروف';
+          const customerName = customerNames.get(customerId) || 'زبون غير معروف';
           
           if (customerPaymentsMap.has(customerId)) {
             const existing = customerPaymentsMap.get(customerId);
@@ -174,19 +203,20 @@ const ComprehensiveAccountingManager = () => {
       // إنشاء قائمة المعاملات
       const transactionsList: Transaction[] = [];
       trips?.forEach(trip => {
-        if (trip.driver && trip.customer) {
-          transactionsList.push({
-            id: `trip-${trip.id}`,
-            amount: trip.price || 0,
-            type: 'credit',
-            description: `رحلة من ${trip.from_location} إلى ${trip.to_location}`,
-            created_at: trip.completed_at || trip.created_at,
-            user_id: trip.driver_id,
-            trip_id: trip.id,
-            driver_name: trip.driver.name,
-            customer_name: trip.customer.name
-          });
-        }
+        const driverName = driverNames.get(trip.driver_id) || 'سائق غير معروف';
+        const customerName = customerNames.get(trip.customer_id) || 'زبون غير معروف';
+        
+        transactionsList.push({
+          id: `trip-${trip.id}`,
+          amount: trip.price || 0,
+          type: 'credit',
+          description: `رحلة من ${trip.from_location} إلى ${trip.to_location}`,
+          created_at: trip.completed_at || trip.created_at,
+          user_id: trip.driver_id || '',
+          trip_id: trip.id,
+          driver_name: driverName,
+          customer_name: customerName
+        });
       });
 
       setTransactions(transactionsList);
@@ -341,10 +371,11 @@ const ComprehensiveAccountingManager = () => {
 
       {/* التبويبات */}
       <Tabs defaultValue="transactions" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="transactions">المعاملات</TabsTrigger>
           <TabsTrigger value="drivers">أرصدة السائقين</TabsTrigger>
           <TabsTrigger value="customers">مدفوعات الزبائن</TabsTrigger>
+          <TabsTrigger value="driver-accounting">محاسبة السائقين</TabsTrigger>
           <TabsTrigger value="reports">التقارير</TabsTrigger>
         </TabsList>
 
@@ -447,6 +478,10 @@ const ComprehensiveAccountingManager = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="driver-accounting" className="space-y-4">
+          <DriverAccountingSearch />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
